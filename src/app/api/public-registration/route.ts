@@ -15,7 +15,7 @@ const getFirebaseErrorMessage = (error: { code?: string; message?: string }): st
     case 'auth/invalid-email':
       return 'Email inválido. Verifique se digitou corretamente.';
     case 'auth/weak-password':
-      return 'Erro interno: senha temporária muito fraca.';
+      return 'Senha muito fraca. Use pelo menos 6 caracteres.';
     case 'auth/operation-not-allowed':
       return 'Cadastro temporariamente desabilitado. Entre em contato com o suporte.';
     case 'auth/network-request-failed':
@@ -31,9 +31,12 @@ const getFirebaseErrorMessage = (error: { code?: string; message?: string }): st
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { eventId, name, email, cpf }: { eventId: string } & PublicRegistrationData = body;
+    const { eventId, name, email, cpf, phone, password }: { 
+      eventId: string; 
+      password: string; 
+    } & PublicRegistrationData = body;
 
-    if (!eventId || !name || !email || !cpf) {
+    if (!eventId || !name || !email || !cpf || !password) {
       return NextResponse.json(
         { error: 'Por favor, preencha todos os campos obrigatórios.' },
         { status: 400 }
@@ -58,12 +61,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Gerar senha temporária
-    const tempPassword = Math.random().toString(36).slice(-12);
+    // Validação de senha
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'A senha deve ter pelo menos 6 caracteres.' },
+        { status: 400 }
+      );
+    }
 
     try {
-      // Tentar criar usuário no Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, tempPassword);
+      // Tentar criar usuário no Firebase Auth com a senha fornecida
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
       // Atualizar perfil do usuário
@@ -98,7 +106,6 @@ export async function POST(request: NextRequest) {
         message: 'Inscrição realizada com sucesso! Você receberá acesso ao seu dashboard.',
         userId: firebaseUser.uid,
         registrationId: registrationId,
-        tempPassword: tempPassword, // Para login automático
       });
 
     } catch (authError) {
