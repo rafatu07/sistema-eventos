@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getEvent } from '@/lib/firestore';
-import { Event, PublicRegistrationData } from '@/types';
+import { Event } from '@/types';
 import { Loading } from '@/components/Loading';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { 

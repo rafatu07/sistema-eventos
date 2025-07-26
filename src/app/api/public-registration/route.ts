@@ -31,10 +31,10 @@ const getFirebaseErrorMessage = (error: { code?: string; message?: string }): st
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { eventId, name, email, cpf, phone, password }: { 
+    const { eventId, name, email, cpf, password }: { 
       eventId: string; 
       password: string; 
-    } & PublicRegistrationData = body;
+    } & Omit<PublicRegistrationData, 'phone'> = body;
 
     if (!eventId || !name || !email || !cpf || !password) {
       return NextResponse.json(

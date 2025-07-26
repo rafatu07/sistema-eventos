@@ -24,8 +24,7 @@ import {
   Award,
   QrCode,
   FileDown,
-  Edit,
-  Download
+  Edit
 } from 'lucide-react';
 import Link from 'next/link';
 
