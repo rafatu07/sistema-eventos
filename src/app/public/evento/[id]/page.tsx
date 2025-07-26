@@ -192,6 +192,32 @@ export default function PublicEventPage() {
     }
   };
 
+  const formatEventTimes = (event: Event) => {
+    const dateStr = event.date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+    
+    const startTimeStr = event.startTime.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    const endTimeStr = event.endTime.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    return {
+      dateStr,
+      startTimeStr,
+      endTimeStr,
+      fullTimeStr: `${startTimeStr} às ${endTimeStr}`,
+    };
+  };
+
   if (loading) {
     return <Loading text="Carregando evento..." />;
   }
@@ -217,6 +243,8 @@ export default function PublicEventPage() {
       </div>
     );
   }
+
+  const times = formatEventTimes(event);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -255,30 +283,30 @@ export default function PublicEventPage() {
               <div className="card-content space-y-6">
                 <div className="flex items-start">
                   <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Clock className="h-6 w-6 text-blue-600" />
+                    <Calendar className="h-6 w-6 text-blue-600" />
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">Data e Hora</h3>
-                    <p className="text-gray-600">
-                      {event.date.toLocaleDateString('pt-BR', {
-                        weekday: 'long',
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </p>
-                    <p className="text-gray-600">
-                      {event.date.toLocaleTimeString('pt-BR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">Data</h3>
+                    <p className="text-gray-600">{times.dateStr}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start">
                   <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <MapPin className="h-6 w-6 text-green-600" />
+                    <Clock className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">Horário</h3>
+                    <p className="text-gray-600">
+                      Início: {times.startTimeStr}<br/>
+                      Término: {times.endTimeStr}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <MapPin className="h-6 w-6 text-purple-600" />
                   </div>
                   <div className="ml-4">
                     <h3 className="text-lg font-medium text-gray-900 mb-1">Local</h3>

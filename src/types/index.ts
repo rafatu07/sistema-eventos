@@ -11,6 +11,8 @@ export interface Event {
   name: string;
   description: string;
   date: Date;
+  startTime: Date;
+  endTime: Date;
   location: string;
   createdBy: string;
   createdAt: Date;
@@ -58,6 +60,8 @@ export interface EventFormData {
   name: string;
   description: string;
   date: string; // ISO string for form input
+  startTime: string;
+  endTime: string;
   location: string;
 }
 

@@ -34,6 +34,8 @@ export const createEvent = async (eventData: Omit<Event, 'id' | 'createdAt' | 'u
   const newEvent = {
     ...eventData,
     date: Timestamp.fromDate(eventData.date),
+    startTime: Timestamp.fromDate(eventData.startTime),
+    endTime: Timestamp.fromDate(eventData.endTime),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -53,6 +55,8 @@ export const getEvent = async (eventId: string): Promise<Event | null> => {
       name: data.name,
       description: data.description,
       date: data.date.toDate(),
+      startTime: data.startTime.toDate(),
+      endTime: data.endTime.toDate(),
       location: data.location,
       createdBy: data.createdBy,
       createdAt: data.createdAt?.toDate() || new Date(),
@@ -73,6 +77,8 @@ export const getAllEvents = async (): Promise<Event[]> => {
     name: doc.data().name,
     description: doc.data().description,
     date: doc.data().date.toDate(),
+    startTime: doc.data().startTime.toDate(),
+    endTime: doc.data().endTime.toDate(),
     location: doc.data().location,
     createdBy: doc.data().createdBy,
     createdAt: doc.data().createdAt?.toDate() || new Date(),
@@ -89,6 +95,14 @@ export const updateEvent = async (eventId: string, eventData: Partial<Event>) =>
   
   if (eventData.date) {
     updateData.date = Timestamp.fromDate(eventData.date);
+  }
+  
+  if (eventData.startTime) {
+    updateData.startTime = Timestamp.fromDate(eventData.startTime);
+  }
+  
+  if (eventData.endTime) {
+    updateData.endTime = Timestamp.fromDate(eventData.endTime);
   }
   
   await updateDoc(eventRef, updateData);
@@ -187,6 +201,39 @@ export const updateRegistration = async (registrationId: string, data: Partial<R
   }
   
   await updateDoc(registrationRef, updateData);
+};
+
+// Function to automatically checkout participants when event ends
+export const autoCheckoutEventParticipants = async (eventId: string) => {
+  try {
+    // Get all registrations that are checked in but not checked out
+    const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
+    const q = query(
+      registrationsRef,
+      where('eventId', '==', eventId),
+      where('checkedIn', '==', true),
+      where('checkedOut', '==', false)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const now = new Date();
+    
+    // Update all matching registrations
+    const updatePromises = querySnapshot.docs.map(doc => 
+      updateDoc(doc.ref, {
+        checkedOut: true,
+        checkOutTime: Timestamp.fromDate(now),
+      })
+    );
+    
+    await Promise.all(updatePromises);
+    
+    console.log(`Auto checkout completed for event ${eventId}. ${querySnapshot.size} participants checked out.`);
+    return querySnapshot.size;
+  } catch (error) {
+    console.error('Error during auto checkout:', error);
+    throw error;
+  }
 };
 
 // User operations

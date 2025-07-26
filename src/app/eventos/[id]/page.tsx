@@ -73,6 +73,35 @@ export default function EventDetailsPage() {
     loadData();
   }, [eventId, user]);
 
+  // Check for auto checkout when event ends
+  useEffect(() => {
+    if (!event) return;
+
+    const checkAutoCheckout = () => {
+      const now = new Date();
+      if (now >= event.endTime) {
+        // Event has ended, trigger auto checkout
+        fetch('/api/auto-checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ eventId }),
+        }).catch(error => {
+          console.error('Error triggering auto checkout:', error);
+        });
+      }
+    };
+
+    // Check immediately
+    checkAutoCheckout();
+
+    // Set up interval to check every minute
+    const interval = setInterval(checkAutoCheckout, 60000);
+
+    return () => clearInterval(interval);
+  }, [event, eventId]);
+
   const handleRegister = async () => {
     if (!event || !user) return;
 
@@ -150,6 +179,32 @@ export default function EventDetailsPage() {
     }
   };
 
+  const formatEventTimes = (event: Event) => {
+    const dateStr = event.date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+    
+    const startTimeStr = event.startTime.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    const endTimeStr = event.endTime.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    return {
+      dateStr,
+      startTimeStr,
+      endTimeStr,
+      fullTimeStr: `${startTimeStr} às ${endTimeStr}`,
+    };
+  };
+
   if (loading) {
     return (
       <ProtectedRoute>
@@ -187,6 +242,8 @@ export default function EventDetailsPage() {
     );
   }
 
+  const times = formatEventTimes(event);
+
   return (
     <ProtectedRoute>
       <Navbar />
@@ -203,13 +260,7 @@ export default function EventDetailsPage() {
                 <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-2" />
-                    {event.date.toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {times.dateStr} • {times.fullTimeStr}
                   </div>
                   
                   <div className="flex items-center">
@@ -332,7 +383,7 @@ export default function EventDetailsPage() {
                                 }`}>
                                   {registration.checkedOut 
                                     ? `Realizado em ${registration.checkOutTime?.toLocaleString('pt-BR')}`
-                                    : 'Aguardando'
+                                    : `Automático às ${times.endTimeStr}`
                                   }
                                 </p>
                               </div>
@@ -380,8 +431,8 @@ export default function EventDetailsPage() {
                                   Check-in e Check-out
                                 </h4>
                                 <p className="text-sm text-blue-700 mt-1">
-                                  O check-in e check-out serão realizados por um organizador do evento no local. 
-                                  Você pode acompanhar o status aqui.
+                                  O check-in será realizado por um organizador do evento no local. 
+                                  O check-out acontecerá automaticamente no horário de término ({times.endTimeStr}).
                                 </p>
                               </div>
                             </div>
@@ -442,17 +493,15 @@ export default function EventDetailsPage() {
                   
                   <div className="card-content space-y-4">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-1">Data e Hora</h4>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Data</h4>
+                      <p className="text-sm text-gray-600">{times.dateStr}</p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Horário</h4>
                       <p className="text-sm text-gray-600">
-                        {event.date.toLocaleDateString('pt-BR', {
-                          weekday: 'long',
-                          day: '2-digit',
-                          month: 'long',
-                          year: 'numeric',
-                        })} às {event.date.toLocaleTimeString('pt-BR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        Início: {times.startTimeStr}<br/>
+                        Término: {times.endTimeStr}
                       </p>
                     </div>
                     

@@ -5,189 +5,48 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
-import { getAllEvents, getEventRegistrations, deleteEvent } from '@/lib/firestore';
+import { getAllEvents, getUserRegistrations, deleteEvent } from '@/lib/firestore';
 import { Event, Registration } from '@/types';
 import { 
   Calendar, 
-  Users, 
-  Plus, 
   MapPin, 
-  Clock,
-  UserCheck,
-  Award,
-  BarChart3,
-  Link as LinkIcon,
+  Clock, 
+  Users, 
+  Edit,
   Trash2,
-  Check,
-  AlertTriangle,
-  X
+  Link as LinkIcon
 } from 'lucide-react';
 import Link from 'next/link';
-
-interface DeleteModalProps {
-  event: Event | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: (eventId: string) => void;
-  isDeleting: boolean;
-}
-
-const DeleteModal: React.FC<DeleteModalProps> = ({ event, isOpen, onClose, onConfirm, isDeleting }) => {
-  const [confirmText, setConfirmText] = useState('');
-  const canDelete = confirmText.toLowerCase() === 'delete';
-
-  // Reset confirmText when modal opens/closes
-  useEffect(() => {
-    if (!isOpen) {
-      setConfirmText('');
-    }
-  }, [isOpen]);
-
-  if (!isOpen || !event) return null;
-
-  const handleConfirm = () => {
-    if (canDelete && !isDeleting) {
-      onConfirm(event.id);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && canDelete && !isDeleting) {
-      handleConfirm();
-    }
-    if (e.key === 'Escape') {
-      onClose();
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onKeyDown={handleKeyDown}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-lg font-medium text-gray-900">Excluir Evento</h3>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            disabled={isDeleting}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
-              Você está prestes a excluir permanentemente o evento:
-            </p>
-            <div className="bg-gray-50 rounded-lg p-3 border-l-4 border-red-500">
-              <p className="font-medium text-gray-900">{event.name}</p>
-              <p className="text-sm text-gray-600">
-                {event.date.toLocaleDateString('pt-BR', {
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <p className="text-sm text-red-600 font-medium mb-2">
-              ⚠️ Esta ação não pode ser desfeita!
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              Todos os dados relacionados ao evento, incluindo inscrições, check-ins e certificados serão perdidos permanentemente.
-            </p>
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="confirmText" className="block text-sm font-medium text-gray-700 mb-2">
-              Para confirmar, digite <span className="font-mono bg-gray-100 px-1 rounded">delete</span> no campo abaixo:
-            </label>
-            <input
-              id="confirmText"
-              type="text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="Digite 'delete' para confirmar"
-              disabled={isDeleting}
-              className="input w-full"
-              autoFocus
-            />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-          <button
-            onClick={onClose}
-            disabled={isDeleting}
-            className="btn-outline"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!canDelete || isDeleting}
-            className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-          >
-            {isDeleting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Excluindo...
-              </>
-            ) : (
-              <>
-                <Trash2 className="w-4 h-4 mr-2" />
-                Excluir Permanentemente
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [registrations, setRegistrations] = useState<{ [eventId: string]: Registration[] }>({});
+  const [userRegistrations, setUserRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingEvent, setDeletingEvent] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
-  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; event: Event | null }>({
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    event: Event | null;
+  }>({
     isOpen: false,
-    event: null
+    event: null,
   });
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const eventsData = await getAllEvents();
+        if (!user) return;
+        
+        const [eventsData, registrationsData] = await Promise.all([
+          getAllEvents(),
+          getUserRegistrations(user.uid)
+        ]);
+        
         setEvents(eventsData);
-
-        // Load registrations for each event if user is admin
-        if (user?.isAdmin) {
-          const registrationsData: { [eventId: string]: Registration[] } = {};
-          for (const event of eventsData) {
-            const eventRegistrations = await getEventRegistrations(event.id);
-            registrationsData[event.id] = eventRegistrations;
-          }
-          setRegistrations(registrationsData);
-        }
+        setUserRegistrations(registrationsData);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -195,20 +54,8 @@ export default function DashboardPage() {
       }
     };
 
-    if (user) {
-      loadData();
-    }
+    loadData();
   }, [user]);
-
-  const getEventStats = (eventId: string) => {
-    const eventRegistrations = registrations[eventId] || [];
-    return {
-      total: eventRegistrations.length,
-      checkedIn: eventRegistrations.filter(r => r.checkedIn).length,
-      checkedOut: eventRegistrations.filter(r => r.checkedOut).length,
-      certificates: eventRegistrations.filter(r => r.certificateGenerated).length,
-    };
-  };
 
   const copyPublicLink = async (eventId: string) => {
     const publicUrl = `${window.location.origin}/public/evento/${eventId}`;
@@ -218,70 +65,62 @@ export default function DashboardPage() {
       setCopiedLink(eventId);
       setShowToast(true);
       
-      // Esconder o toast após 3 segundos
       setTimeout(() => {
-        setShowToast(false);
         setCopiedLink(null);
-      }, 3000);
-    } catch {
-      // Fallback para browsers que não suportam clipboard API
-      const textArea = document.createElement('textarea');
-      textArea.value = publicUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      
-      setCopiedLink(eventId);
-      setShowToast(true);
-      
-      setTimeout(() => {
         setShowToast(false);
-        setCopiedLink(null);
       }, 3000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
     }
   };
 
-  const openDeleteModal = (event: Event) => {
-    setDeleteModal({ isOpen: true, event });
+  const handleDeleteEvent = (event: Event) => {
+    setDeleteModal({
+      isOpen: true,
+      event,
+    });
+    setDeleteConfirmText('');
   };
 
-  const closeDeleteModal = () => {
-    if (!deletingEvent) {
-      setDeleteModal({ isOpen: false, event: null });
-    }
-  };
+  const confirmDelete = async () => {
+    if (!deleteModal.event || deleteConfirmText !== 'delete') return;
 
-  const handleDeleteEvent = async (eventId: string) => {
-    setDeletingEvent(eventId);
-
+    setIsDeleting(true);
     try {
-      await deleteEvent(eventId);
-      
-      // Remover evento da lista local
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
-      
-      // Remover registrations do evento
-      setRegistrations(prevRegistrations => {
-        const newRegistrations = { ...prevRegistrations };
-        delete newRegistrations[eventId];
-        return newRegistrations;
-      });
-
-      // Fechar modal
+      await deleteEvent(deleteModal.event.id);
+      setEvents(events.filter(e => e.id !== deleteModal.event!.id));
       setDeleteModal({ isOpen: false, event: null });
-
-      // Mostrar toast de sucesso
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-      }, 3000);
-
-    } catch {
-      alert('Erro ao excluir evento. Tente novamente.');
+      setDeleteConfirmText('');
+    } catch (error) {
+      console.error('Error deleting event:', error);
     } finally {
-      setDeletingEvent(null);
+      setIsDeleting(false);
     }
+  };
+
+  const formatEventTimes = (event: Event) => {
+    const dateStr = event.date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    
+    const startTimeStr = event.startTime.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    const endTimeStr = event.endTime.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    return {
+      dateStr,
+      startTimeStr,
+      endTimeStr,
+      fullTimeStr: `${startTimeStr} - ${endTimeStr}`,
+    };
   };
 
   if (loading) {
@@ -293,29 +132,29 @@ export default function DashboardPage() {
     );
   }
 
+  if (!user) {
+    return (
+      <ProtectedRoute>
+        <Navbar />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h3 className="text-lg font-medium text-gray-900">Carregando...</h3>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  const userEvents = user.isAdmin 
+    ? events 
+    : events.filter(event => 
+        userRegistrations.some(reg => reg.eventId === event.id)
+      );
+
   return (
     <ProtectedRoute>
       <Navbar />
       
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="fixed top-4 right-4 z-50">
-          <div className="bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
-            <Check className="h-5 w-5 mr-2" />
-            {copiedLink ? 'Link público copiado com sucesso!' : 'Evento excluído com sucesso!'}
-          </div>
-        </div>
-      )}
-
-      {/* Delete Modal */}
-      <DeleteModal
-        event={deleteModal.event}
-        isOpen={deleteModal.isOpen}
-        onClose={closeDeleteModal}
-        onConfirm={handleDeleteEvent}
-        isDeleting={!!deletingEvent}
-      />
-
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           {/* Header */}
@@ -323,151 +162,137 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  {user?.isAdmin ? 'Dashboard Administrativo' : 'Meus Eventos'}
+                  {user.isAdmin ? 'Dashboard Admin' : 'Meus Eventos'}
                 </h1>
                 <p className="mt-2 text-gray-600">
-                  {user?.isAdmin 
-                    ? 'Gerencie eventos e acompanhe participações'
-                    : 'Veja seus eventos e certificados'
+                  {user.isAdmin 
+                    ? 'Gerencie todos os eventos do sistema' 
+                    : 'Acompanhe seus eventos inscritos'
                   }
                 </p>
               </div>
               
-              {user?.isAdmin && (
+              {user.isAdmin && (
                 <Link
                   href="/dashboard/eventos/novo"
                   className="btn-primary flex items-center"
                 >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Novo Evento
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Criar Evento
                 </Link>
               )}
             </div>
           </div>
 
-          {/* Stats Cards (Admin only) */}
-          {user?.isAdmin && (
-            <div className="px-4 sm:px-0 mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="card">
-                  <div className="card-content">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Calendar className="h-8 w-8 text-blue-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500">Total de Eventos</p>
-                        <p className="text-2xl font-bold text-gray-900">{events.length}</p>
-                      </div>
+          {/* Stats Cards */}
+          <div className="px-4 sm:px-0 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center">
+                    <Calendar className="h-8 w-8 text-blue-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">
+                        {user.isAdmin ? 'Total de Eventos' : 'Eventos Inscritos'}
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">{userEvents.length}</p>
                     </div>
                   </div>
                 </div>
-
-                <div className="card">
-                  <div className="card-content">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Users className="h-8 w-8 text-green-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500">Total de Inscrições</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {Object.values(registrations).reduce((acc, regs) => acc + regs.length, 0)}
-                        </p>
-                      </div>
+              </div>
+              
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center">
+                    <Users className="h-8 w-8 text-green-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">
+                        {user.isAdmin ? 'Eventos Ativos' : 'Check-ins Realizados'}
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {user.isAdmin 
+                          ? userEvents.filter(e => e.date > new Date()).length
+                          : userRegistrations.filter(r => r.checkedIn).length
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
-
-                <div className="card">
-                  <div className="card-content">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <UserCheck className="h-8 w-8 text-yellow-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500">Check-ins Realizados</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {Object.values(registrations).reduce((acc, regs) => 
-                            acc + regs.filter(r => r.checkedIn).length, 0
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <div className="card-content">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Award className="h-8 w-8 text-purple-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500">Certificados Emitidos</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {Object.values(registrations).reduce((acc, regs) => 
-                            acc + regs.filter(r => r.certificateGenerated).length, 0
-                          )}
-                        </p>
-                      </div>
+              </div>
+              
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center">
+                    <Clock className="h-8 w-8 text-purple-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">
+                        {user.isAdmin ? 'Eventos Passados' : 'Certificados Gerados'}
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {user.isAdmin 
+                          ? userEvents.filter(e => e.date < new Date()).length
+                          : userRegistrations.filter(r => r.certificateGenerated).length
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Events List */}
+          {/* Events Grid */}
           <div className="px-4 sm:px-0">
-            {events.length === 0 ? (
+            {userEvents.length === 0 ? (
               <div className="text-center py-12">
-                <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum evento encontrado</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {user?.isAdmin 
-                    ? 'Comece criando seu primeiro evento.'
-                    : 'Não há eventos disponíveis no momento.'
+                <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {user.isAdmin ? 'Nenhum evento criado' : 'Nenhuma inscrição encontrada'}
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {user.isAdmin 
+                    ? 'Comece criando seu primeiro evento.' 
+                    : 'Você ainda não se inscreveu em nenhum evento.'
                   }
                 </p>
-                {user?.isAdmin && (
-                  <div className="mt-6">
-                    <Link href="/dashboard/eventos/novo" className="btn-primary">
-                      <Plus className="h-5 w-5 mr-2" />
-                      Criar Evento
-                    </Link>
-                  </div>
+                {user.isAdmin && (
+                  <Link
+                    href="/dashboard/eventos/novo"
+                    className="btn-primary"
+                  >
+                    Criar Primeiro Evento
+                  </Link>
                 )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.map((event) => {
-                  const stats = user?.isAdmin ? getEventStats(event.id) : null;
-                  const isDeleting = deletingEvent === event.id;
-                  const linkCopied = copiedLink === event.id;
+                {userEvents.map((event) => {
+                  const times = formatEventTimes(event);
+                  const registration = userRegistrations.find(r => r.eventId === event.id);
                   
                   return (
                     <div key={event.id} className="card hover:shadow-lg transition-shadow">
-                      <div className="card-header">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">
-                          {event.name}
-                        </h3>
-                        <p className="text-sm text-gray-600 line-clamp-2">
-                          {event.description}
-                        </p>
-                      </div>
-                      
                       <div className="card-content">
-                        <div className="space-y-2">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                              {event.name}
+                            </h3>
+                            <p className="text-gray-600 text-sm line-clamp-2 mb-3">
+                              {event.description}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Calendar className="h-4 w-4 mr-2" />
+                            {times.dateStr}
+                          </div>
+                          
                           <div className="flex items-center text-sm text-gray-600">
                             <Clock className="h-4 w-4 mr-2" />
-                            {event.date.toLocaleDateString('pt-BR', {
-                              day: '2-digit',
-                              month: 'long',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            {times.fullTimeStr}
                           </div>
                           
                           <div className="flex items-center text-sm text-gray-600">
@@ -476,73 +301,56 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {user?.isAdmin && stats && (
-                          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                            <div className="text-center">
-                              <p className="font-medium text-gray-900">{stats.total}</p>
-                              <p className="text-gray-500">Inscrições</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="font-medium text-gray-900">{stats.checkedIn}</p>
-                              <p className="text-gray-500">Check-ins</p>
+                        {!user.isAdmin && registration && (
+                          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">Status:</span>
+                              <span className={`font-medium ${
+                                registration.checkedOut 
+                                  ? 'text-green-600' 
+                                  : registration.checkedIn 
+                                    ? 'text-blue-600' 
+                                    : 'text-gray-600'
+                              }`}>
+                                {registration.checkedOut 
+                                  ? 'Concluído' 
+                                  : registration.checkedIn 
+                                    ? 'Presente' 
+                                    : 'Inscrito'
+                                }
+                              </span>
                             </div>
                           </div>
                         )}
-                      </div>
-                      
-                      <div className="card-footer">
-                        {user?.isAdmin ? (
-                          <div className="space-y-2">
-                            {/* Botão principal - Gerenciar */}
-                            <Link
-                              href={`/eventos/${event.id}`}
-                              className="btn-primary w-full text-center flex items-center justify-center"
-                            >
-                              <BarChart3 className="h-4 w-4 mr-2" />
-                              Gerenciar Evento
-                            </Link>
-                            
-                            {/* Botões secundários */}
-                            <div className="grid grid-cols-2 gap-2">
+                        
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            href={`/eventos/${event.id}`}
+                            className="btn-primary flex-1 text-center"
+                          >
+                            {user.isAdmin ? 'Gerenciar Evento' : 'Ver Detalhes'}
+                          </Link>
+                          
+                          {user.isAdmin && (
+                            <>
                               <button
                                 onClick={() => copyPublicLink(event.id)}
-                                className={`btn-outline text-xs flex items-center justify-center transition-all ${
-                                  linkCopied ? 'bg-green-50 border-green-300 text-green-700' : ''
-                                }`}
-                                title="Copiar link para inscrições"
+                                className="btn-outline flex items-center justify-center px-3"
+                                title="Copiar link público"
                               >
-                                {linkCopied ? (
-                                  <>
-                                    <Check className="h-3 w-3 mr-1" />
-                                    Copiado!
-                                  </>
-                                ) : (
-                                  <>
-                                    <LinkIcon className="h-3 w-3 mr-1" />
-                                    Link Público
-                                  </>
-                                )}
+                                <LinkIcon className="h-4 w-4" />
                               </button>
                               
                               <button
-                                onClick={() => openDeleteModal(event)}
-                                disabled={isDeleting}
-                                className="btn-outline text-xs flex items-center justify-center text-red-600 border-red-300 hover:bg-red-50 disabled:opacity-50"
+                                onClick={() => handleDeleteEvent(event)}
+                                className="btn-outline flex items-center justify-center px-3 text-red-600 border-red-300 hover:bg-red-50"
                                 title="Excluir evento"
                               >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Excluir
+                                <Trash2 className="h-4 w-4" />
                               </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <Link
-                            href={`/eventos/${event.id}`}
-                            className="btn-primary w-full text-center"
-                          >
-                            Ver Detalhes
-                          </Link>
-                        )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -552,6 +360,77 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          <p className="text-sm font-medium">Link copiado para área de transferência!</p>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && deleteModal.event && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirmar Exclusão
+            </h3>
+            
+            <div className="mb-4">
+              <p className="text-gray-600 mb-2">
+                Você está prestes a excluir o evento:
+              </p>
+              <p className="font-medium text-gray-900 mb-1">
+                {deleteModal.event.name}
+              </p>
+              <p className="text-sm text-gray-600">
+                {deleteModal.event.date.toLocaleDateString('pt-BR')} • {deleteModal.event.location}
+              </p>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-3">
+                Esta ação não pode ser desfeita. Para confirmar, digite <strong>delete</strong> no campo abaixo:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="input w-full"
+                placeholder="Digite 'delete' para confirmar"
+                onKeyDown={(e) => e.key === 'Enter' && confirmDelete()}
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setDeleteModal({ isOpen: false, event: null });
+                  setDeleteConfirmText('');
+                }}
+                className="btn-outline"
+                disabled={isDeleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteConfirmText !== 'delete' || isDeleting}
+                className="btn-primary bg-red-600 hover:bg-red-700 disabled:bg-gray-300"
+              >
+                {isDeleting ? (
+                  <div className="flex items-center">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Excluindo...
+                  </div>
+                ) : (
+                  'Excluir Evento'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }

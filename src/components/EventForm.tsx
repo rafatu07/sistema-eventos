@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Event, EventFormData } from '@/types';
 import { createEvent, updateEvent } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, MapPin, FileText, Save, ArrowLeft } from 'lucide-react';
+import { Calendar, MapPin, FileText, Save, ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 interface EventFormProps {
@@ -22,7 +22,9 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
   const [formData, setFormData] = useState<EventFormData>({
     name: event?.name || '',
     description: event?.description || '',
-    date: event?.date ? event.date.toISOString().slice(0, 16) : '',
+    date: event?.date ? event.date.toISOString().slice(0, 10) : '', // apenas data
+    startTime: event?.startTime ? event.startTime.toISOString().slice(11, 16) : '', // apenas hora
+    endTime: event?.endTime ? event.endTime.toISOString().slice(11, 16) : '', // apenas hora
     location: event?.location || '',
   });
 
@@ -36,10 +38,22 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
         throw new Error('Usuário não autenticado');
       }
 
+      // Validar se horário de término é depois do horário de início
+      if (formData.startTime >= formData.endTime) {
+        throw new Error('O horário de término deve ser posterior ao horário de início');
+      }
+
+      // Combinar data com horários para criar Date objects completos
+      const eventDate = new Date(formData.date);
+      const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
+      const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+
       const eventData = {
         name: formData.name,
         description: formData.description,
-        date: new Date(formData.date),
+        date: eventDate,
+        startTime: startDateTime,
+        endTime: endDateTime,
         location: formData.location,
         createdBy: user.uid,
       };
@@ -132,10 +146,11 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
 
           <div>
             <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
-              Data e Hora
+              <Calendar className="inline h-4 w-4 mr-2" />
+              Data do Evento
             </label>
             <input
-              type="datetime-local"
+              type="date"
               id="date"
               name="date"
               required
@@ -143,6 +158,40 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
               value={formData.date}
               onChange={handleChange}
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-2">
+                <Clock className="inline h-4 w-4 mr-2" />
+                Horário de Início
+              </label>
+              <input
+                type="time"
+                id="startTime"
+                name="startTime"
+                required
+                className="input w-full"
+                value={formData.startTime}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-2">
+                <Clock className="inline h-4 w-4 mr-2" />
+                Horário de Término
+              </label>
+              <input
+                type="time"
+                id="endTime"
+                name="endTime"
+                required
+                className="input w-full"
+                value={formData.endTime}
+                onChange={handleChange}
+              />
+            </div>
           </div>
 
           <div>
