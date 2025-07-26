@@ -71,13 +71,11 @@ export default function EventDetailsPage() {
       }
     };
 
-    if (user) {
-      loadData();
-    }
+    loadData();
   }, [eventId, user]);
 
   const handleRegister = async () => {
-    if (!user || !event) return;
+    if (!event || !user) return;
 
     setActionLoading(true);
     try {
@@ -85,21 +83,23 @@ export default function EventDetailsPage() {
         eventId: event.id,
         userId: user.uid,
         userEmail: user.email,
-        userName: user.displayName || user.email,
+        userName: user.displayName || '',
+        userCPF: '', // Para ser preenchido posteriormente
         checkedIn: false,
         checkedOut: false,
         certificateGenerated: false,
+        createdAt: new Date(),
       };
 
       const registrationId = await createRegistration(registrationData);
       
+      // Atualizar estado local
       const newRegistration: Registration = {
         id: registrationId,
         ...registrationData,
-        registeredAt: new Date(),
       };
-      
       setRegistration(newRegistration);
+
     } catch (error) {
       console.error('Error registering for event:', error);
       setError('Erro ao se inscrever no evento');
@@ -118,13 +118,14 @@ export default function EventDetailsPage() {
         checkInTime: new Date(),
       });
 
-      setRegistration(prev => prev ? {
-        ...prev,
+      setRegistration({
+        ...registration,
         checkedIn: true,
         checkInTime: new Date(),
-      } : null);
+      });
+
     } catch (error) {
-      console.error('Error checking in:', error);
+      console.error('Error during check-in:', error);
       setError('Erro ao fazer check-in');
     } finally {
       setActionLoading(false);
@@ -141,21 +142,22 @@ export default function EventDetailsPage() {
         checkOutTime: new Date(),
       });
 
-      setRegistration(prev => prev ? {
-        ...prev,
+      setRegistration({
+        ...registration,
         checkedOut: true,
         checkOutTime: new Date(),
-      } : null);
+      });
+
     } catch (error) {
-      console.error('Error checking out:', error);
+      console.error('Error during check-out:', error);
       setError('Erro ao fazer check-out');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleGenerateCertificate = async () => {
-    if (!registration || !event || !user) return;
+  const generateCertificate = async () => {
+    if (!registration || !event) return;
 
     setActionLoading(true);
     try {
@@ -167,56 +169,34 @@ export default function EventDetailsPage() {
         body: JSON.stringify({
           registrationId: registration.id,
           eventId: event.id,
-          userId: user.uid,
+          userId: registration.userId,
           userName: registration.userName,
           eventName: event.name,
           eventDate: event.date.toISOString(),
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Erro ao gerar certificado');
+      const data = await response.json();
+
+      if (data.success) {
+        setRegistration({
+          ...registration,
+          certificateGenerated: true,
+          certificateUrl: data.certificateUrl,
+        });
+        
+        // Open certificate in new tab
+        window.open(data.certificateUrl, '_blank');
+      } else {
+        throw new Error(data.error);
       }
 
-      const data = await response.json();
-      
-      setRegistration(prev => prev ? {
-        ...prev,
-        certificateGenerated: true,
-        certificateUrl: data.certificateUrl,
-      } : null);
     } catch (error) {
       console.error('Error generating certificate:', error);
       setError('Erro ao gerar certificado');
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const exportAttendanceList = () => {
-    if (!event || !allRegistrations.length) return;
-
-    const csvContent = [
-      ['Nome', 'Email', 'Inscrito em', 'Check-in', 'Check-out', 'Certificado'],
-      ...allRegistrations.map(reg => [
-        reg.userName,
-        reg.userEmail,
-        reg.registeredAt.toLocaleDateString('pt-BR'),
-        reg.checkedIn ? (reg.checkInTime?.toLocaleString('pt-BR') || 'Sim') : 'Não',
-        reg.checkedOut ? (reg.checkOutTime?.toLocaleString('pt-BR') || 'Sim') : 'Não',
-        reg.certificateGenerated ? 'Gerado' : 'Não gerado'
-      ])
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `lista_presenca_${event.name.replace(/\s+/g, '_')}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -228,44 +208,68 @@ export default function EventDetailsPage() {
     );
   }
 
-  if (error || !event) {
+  if (error) {
     return (
       <ProtectedRoute>
         <Navbar />
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Erro</h1>
-            <p className="text-gray-600">{error || 'Evento não encontrado'}</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Erro</h3>
+            <p className="text-gray-600">{error}</p>
           </div>
         </div>
       </ProtectedRoute>
     );
   }
 
-  const canCheckIn = registration && !registration.checkedIn;
-  const canCheckOut = registration && registration.checkedIn && !registration.checkedOut;
-  const canGenerateCertificate = registration && registration.checkedOut && !registration.certificateGenerated;
-  const hasGeneratedCertificate = registration && registration.certificateGenerated;
+  if (!event) {
+    return (
+      <ProtectedRoute>
+        <Navbar />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Evento não encontrado</h3>
+            <p className="text-gray-600">O evento que você está procurando não existe.</p>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
       <Navbar />
+      
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-          {/* Event Header */}
-          <div className="card mb-8">
-            <div className="card-header">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    {event.name}
-                  </h1>
-                  <p className="text-gray-600 text-lg">
-                    {event.description}
-                  </p>
-                </div>
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="px-4 py-6 sm:px-0">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{event.name}</h1>
+                <p className="mt-2 text-gray-600">{event.description}</p>
                 
-                {user?.isAdmin && (
+                <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    {event.date.toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    {event.location}
+                  </div>
+                </div>
+              </div>
+
+              {user?.isAdmin && (
+                <div className="flex gap-3">
                   <Link
                     href={`/dashboard/eventos/${event.id}/editar`}
                     className="btn-outline flex items-center"
@@ -273,301 +277,315 @@ export default function EventDetailsPage() {
                     <Edit className="h-4 w-4 mr-2" />
                     Editar
                   </Link>
-                )}
-              </div>
-            </div>
-            
-            <div className="card-content">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-5 w-5 mr-3" />
-                  <div>
-                    <p className="font-medium">Data e Hora</p>
-                    <p>{event.date.toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center text-gray-600">
-                  <MapPin className="h-5 w-5 mr-3" />
-                  <div>
-                    <p className="font-medium">Local</p>
-                    <p>{event.location}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Registration Status */}
-          <div className="card mb-8">
-            <div className="card-header">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Status da Participação
-              </h2>
-            </div>
-            
-            <div className="card-content">
-              {!registration ? (
-                <div className="text-center py-6">
-                  <UserPlus className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Você não está inscrito neste evento
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Faça sua inscrição para participar do evento
-                  </p>
-                  <button
-                    onClick={handleRegister}
-                    disabled={actionLoading}
-                    className="btn-primary"
+                  
+                  <Link
+                    href={`/admin/evento/${event.id}/checkin`}
+                    className="btn-primary flex items-center"
                   >
-                    {actionLoading ? 'Inscrevendo...' : 'Inscrever-se'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Registration Info */}
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <UserCheck className="h-5 w-5 text-green-600 mr-2" />
-                      <span className="text-green-800 font-medium">
-                        Inscrito em {registration.registeredAt.toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {canCheckIn && (
-                      <button
-                        onClick={handleCheckIn}
-                        disabled={actionLoading}
-                        className="btn-primary flex items-center justify-center"
-                      >
-                        <UserCheck className="h-4 w-4 mr-2" />
-                        Fazer Check-in
-                      </button>
-                    )}
-
-                    {canCheckOut && (
-                      <button
-                        onClick={handleCheckOut}
-                        disabled={actionLoading}
-                        className="btn-secondary flex items-center justify-center"
-                      >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Fazer Check-out
-                      </button>
-                    )}
-
-                    {canGenerateCertificate && (
-                      <button
-                        onClick={handleGenerateCertificate}
-                        disabled={actionLoading}
-                        className="btn-primary flex items-center justify-center"
-                      >
-                        <Award className="h-4 w-4 mr-2" />
-                        Gerar Certificado
-                      </button>
-                    )}
-
-                    {hasGeneratedCertificate && registration.certificateUrl && (
-                      <a
-                        href={registration.certificateUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-outline flex items-center justify-center"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Baixar Certificado
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Status Timeline */}
-                  <div className="space-y-3">
-                    <div className={`flex items-center ${registration.checkedIn ? 'text-green-600' : 'text-gray-400'}`}>
-                      <div className={`w-4 h-4 rounded-full mr-3 ${registration.checkedIn ? 'bg-green-600' : 'bg-gray-300'}`} />
-                      <span>Check-in realizado</span>
-                      {registration.checkInTime && (
-                        <span className="ml-2 text-sm text-gray-500">
-                          ({registration.checkInTime.toLocaleString('pt-BR')})
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className={`flex items-center ${registration.checkedOut ? 'text-green-600' : 'text-gray-400'}`}>
-                      <div className={`w-4 h-4 rounded-full mr-3 ${registration.checkedOut ? 'bg-green-600' : 'bg-gray-300'}`} />
-                      <span>Check-out realizado</span>
-                      {registration.checkOutTime && (
-                        <span className="ml-2 text-sm text-gray-500">
-                          ({registration.checkOutTime.toLocaleString('pt-BR')})
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className={`flex items-center ${registration.certificateGenerated ? 'text-green-600' : 'text-gray-400'}`}>
-                      <div className={`w-4 h-4 rounded-full mr-3 ${registration.certificateGenerated ? 'bg-green-600' : 'bg-gray-300'}`} />
-                      <span>Certificado gerado</span>
-                    </div>
-                  </div>
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Gerenciar Check-in
+                  </Link>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Admin Panel */}
-          {user?.isAdmin && (
-            <div className="card">
-              <div className="card-header">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    Painel Administrativo
-                  </h2>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowQR(!showQR)}
-                      className="btn-outline flex items-center"
-                    >
-                      <QrCode className="h-4 w-4 mr-2" />
-                      {showQR ? 'Ocultar QR' : 'Mostrar QR'}
-                    </button>
-                    <Link
-                      href={`/admin/evento/${eventId}/checkin`}
-                      className="btn-primary flex items-center"
-                    >
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      Gerenciar Check-in
-                    </Link>
-                    {allRegistrations.length > 0 && (
-                      <button
-                        onClick={exportAttendanceList}
-                        className="btn-secondary flex items-center"
-                      >
-                        <FileDown className="h-4 w-4 mr-2" />
-                        Exportar Lista
-                      </button>
+          <div className="px-4 sm:px-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main Content */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Event Status Card */}
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="text-lg font-semibold">Status da Inscrição</h3>
+                  </div>
+                  
+                  <div className="card-content">
+                    {!registration ? (
+                      <div className="text-center py-8">
+                        <UserPlus className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <h4 className="text-lg font-medium text-gray-900 mb-2">
+                          Você ainda não está inscrito
+                        </h4>
+                        <p className="text-gray-600 mb-6">
+                          Faça sua inscrição para participar deste evento.
+                        </p>
+                        <button
+                          onClick={handleRegister}
+                          disabled={actionLoading}
+                          className="btn-primary"
+                        >
+                          {actionLoading ? 'Inscrevendo...' : 'Inscrever-se'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center">
+                            <UserCheck className="h-5 w-5 text-green-600 mr-3" />
+                            <div>
+                              <p className="font-medium text-green-900">Inscrito no evento</p>
+                              <p className="text-sm text-green-700">
+                                Inscrito em {registration.createdAt.toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Check-in Status */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className={`p-4 rounded-lg border ${
+                            registration.checkedIn 
+                              ? 'bg-green-50 border-green-200' 
+                              : 'bg-gray-50 border-gray-200'
+                          }`}>
+                            <div className="flex items-center">
+                              <UserCheck className={`h-5 w-5 mr-3 ${
+                                registration.checkedIn ? 'text-green-600' : 'text-gray-400'
+                              }`} />
+                              <div>
+                                <p className={`font-medium ${
+                                  registration.checkedIn ? 'text-green-900' : 'text-gray-900'
+                                }`}>
+                                  Check-in
+                                </p>
+                                <p className={`text-sm ${
+                                  registration.checkedIn ? 'text-green-700' : 'text-gray-600'
+                                }`}>
+                                  {registration.checkedIn 
+                                    ? `Realizado em ${registration.checkInTime?.toLocaleString('pt-BR')}`
+                                    : 'Aguardando'
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className={`p-4 rounded-lg border ${
+                            registration.checkedOut 
+                              ? 'bg-green-50 border-green-200' 
+                              : 'bg-gray-50 border-gray-200'
+                          }`}>
+                            <div className="flex items-center">
+                              <LogOut className={`h-5 w-5 mr-3 ${
+                                registration.checkedOut ? 'text-green-600' : 'text-gray-400'
+                              }`} />
+                              <div>
+                                <p className={`font-medium ${
+                                  registration.checkedOut ? 'text-green-900' : 'text-gray-900'
+                                }`}>
+                                  Check-out
+                                </p>
+                                <p className={`text-sm ${
+                                  registration.checkedOut ? 'text-green-700' : 'text-gray-600'
+                                }`}>
+                                  {registration.checkedOut 
+                                    ? `Realizado em ${registration.checkOutTime?.toLocaleString('pt-BR')}`
+                                    : 'Aguardando'
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap gap-3 pt-4">
+                          {!registration.checkedIn && (
+                            <button
+                              onClick={handleCheckIn}
+                              disabled={actionLoading}
+                              className="btn-primary"
+                            >
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              {actionLoading ? 'Processando...' : 'Fazer Check-in'}
+                            </button>
+                          )}
+
+                          {registration.checkedIn && !registration.checkedOut && (
+                            <button
+                              onClick={handleCheckOut}
+                              disabled={actionLoading}
+                              className="btn-primary"
+                            >
+                              <LogOut className="h-4 w-4 mr-2" />
+                              {actionLoading ? 'Processando...' : 'Fazer Check-out'}
+                            </button>
+                          )}
+
+                          {registration.checkedOut && !registration.certificateGenerated && (
+                            <button
+                              onClick={generateCertificate}
+                              disabled={actionLoading}
+                              className="btn-primary"
+                            >
+                              <Award className="h-4 w-4 mr-2" />
+                              {actionLoading ? 'Gerando...' : 'Gerar Certificado'}
+                            </button>
+                          )}
+
+                          {registration.certificateGenerated && registration.certificateUrl && (
+                            <a
+                              href={registration.certificateUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-primary"
+                            >
+                              <FileDown className="h-4 w-4 mr-2" />
+                              Baixar Certificado
+                            </a>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-              
-              <div className="card-content">
-                {showQR && (
-                  <div className="mb-8 flex justify-center">
-                    <QRCodeGenerator
-                      value={`${window.location.origin}/public/evento/${event.id}`}
-                      size={200}
-                      title="QR Code do Evento"
-                    />
+
+                {/* QR Code Section */}
+                {registration && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="text-lg font-semibold">QR Code do Evento</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Use este QR Code para acesso rápido ao evento
+                      </p>
+                    </div>
+                    
+                    <div className="card-content">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <QrCode className="h-5 w-5 text-gray-600 mr-3" />
+                          <span className="text-sm text-gray-700">
+                            QR Code personalizado para sua inscrição
+                          </span>
+                        </div>
+                        
+                        <button
+                          onClick={() => setShowQR(!showQR)}
+                          className="btn-outline"
+                        >
+                          {showQR ? 'Ocultar' : 'Mostrar'} QR Code
+                        </button>
+                      </div>
+                      
+                      {showQR && (
+                        <div className="mt-6 flex justify-center">
+                          <QRCodeGenerator 
+                            value={`${window.location.origin}/eventos/${event.id}?reg=${registration.id}`}
+                            size={200}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">{allRegistrations.length}</p>
-                    <p className="text-sm text-gray-600">Total de Inscrições</p>
+              {/* Sidebar */}
+              <div className="space-y-6">
+                {/* Event Info */}
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="text-lg font-semibold">Informações do Evento</h3>
                   </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">
-                      {allRegistrations.filter(r => r.checkedIn).length}
-                    </p>
-                    <p className="text-sm text-gray-600">Check-ins</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {allRegistrations.filter(r => r.checkedOut).length}
-                    </p>
-                    <p className="text-sm text-gray-600">Check-outs</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">
-                      {allRegistrations.filter(r => r.certificateGenerated).length}
-                    </p>
-                    <p className="text-sm text-gray-600">Certificados</p>
+                  
+                  <div className="card-content space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Data e Hora</h4>
+                      <p className="text-sm text-gray-600">
+                        {event.date.toLocaleDateString('pt-BR', {
+                          weekday: 'long',
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric',
+                        })} às {event.date.toLocaleTimeString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Local</h4>
+                      <p className="text-sm text-gray-600">{event.location}</p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Descrição</h4>
+                      <p className="text-sm text-gray-600">{event.description}</p>
+                    </div>
                   </div>
                 </div>
 
-                {allRegistrations.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Participante
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Check-in
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Check-out
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Certificado
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {allRegistrations.map((reg) => (
-                          <tr key={reg.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {reg.userName}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {reg.userEmail}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {reg.checkedIn ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Realizado
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                  Pendente
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {reg.checkedOut ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Realizado
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                  Pendente
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {reg.certificateGenerated ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Gerado
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                  Não gerado
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                {/* Admin Stats */}
+                {user?.isAdmin && allRegistrations.length > 0 && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="text-lg font-semibold">Estatísticas</h3>
+                    </div>
+                    
+                    <div className="card-content space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Total de Inscrições</span>
+                        <span className="font-medium">{allRegistrations.length}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Check-ins Realizados</span>
+                        <span className="font-medium">
+                          {allRegistrations.filter(reg => reg.checkedIn).length}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Check-outs Realizados</span>
+                        <span className="font-medium">
+                          {allRegistrations.filter(reg => reg.checkedOut).length}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Certificados Gerados</span>
+                        <span className="font-medium">
+                          {allRegistrations.filter(reg => reg.certificateGenerated).length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Registration Info */}
+                {registration && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="text-lg font-semibold">Sua Inscrição</h3>
+                    </div>
+                    
+                    <div className="card-content space-y-3">
+                      <div className="text-sm">
+                        <span className="text-gray-600">Status:</span>
+                        <span className="ml-2 font-medium text-green-600">Confirmada</span>
+                      </div>
+                      
+                      <div className="text-sm">
+                        <span className="text-gray-600">Data da Inscrição:</span>
+                        <span className="ml-2 font-medium">
+                          Inscrito em {registration.createdAt.toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm">
+                        <span className="text-gray-600">ID da Inscrição:</span>
+                        <span className="ml-2 font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                          {registration.id}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </ProtectedRoute>

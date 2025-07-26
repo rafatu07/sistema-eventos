@@ -24,7 +24,7 @@ export interface Registration {
   userEmail: string;
   userName: string;
   userCPF: string;
-  registeredAt: Date;
+  createdAt: Date;
   checkedIn: boolean;
   checkedOut: boolean;
   checkInTime?: Date;
@@ -58,11 +58,10 @@ export interface AuthContextType {
 export interface EventFormData {
   name: string;
   description: string;
-  date: string;
+  date: string; // ISO string for form input
   location: string;
 }
 
-// Nova interface para inscrição pública
 export interface PublicRegistrationData {
   name: string;
   email: string;
