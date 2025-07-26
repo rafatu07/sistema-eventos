@@ -142,19 +142,19 @@ export default function PublicEventPage() {
       if (data.success) {
         setSuccess(data.message);
         
-        // Se é um novo usuário, fazer login automático
-        if (!data.existingUser) {
-          // Armazenar credenciais temporariamente para login automático
-          localStorage.setItem('tempLogin', JSON.stringify({
-            email: formData.email,
-            password: formData.password
-          }));
+        // Para usuário existente, armazenar credenciais para login manual
+        if (data.existingUser) {
+          // Redirecionar para página de login com informações
+          setTimeout(() => {
+            router.push(`/login?email=${encodeURIComponent(formData.email)}&message=${encodeURIComponent('Inscrição realizada! Faça login com sua conta existente.')}`);
+          }, 2000);
+        } else {
+          // Para novo usuário, o Firebase já fez login automaticamente
+          // Apenas redirecionar para o dashboard
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 2000);
         }
-        
-        // Redirecionar após 2 segundos
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
         
       } else {
         setError(data.error || 'Erro ao processar inscrição');

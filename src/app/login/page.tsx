@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/Loading';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Info } from 'lucide-react';
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,15 +13,31 @@ export default function LoginPage() {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   const { user, signIn, signUp, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (user && !authLoading) {
       router.push('/dashboard');
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    // Verificar se há parâmetros de URL para preencher dados
+    const emailParam = searchParams.get('email');
+    const messageParam = searchParams.get('message');
+    
+    if (emailParam) {
+      setEmail(decodeURIComponent(emailParam));
+    }
+    
+    if (messageParam) {
+      setInfo(decodeURIComponent(messageParam));
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +61,10 @@ export default function LoginPage() {
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setError('');
-    setEmail('');
+    setInfo('');
+    if (!searchParams.get('email')) {
+      setEmail('');
+    }
     setPassword('');
     setDisplayName('');
   };
@@ -122,6 +141,24 @@ export default function LoginPage() {
               />
             </div>
           </div>
+
+          {info && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <Info className="h-5 w-5 text-blue-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Informação
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    {info}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">

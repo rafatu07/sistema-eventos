@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await firebaseSignOut(auth);
       setUser(null);
-      // Limpar login temporário se existir
+      // Limpar qualquer storage local
       localStorage.removeItem('tempLogin');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -134,35 +134,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Função para tentar login automático com credenciais temporárias
-  const tryTempLogin = async () => {
-    const tempLogin = localStorage.getItem('tempLogin');
-    if (tempLogin) {
-      try {
-        const { email, password } = JSON.parse(tempLogin);
-        await signInWithEmailAndPassword(auth, email, password);
-        localStorage.removeItem('tempLogin'); // Limpar após uso
-        return true;
-      } catch (error) {
-        console.error('Error with temp login:', error);
-        localStorage.removeItem('tempLogin');
-        return false;
-      }
-    }
-    return false;
-  };
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userData = await createUserDocument(firebaseUser);
         setUser(userData);
       } else {
-        // Se não há usuário logado, tentar login temporário
-        const didTempLogin = await tryTempLogin();
-        if (!didTempLogin) {
-          setUser(null);
-        }
+        setUser(null);
       }
       setLoading(false);
     });
