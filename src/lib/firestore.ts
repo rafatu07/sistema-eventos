@@ -14,7 +14,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Event, Registration, User } from '@/types';
+import { Event, Registration } from '@/types';
 
 const COLLECTIONS = {
   USERS: 'users',

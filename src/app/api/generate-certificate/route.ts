@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCertificatePDF } from '@/lib/pdf-generator';
 import { uploadPDFToCloudinary } from '@/lib/upload';
-import { updateRegistration, createCertificate } from '@/lib/firestore';
+import { updateRegistration } from '@/lib/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,37 +22,23 @@ export async function POST(request: NextRequest) {
       eventDate: new Date(eventDate),
     });
 
-    // Upload to Cloudinary
-    const fileName = `certificate_${registrationId}_${Date.now()}`;
-    const uploadResult = await uploadPDFToCloudinary(
-      Buffer.from(pdfBytes),
-      fileName,
-      'certificates'
-    );
+    // Convert Uint8Array to Buffer for upload
+    const pdfBuffer = Buffer.from(pdfBytes);
 
-    // Update registration with certificate info
+    // Upload PDF to Cloudinary
+    const certificateUrl = await uploadPDFToCloudinary(pdfBuffer, `certificate_${userId}_${eventId}`);
+
+    // Update registration to mark certificate as generated
     await updateRegistration(registrationId, {
       certificateGenerated: true,
-      certificateUrl: uploadResult.secureUrl,
-    });
-
-    // Create certificate record
-    await createCertificate({
-      registrationId,
-      eventId,
-      userId,
-      userName,
-      eventName,
-      eventDate: new Date(eventDate),
-      cloudinaryUrl: uploadResult.secureUrl,
-      publicId: uploadResult.publicId,
     });
 
     return NextResponse.json({
       success: true,
-      certificateUrl: uploadResult.secureUrl,
-      publicId: uploadResult.publicId,
+      certificateUrl,
+      message: 'Certificado gerado com sucesso!',
     });
+
   } catch (error) {
     console.error('Error generating certificate:', error);
     return NextResponse.json(

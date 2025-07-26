@@ -121,7 +121,7 @@ export default function AdminCheckinPage() {
     try {
       await updateRegistration(registration.id, {
         checkedIn: false,
-        checkInTime: null,
+        checkInTime: undefined,
       });
 
       // Atualizar estado local
