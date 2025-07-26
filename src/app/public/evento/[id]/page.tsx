@@ -30,6 +30,7 @@ export default function PublicEventPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showQR, setShowQR] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -39,6 +40,11 @@ export default function PublicEventPage() {
     password: '',
     confirmPassword: ''
   });
+
+  // Garantir que a formatação de datas aconteça apenas no cliente
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -193,6 +199,16 @@ export default function PublicEventPage() {
   };
 
   const formatEventTimes = (event: Event) => {
+    if (!isClient) {
+      // Durante o SSR, retorna valores seguros que não variam
+      return {
+        dateStr: 'Carregando...',
+        startTimeStr: '--:--',
+        endTimeStr: '--:--',
+        fullTimeStr: '--:-- às --:--',
+      };
+    }
+
     const dateStr = event.date.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
@@ -249,68 +265,70 @@ export default function PublicEventPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm">
+      <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-blue-600 mr-3" />
-              <h1 className="text-xl font-bold text-gray-900">Sistema de Eventos</h1>
+              <Calendar className="h-10 w-10 text-blue-600 mr-4" />
+              <h1 className="text-2xl font-bold text-gray-900">Sistema de Eventos</h1>
             </div>
             
             <button
               onClick={shareEvent}
-              className="btn-outline flex items-center"
+              className="btn-outline flex items-center px-6 py-3"
             >
-              <Share2 className="h-4 w-4 mr-2" />
+              <Share2 className="h-5 w-5 mr-2" />
               Compartilhar
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Event Info */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Event Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-8 text-white">
-              <h1 className="text-3xl font-bold mb-2">{event.name}</h1>
-              <p className="text-blue-100 text-lg">{event.description}</p>
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-8 text-white shadow-lg">
+              <h1 className="text-4xl font-bold mb-4">{event.name}</h1>
+              <p className="text-blue-100 text-xl leading-relaxed">{event.description}</p>
             </div>
 
             {/* Event Details */}
             <div className="card">
-              <div className="card-content space-y-6">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="h-6 w-6 text-blue-600" />
+              <div className="card-content">
+                <div className="space-y-8">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center mr-6">
+                      <Calendar className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Data</h3>
+                      <p className="text-gray-700 text-lg">{times.dateStr}</p>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">Data</h3>
-                    <p className="text-gray-600">{times.dateStr}</p>
-                  </div>
-                </div>
 
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Clock className="h-6 w-6 text-green-600" />
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mr-6">
+                      <Clock className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Horário</h3>
+                      <div className="text-gray-700 text-lg space-y-1">
+                        <p>Início: <span className="font-medium">{times.startTimeStr}</span></p>
+                        <p>Término: <span className="font-medium">{times.endTimeStr}</span></p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">Horário</h3>
-                    <p className="text-gray-600">
-                      Início: {times.startTimeStr}<br/>
-                      Término: {times.endTimeStr}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <MapPin className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">Local</h3>
-                    <p className="text-gray-600">{event.location}</p>
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 w-16 h-16 bg-purple-100 rounded-xl flex items-center justify-center mr-6">
+                      <MapPin className="h-8 w-8 text-purple-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Local</h3>
+                      <p className="text-gray-700 text-lg">{event.location}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -319,8 +337,8 @@ export default function PublicEventPage() {
             {/* QR Code Section */}
             <div className="card">
               <div className="card-content">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">QR Code do Evento</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">QR Code do Evento</h3>
                   <button
                     onClick={() => setShowQR(!showQR)}
                     className="btn-outline"
@@ -329,8 +347,8 @@ export default function PublicEventPage() {
                   </button>
                 </div>
                 
-                {showQR && (
-                  <div className="flex justify-center">
+                {showQR && isClient && (
+                  <div className="flex justify-center pt-4">
                     <QRCodeGenerator 
                       value={window.location.href}
                       size={200}
@@ -342,13 +360,13 @@ export default function PublicEventPage() {
           </div>
 
           {/* Registration Form */}
-          <div className="space-y-6">
-            <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-6 text-white">
-              <div className="flex items-center mb-2">
-                <UserPlus className="h-6 w-6 mr-3" />
-                <h2 className="text-2xl font-bold">Inscreva-se no Evento</h2>
+          <div className="space-y-8">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-8 text-white">
+              <div className="flex items-center mb-3">
+                <UserPlus className="h-8 w-8 mr-4" />
+                <h2 className="text-3xl font-bold">Inscreva-se no Evento</h2>
               </div>
-              <p className="text-green-100">
+              <p className="text-green-100 text-lg">
                 Preencha seus dados para confirmar sua participação
               </p>
             </div>
@@ -356,147 +374,153 @@ export default function PublicEventPage() {
             <div className="card">
               <div className="card-content">
                 {success && (
-                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-800 text-sm font-medium">{success}</p>
-                    <p className="text-green-700 text-sm mt-1">
+                  <div className="mb-8 p-6 bg-green-50 border border-green-200 rounded-xl">
+                    <p className="text-green-800 font-semibold text-lg mb-2">{success}</p>
+                    <p className="text-green-700">
                       Redirecionando para o dashboard...
                     </p>
                   </div>
                 )}
 
                 {error && (
-                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-800 text-sm font-medium">{error}</p>
+                  <div className="mb-8 p-6 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-red-800 font-semibold text-lg">{error}</p>
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                      <User className="inline h-4 w-4 mr-2" />
-                      Nome Completo *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      required
-                      className="input w-full"
-                      placeholder="Digite seu nome completo"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                    />
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
+                        <User className="inline h-5 w-5 mr-2" />
+                        Nome Completo *
+                      </label>
+                      <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        required
+                        className="input w-full text-lg"
+                        placeholder="Digite seu nome completo"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-3">
+                        <Mail className="inline h-5 w-5 mr-2" />
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                        className="input w-full text-lg"
+                        placeholder="Digite seu email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="cpf" className="block text-sm font-semibold text-gray-700 mb-3">
+                        <CreditCard className="inline h-5 w-5 mr-2" />
+                        CPF *
+                      </label>
+                      <input
+                        type="text"
+                        id="cpf"
+                        name="cpf"
+                        required
+                        maxLength={14}
+                        className="input w-full text-lg"
+                        placeholder="000.000.000-00"
+                        value={formData.cpf}
+                        onChange={handleCPFChange}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-3">
+                        <Phone className="inline h-5 w-5 mr-2" />
+                        Telefone (opcional)
+                      </label>
+                      <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        className="input w-full text-lg"
+                        placeholder="(11) 99999-9999"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
+                        <Lock className="inline h-5 w-5 mr-2" />
+                        Senha *
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        minLength={6}
+                        className="input w-full text-lg"
+                        placeholder="Digite uma senha com pelo menos 6 caracteres"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-3">
+                        <Lock className="inline h-5 w-5 mr-2" />
+                        Confirmar Senha *
+                      </label>
+                      <input
+                        type="password"
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        required
+                        minLength={6}
+                        className="input w-full text-lg"
+                        placeholder="Digite a senha novamente"
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      <Mail className="inline h-4 w-4 mr-2" />
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      required
-                      className="input w-full"
-                      placeholder="Digite seu email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                    />
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="btn-primary w-full flex items-center justify-center text-lg py-4"
+                    >
+                      {submitting ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
+                          Processando...
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-5 w-5 mr-3" />
+                          Confirmar Inscrição
+                        </>
+                      )}
+                    </button>
                   </div>
 
-                  <div>
-                    <label htmlFor="cpf" className="block text-sm font-medium text-gray-700 mb-2">
-                      <CreditCard className="inline h-4 w-4 mr-2" />
-                      CPF *
-                    </label>
-                    <input
-                      type="text"
-                      id="cpf"
-                      name="cpf"
-                      required
-                      maxLength={14}
-                      className="input w-full"
-                      placeholder="000.000.000-00"
-                      value={formData.cpf}
-                      onChange={handleCPFChange}
-                    />
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                    <p className="text-blue-800 font-medium">
+                      Ao se inscrever, você receberá acesso ao seu dashboard pessoal para 
+                      acompanhar o evento.
+                    </p>
                   </div>
-
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                      <Phone className="inline h-4 w-4 mr-2" />
-                      Telefone (opcional)
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      className="input w-full"
-                      placeholder="(11) 99999-9999"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                      <Lock className="inline h-4 w-4 mr-2" />
-                      Senha *
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      required
-                      minLength={6}
-                      className="input w-full"
-                      placeholder="Digite uma senha com pelo menos 6 caracteres"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                      <Lock className="inline h-4 w-4 mr-2" />
-                      Confirmar Senha *
-                    </label>
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      required
-                      minLength={6}
-                      className="input w-full"
-                      placeholder="Digite a senha novamente"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="btn-primary w-full flex items-center justify-center"
-                  >
-                    {submitting ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Confirmar Inscrição
-                      </>
-                    )}
-                  </button>
-
-                  <p className="text-sm text-gray-600 text-center">
-                    Ao se inscrever, você receberá acesso ao seu dashboard pessoal para 
-                    acompanhar o evento.
-                  </p>
                 </form>
               </div>
             </div>

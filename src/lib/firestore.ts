@@ -6,6 +6,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   query,
   where,
   orderBy,
@@ -190,14 +191,30 @@ export const getEventRegistrations = async (eventId: string): Promise<Registrati
 
 export const updateRegistration = async (registrationId: string, data: Partial<Registration>) => {
   const registrationRef = doc(db, COLLECTIONS.REGISTRATIONS, registrationId);
-  const updateData: DocumentData = { ...data };
+  const updateData: DocumentData = {};
   
-  if (data.checkInTime) {
-    updateData.checkInTime = Timestamp.fromDate(data.checkInTime);
+  // Handle regular fields
+  Object.keys(data).forEach(key => {
+    if (key !== 'checkInTime' && key !== 'checkOutTime') {
+      updateData[key] = data[key as keyof Registration];
+    }
+  });
+  
+  // Handle timestamp fields with special logic for undefined values
+  if ('checkInTime' in data) {
+    if (data.checkInTime === undefined || data.checkInTime === null) {
+      updateData.checkInTime = deleteField();
+    } else {
+      updateData.checkInTime = Timestamp.fromDate(data.checkInTime);
+    }
   }
   
-  if (data.checkOutTime) {
-    updateData.checkOutTime = Timestamp.fromDate(data.checkOutTime);
+  if ('checkOutTime' in data) {
+    if (data.checkOutTime === undefined || data.checkOutTime === null) {
+      updateData.checkOutTime = deleteField();
+    } else {
+      updateData.checkOutTime = Timestamp.fromDate(data.checkOutTime);
+    }
   }
   
   await updateDoc(registrationRef, updateData);

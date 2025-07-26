@@ -13,6 +13,21 @@ interface EventFormProps {
   isEditing?: boolean;
 }
 
+// Helper function to format date to local date string (YYYY-MM-DD)
+const formatDateForInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to format time to local time string (HH:MM)
+const formatTimeForInput = (date: Date) => {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }) => {
   const { user } = useAuth();
   const router = useRouter();
@@ -22,9 +37,9 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
   const [formData, setFormData] = useState<EventFormData>({
     name: event?.name || '',
     description: event?.description || '',
-    date: event?.date ? event.date.toISOString().slice(0, 10) : '', // apenas data
-    startTime: event?.startTime ? event.startTime.toISOString().slice(11, 16) : '', // apenas hora
-    endTime: event?.endTime ? event.endTime.toISOString().slice(11, 16) : '', // apenas hora
+    date: event?.date ? formatDateForInput(event.date) : '',
+    startTime: event?.startTime ? formatTimeForInput(event.startTime) : '',
+    endTime: event?.endTime ? formatTimeForInput(event.endTime) : '',
     location: event?.location || '',
   });
 

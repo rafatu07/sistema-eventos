@@ -29,8 +29,8 @@ export interface Registration {
   createdAt: Date;
   checkedIn: boolean;
   checkedOut: boolean;
-  checkInTime?: Date;
-  checkOutTime?: Date;
+  checkInTime?: Date | undefined;
+  checkOutTime?: Date | undefined;
   certificateUrl?: string;
   certificateGenerated: boolean;
 }

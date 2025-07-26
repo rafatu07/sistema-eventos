@@ -37,6 +37,12 @@ export default function AdminCheckinPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [isClient, setIsClient] = useState(false);
+
+  // Garantir que a formatação de datas aconteça apenas no cliente
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -148,7 +154,7 @@ export default function AdminCheckinPage() {
     try {
       await updateRegistration(registration.id, {
         checkedIn: false,
-        checkInTime: undefined,
+        checkInTime: null,
       });
 
       // Update local state
@@ -178,7 +184,7 @@ export default function AdminCheckinPage() {
     try {
       await updateRegistration(registration.id, {
         checkedOut: false,
-        checkOutTime: undefined,
+        checkOutTime: null,
       });
 
       // Update local state
@@ -201,6 +207,16 @@ export default function AdminCheckinPage() {
   };
 
   const formatEventTimes = (event: Event) => {
+    if (!isClient) {
+      // Durante o SSR, retorna valores seguros que não variam
+      return {
+        dateStr: 'Carregando...',
+        startTimeStr: '--:--',
+        endTimeStr: '--:--',
+        fullTimeStr: '--:-- às --:--',
+      };
+    }
+
     const dateStr = event.date.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
@@ -407,13 +423,13 @@ export default function AdminCheckinPage() {
                             {registration.checkedIn && registration.checkInTime && (
                               <div>
                                 <span className="font-medium text-green-600">Check-in:</span>{' '}
-                                {registration.checkInTime.toLocaleString('pt-BR')}
+                                {isClient ? registration.checkInTime.toLocaleString('pt-BR') : 'Realizado'}
                               </div>
                             )}
                             {registration.checkedOut && registration.checkOutTime && (
                               <div>
                                 <span className="font-medium text-purple-600">Check-out:</span>{' '}
-                                {registration.checkOutTime.toLocaleString('pt-BR')}
+                                {isClient ? registration.checkOutTime.toLocaleString('pt-BR') : 'Realizado'}
                               </div>
                             )}
                           </div>

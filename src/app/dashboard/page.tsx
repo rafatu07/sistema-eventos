@@ -25,6 +25,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     event: Event | null;
@@ -34,6 +35,11 @@ export default function DashboardPage() {
   });
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Garantir que a formatação de datas aconteça apenas no cliente
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -99,6 +105,16 @@ export default function DashboardPage() {
   };
 
   const formatEventTimes = (event: Event) => {
+    if (!isClient) {
+      // Durante o SSR, retorna valores seguros que não variam
+      return {
+        dateStr: 'Carregando...',
+        startTimeStr: '--:--',
+        endTimeStr: '--:--',
+        fullTimeStr: '--:-- - --:--',
+      };
+    }
+
     const dateStr = event.date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'short',
@@ -384,7 +400,7 @@ export default function DashboardPage() {
                 {deleteModal.event.name}
               </p>
               <p className="text-sm text-gray-600">
-                {deleteModal.event.date.toLocaleDateString('pt-BR')} • {deleteModal.event.location}
+                {isClient ? `${deleteModal.event.date.toLocaleDateString('pt-BR')} • ${deleteModal.event.location}` : 'Carregando...'}
               </p>
             </div>
             

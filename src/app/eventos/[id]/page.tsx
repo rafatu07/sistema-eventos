@@ -40,6 +40,12 @@ export default function EventDetailsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [showQR, setShowQR] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  // Garantir que a formatação de datas aconteça apenas no cliente
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -53,9 +59,11 @@ export default function EventDetailsPage() {
         }
         setEvent(eventData);
 
-        // Load user registration
-        const userRegistration = await getRegistration(eventId, user.uid);
-        setRegistration(userRegistration);
+        // Load user registration only for non-admin users
+        if (!user.isAdmin) {
+          const userRegistration = await getRegistration(eventId, user.uid);
+          setRegistration(userRegistration);
+        }
 
         // Load all registrations if user is admin
         if (user.isAdmin) {
@@ -103,7 +111,7 @@ export default function EventDetailsPage() {
   }, [event, eventId]);
 
   const handleRegister = async () => {
-    if (!event || !user) return;
+    if (!event || !user || user.isAdmin) return;
 
     setActionLoading(true);
     try {
@@ -180,6 +188,16 @@ export default function EventDetailsPage() {
   };
 
   const formatEventTimes = (event: Event) => {
+    if (!isClient) {
+      // Durante o SSR, retorna valores seguros que não variam
+      return {
+        dateStr: 'Carregando...',
+        startTimeStr: '--:--',
+        endTimeStr: '--:--',
+        fullTimeStr: '--:-- às --:--',
+      };
+    }
+
     const dateStr = event.date.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
@@ -252,43 +270,21 @@ export default function EventDetailsPage() {
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="px-4 py-6 sm:px-0">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{event.name}</h1>
-                <p className="mt-2 text-gray-600">{event.description}</p>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{event.name}</h1>
+              <p className="mt-2 text-gray-600">{event.description}</p>
+              
+              <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <Clock className="h-4 w-4 mr-2" />
+                  {times.dateStr} • {times.fullTimeStr}
+                </div>
                 
-                <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-2" />
-                    {times.dateStr} • {times.fullTimeStr}
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    {event.location}
-                  </div>
+                <div className="flex items-center">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  {event.location}
                 </div>
               </div>
-
-              {user?.isAdmin && (
-                <div className="flex gap-3">
-                  <Link
-                    href={`/dashboard/eventos/${event.id}/editar`}
-                    className="btn-outline flex items-center"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Editar
-                  </Link>
-                  
-                  <Link
-                    href={`/admin/evento/${event.id}/checkin`}
-                    className="btn-primary flex items-center"
-                  >
-                    <UserCheck className="h-4 w-4 mr-2" />
-                    Gerenciar Check-in
-                  </Link>
-                </div>
-              )}
             </div>
           </div>
 
@@ -296,131 +292,168 @@ export default function EventDetailsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Event Status Card */}
-                <div className="card">
-                  <div className="card-header">
-                    <h3 className="text-lg font-semibold">Status da Inscrição</h3>
-                  </div>
-                  
-                  <div className="card-content">
-                    {!registration ? (
+                {/* Admin View */}
+                {user?.isAdmin ? (
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="text-lg font-semibold">Painel Administrativo</h3>
+                    </div>
+                    
+                    <div className="card-content">
                       <div className="text-center py-8">
-                        <UserPlus className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <UserCheck className="mx-auto h-12 w-12 text-blue-600 mb-4" />
                         <h4 className="text-lg font-medium text-gray-900 mb-2">
-                          Você ainda não está inscrito
+                          Gerenciamento do Evento
                         </h4>
                         <p className="text-gray-600 mb-6">
-                          Faça sua inscrição para participar deste evento.
+                          Use os botões abaixo para editar o evento ou gerenciar check-ins dos participantes.
                         </p>
-                        <button
-                          onClick={handleRegister}
-                          disabled={actionLoading}
-                          className="btn-primary"
-                        >
-                          {actionLoading ? 'Inscrevendo...' : 'Inscrever-se'}
-                        </button>
+                        
+                        <div className="flex flex-wrap justify-center gap-4">
+                          <Link
+                            href={`/dashboard/eventos/${event.id}/editar`}
+                            className="btn-outline flex items-center"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar Evento
+                          </Link>
+                          
+                          <Link
+                            href={`/admin/evento/${event.id}/checkin`}
+                            className="btn-primary flex items-center"
+                          >
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Gerenciar Check-in
+                          </Link>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                          <div className="flex items-center">
-                            <UserCheck className="h-5 w-5 text-green-600 mr-3" />
-                            <div>
-                              <p className="font-medium text-green-900">Inscrito no evento</p>
-                              <p className="text-sm text-green-700">
-                                Inscrito em {registration.createdAt.toLocaleDateString('pt-BR')}
-                              </p>
-                            </div>
-                          </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* User View */
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="text-lg font-semibold">Status da Inscrição</h3>
+                    </div>
+                    
+                    <div className="card-content">
+                      {!registration ? (
+                        <div className="text-center py-8">
+                          <UserPlus className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                          <h4 className="text-lg font-medium text-gray-900 mb-2">
+                            Você ainda não está inscrito
+                          </h4>
+                          <p className="text-gray-600 mb-6">
+                            Faça sua inscrição para participar deste evento.
+                          </p>
+                          <button
+                            onClick={handleRegister}
+                            disabled={actionLoading}
+                            className="btn-primary"
+                          >
+                            {actionLoading ? 'Inscrevendo...' : 'Inscrever-se'}
+                          </button>
                         </div>
-
-                        {/* Check-in Status */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className={`p-4 rounded-lg border ${
-                            registration.checkedIn 
-                              ? 'bg-green-50 border-green-200' 
-                              : 'bg-gray-50 border-gray-200'
-                          }`}>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
                             <div className="flex items-center">
-                              <UserCheck className={`h-5 w-5 mr-3 ${
-                                registration.checkedIn ? 'text-green-600' : 'text-gray-400'
-                              }`} />
+                              <UserCheck className="h-5 w-5 text-green-600 mr-3" />
                               <div>
-                                <p className={`font-medium ${
-                                  registration.checkedIn ? 'text-green-900' : 'text-gray-900'
-                                }`}>
-                                  Check-in
-                                </p>
-                                <p className={`text-sm ${
-                                  registration.checkedIn ? 'text-green-700' : 'text-gray-600'
-                                }`}>
-                                  {registration.checkedIn 
-                                    ? `Realizado em ${registration.checkInTime?.toLocaleString('pt-BR')}`
-                                    : 'Aguardando'
-                                  }
+                                <p className="font-medium text-green-900">Inscrito no evento</p>
+                                <p className="text-sm text-green-700">
+                                  {isClient ? `Inscrito em ${registration.createdAt.toLocaleDateString('pt-BR')}` : 'Carregando...'}
                                 </p>
                               </div>
                             </div>
                           </div>
 
-                          <div className={`p-4 rounded-lg border ${
-                            registration.checkedOut 
-                              ? 'bg-green-50 border-green-200' 
-                              : 'bg-gray-50 border-gray-200'
-                          }`}>
-                            <div className="flex items-center">
-                              <LogOut className={`h-5 w-5 mr-3 ${
-                                registration.checkedOut ? 'text-green-600' : 'text-gray-400'
-                              }`} />
-                              <div>
-                                <p className={`font-medium ${
-                                  registration.checkedOut ? 'text-green-900' : 'text-gray-900'
-                                }`}>
-                                  Check-out
-                                </p>
-                                <p className={`text-sm ${
-                                  registration.checkedOut ? 'text-green-700' : 'text-gray-600'
-                                }`}>
-                                  {registration.checkedOut 
-                                    ? `Realizado em ${registration.checkOutTime?.toLocaleString('pt-BR')}`
-                                    : `Automático às ${times.endTimeStr}`
-                                  }
-                                </p>
+                          {/* Check-in Status */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className={`p-4 rounded-lg border ${
+                              registration.checkedIn 
+                                ? 'bg-green-50 border-green-200' 
+                                : 'bg-gray-50 border-gray-200'
+                            }`}>
+                              <div className="flex items-center">
+                                <UserCheck className={`h-5 w-5 mr-3 ${
+                                  registration.checkedIn ? 'text-green-600' : 'text-gray-400'
+                                }`} />
+                                <div>
+                                  <p className={`font-medium ${
+                                    registration.checkedIn ? 'text-green-900' : 'text-gray-900'
+                                  }`}>
+                                    Check-in
+                                  </p>
+                                  <p className={`text-sm ${
+                                    registration.checkedIn ? 'text-green-700' : 'text-gray-600'
+                                  }`}>
+                                    {registration.checkedIn 
+                                      ? (isClient ? `Realizado em ${registration.checkInTime?.toLocaleString('pt-BR')}` : 'Realizado')
+                                      : 'Aguardando'
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={`p-4 rounded-lg border ${
+                              registration.checkedOut 
+                                ? 'bg-green-50 border-green-200' 
+                                : 'bg-gray-50 border-gray-200'
+                            }`}>
+                              <div className="flex items-center">
+                                <LogOut className={`h-5 w-5 mr-3 ${
+                                  registration.checkedOut ? 'text-green-600' : 'text-gray-400'
+                                }`} />
+                                <div>
+                                  <p className={`font-medium ${
+                                    registration.checkedOut ? 'text-green-900' : 'text-gray-900'
+                                  }`}>
+                                    Check-out
+                                  </p>
+                                  <p className={`text-sm ${
+                                    registration.checkedOut ? 'text-green-700' : 'text-gray-600'
+                                  }`}>
+                                    {registration.checkedOut 
+                                      ? (isClient ? `Realizado em ${registration.checkOutTime?.toLocaleString('pt-BR')}` : 'Realizado')
+                                      : `Automático às ${times.endTimeStr}`
+                                    }
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Certificate Action */}
-                        {registration.checkedOut && !registration.certificateGenerated && (
-                          <div className="pt-4">
-                            <button
-                              onClick={generateCertificate}
-                              disabled={actionLoading}
-                              className="btn-primary"
-                            >
-                              <Award className="h-4 w-4 mr-2" />
-                              {actionLoading ? 'Gerando...' : 'Gerar Certificado'}
-                            </button>
-                          </div>
-                        )}
+                          {/* Certificate Action */}
+                          {registration.checkedOut && !registration.certificateGenerated && (
+                            <div className="pt-4">
+                              <button
+                                onClick={generateCertificate}
+                                disabled={actionLoading}
+                                className="btn-primary"
+                              >
+                                <Award className="h-4 w-4 mr-2" />
+                                {actionLoading ? 'Gerando...' : 'Gerar Certificado'}
+                              </button>
+                            </div>
+                          )}
 
-                        {registration.certificateGenerated && registration.certificateUrl && (
-                          <div className="pt-4">
-                            <a
-                              href={registration.certificateUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="btn-primary"
-                            >
-                              <FileDown className="h-4 w-4 mr-2" />
-                              Baixar Certificado
-                            </a>
-                          </div>
-                        )}
+                          {registration.certificateGenerated && registration.certificateUrl && (
+                            <div className="pt-4">
+                              <a
+                                href={registration.certificateUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-primary"
+                              >
+                                <FileDown className="h-4 w-4 mr-2" />
+                                Baixar Certificado
+                              </a>
+                            </div>
+                          )}
 
-                        {/* Info for non-admin users */}
-                        {!user?.isAdmin && (
+                          {/* Info for non-admin users */}
                           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex items-start">
                               <div className="flex-shrink-0">
@@ -437,14 +470,14 @@ export default function EventDetailsPage() {
                               </div>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* QR Code Section */}
-                {registration && (
+                {/* QR Code Section - Only for registered users */}
+                {registration && !user?.isAdmin && (
                   <div className="card">
                     <div className="card-header">
                       <h3 className="text-lg font-semibold">QR Code do Evento</h3>
@@ -470,7 +503,7 @@ export default function EventDetailsPage() {
                         </button>
                       </div>
                       
-                      {showQR && (
+                      {showQR && isClient && (
                         <div className="mt-6 flex justify-center">
                           <QRCodeGenerator 
                             value={`${window.location.origin}/eventos/${event.id}?reg=${registration.id}`}
@@ -554,8 +587,8 @@ export default function EventDetailsPage() {
                   </div>
                 )}
 
-                {/* Registration Info */}
-                {registration && (
+                {/* Registration Info - Only for registered users */}
+                {registration && !user?.isAdmin && (
                   <div className="card">
                     <div className="card-header">
                       <h3 className="text-lg font-semibold">Sua Inscrição</h3>
@@ -570,7 +603,7 @@ export default function EventDetailsPage() {
                       <div className="text-sm">
                         <span className="text-gray-600">Data da Inscrição:</span>
                         <span className="ml-2 font-medium">
-                          Inscrito em {registration.createdAt.toLocaleDateString('pt-BR')}
+                          {isClient ? `Inscrito em ${registration.createdAt.toLocaleDateString('pt-BR')}` : 'Carregando...'}
                         </span>
                       </div>
                       
