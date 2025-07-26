@@ -154,7 +154,7 @@ export default function AdminCheckinPage() {
     try {
       await updateRegistration(registration.id, {
         checkedIn: false,
-        checkInTime: null,
+        checkInTime: undefined,
       });
 
       // Update local state
@@ -184,7 +184,7 @@ export default function AdminCheckinPage() {
     try {
       await updateRegistration(registration.id, {
         checkedOut: false,
-        checkOutTime: null,
+        checkOutTime: undefined,
       });
 
       // Update local state
