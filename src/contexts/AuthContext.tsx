@@ -4,14 +4,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, googleProvider, db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { isUserAdmin } from '@/lib/firestore';
 import { AuthContextType, User } from '@/types';
 
@@ -51,12 +50,6 @@ const getFirebaseErrorMessage = (error: { code?: string; message?: string }): st
       return 'Email ou senha incorretos. Verifique seus dados e tente novamente.';
     case 'auth/network-request-failed':
       return 'Erro de conexão. Verifique sua internet e tente novamente.';
-    case 'auth/popup-closed-by-user':
-      return 'Login cancelado. Tente novamente.';
-    case 'auth/cancelled-popup-request':
-      return 'Apenas uma janela de login pode estar aberta por vez.';
-    case 'auth/popup-blocked':
-      return 'Popup bloqueado pelo navegador. Permita popups e tente novamente.';
     default:
       if (errorCode.includes('auth/')) {
         return 'Erro na autenticação. Tente novamente ou entre em contato com o suporte.';
@@ -128,18 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const userData = await createUserDocument(result.user);
-      setUser(userData);
-    } catch (error) {
-      console.error('Error signing in with Google:', error);
-      const friendlyMessage = getFirebaseErrorMessage(error as { code?: string; message?: string });
-      throw new Error(friendlyMessage);
-    }
-  };
-
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
@@ -194,7 +175,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signUp,
-    signInWithGoogle,
     signOut,
   };
 
