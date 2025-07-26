@@ -11,56 +11,34 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
+  DocumentData,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { User, Event, Registration, Certificate } from '@/types';
+import { Event, Registration, User } from '@/types';
 
-// Collections
-export const COLLECTIONS = {
+const COLLECTIONS = {
   USERS: 'users',
   EVENTS: 'events',
   REGISTRATIONS: 'registrations',
-  CERTIFICATES: 'certificates',
 } as const;
 
-// User functions
-export const createUser = async (userData: Omit<User, 'createdAt'>) => {
-  const userRef = doc(db, COLLECTIONS.USERS, userData.uid);
-  await updateDoc(userRef, {
-    ...userData,
-    createdAt: serverTimestamp(),
-  });
-};
-
-export const getUser = async (uid: string): Promise<User | null> => {
-  const userRef = doc(db, COLLECTIONS.USERS, uid);
-  const userSnap = await getDoc(userRef);
-  
-  if (userSnap.exists()) {
-    const data = userSnap.data();
-    return {
-      ...data,
-      createdAt: data.createdAt?.toDate() || new Date(),
-    } as User;
-  }
-  
-  return null;
-};
-
+// Admin email check
 export const isUserAdmin = (email: string): boolean => {
-  const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+  const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',') || [];
   return adminEmails.includes(email);
 };
 
-// Event functions
+// Event CRUD operations
 export const createEvent = async (eventData: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>) => {
   const eventsRef = collection(db, COLLECTIONS.EVENTS);
-  const docRef = await addDoc(eventsRef, {
+  const newEvent = {
     ...eventData,
     date: Timestamp.fromDate(eventData.date),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+  
+  const docRef = await addDoc(eventsRef, newEvent);
   return docRef.id;
 };
 
@@ -72,8 +50,11 @@ export const getEvent = async (eventId: string): Promise<Event | null> => {
     const data = eventSnap.data();
     return {
       id: eventSnap.id,
-      ...data,
-      date: data.date?.toDate() || new Date(),
+      name: data.name,
+      description: data.description,
+      date: data.date.toDate(),
+      location: data.location,
+      createdBy: data.createdBy,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     } as Event;
@@ -89,8 +70,11 @@ export const getAllEvents = async (): Promise<Event[]> => {
   
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
-    ...doc.data(),
-    date: doc.data().date?.toDate() || new Date(),
+    name: doc.data().name,
+    description: doc.data().description,
+    date: doc.data().date.toDate(),
+    location: doc.data().location,
+    createdBy: doc.data().createdBy,
     createdAt: doc.data().createdAt?.toDate() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate() || new Date(),
   })) as Event[];
@@ -98,7 +82,7 @@ export const getAllEvents = async (): Promise<Event[]> => {
 
 export const updateEvent = async (eventId: string, eventData: Partial<Event>) => {
   const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
-  const updateData: any = {
+  const updateData: DocumentData = {
     ...eventData,
     updatedAt: serverTimestamp(),
   };
@@ -111,17 +95,29 @@ export const updateEvent = async (eventId: string, eventData: Partial<Event>) =>
 };
 
 export const deleteEvent = async (eventId: string) => {
+  // First, delete all registrations for this event
+  const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
+  const q = query(registrationsRef, where('eventId', '==', eventId));
+  const querySnapshot = await getDocs(q);
+  
+  // Delete all registrations
+  const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+  await Promise.all(deletePromises);
+  
+  // Then delete the event
   const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
   await deleteDoc(eventRef);
 };
 
-// Registration functions
-export const createRegistration = async (registrationData: Omit<Registration, 'id' | 'registeredAt'>) => {
+// Registration CRUD operations
+export const createRegistration = async (registrationData: Omit<Registration, 'id' | 'createdAt'>) => {
   const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
-  const docRef = await addDoc(registrationsRef, {
+  const newRegistration = {
     ...registrationData,
-    registeredAt: serverTimestamp(),
-  });
+    createdAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(registrationsRef, newRegistration);
   return docRef.id;
 };
 
@@ -132,6 +128,7 @@ export const getRegistration = async (eventId: string, userId: string): Promise<
     where('eventId', '==', eventId),
     where('userId', '==', userId)
   );
+  
   const querySnapshot = await getDocs(q);
   
   if (!querySnapshot.empty) {
@@ -139,8 +136,15 @@ export const getRegistration = async (eventId: string, userId: string): Promise<
     const data = doc.data();
     return {
       id: doc.id,
-      ...data,
-      registeredAt: data.registeredAt?.toDate() || new Date(),
+      eventId: data.eventId,
+      userId: data.userId,
+      userEmail: data.userEmail,
+      userName: data.userName,
+      userCPF: data.userCPF,
+      checkedIn: data.checkedIn,
+      checkedOut: data.checkedOut,
+      certificateGenerated: data.certificateGenerated,
+      createdAt: data.createdAt?.toDate() || new Date(),
       checkInTime: data.checkInTime?.toDate(),
       checkOutTime: data.checkOutTime?.toDate(),
     } as Registration;
@@ -151,17 +155,20 @@ export const getRegistration = async (eventId: string, userId: string): Promise<
 
 export const getEventRegistrations = async (eventId: string): Promise<Registration[]> => {
   const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
-  const q = query(
-    registrationsRef,
-    where('eventId', '==', eventId),
-    orderBy('registeredAt', 'desc')
-  );
+  const q = query(registrationsRef, where('eventId', '==', eventId));
   const querySnapshot = await getDocs(q);
   
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
-    ...doc.data(),
-    registeredAt: doc.data().registeredAt?.toDate() || new Date(),
+    eventId: doc.data().eventId,
+    userId: doc.data().userId,
+    userEmail: doc.data().userEmail,
+    userName: doc.data().userName,
+    userCPF: doc.data().userCPF,
+    checkedIn: doc.data().checkedIn,
+    checkedOut: doc.data().checkedOut,
+    certificateGenerated: doc.data().certificateGenerated,
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
     checkInTime: doc.data().checkInTime?.toDate(),
     checkOutTime: doc.data().checkOutTime?.toDate(),
   })) as Registration[];
@@ -169,7 +176,7 @@ export const getEventRegistrations = async (eventId: string): Promise<Registrati
 
 export const updateRegistration = async (registrationId: string, data: Partial<Registration>) => {
   const registrationRef = doc(db, COLLECTIONS.REGISTRATIONS, registrationId);
-  const updateData: any = { ...data };
+  const updateData: DocumentData = { ...data };
   
   if (data.checkInTime) {
     updateData.checkInTime = Timestamp.fromDate(data.checkInTime);
@@ -182,14 +189,25 @@ export const updateRegistration = async (registrationId: string, data: Partial<R
   await updateDoc(registrationRef, updateData);
 };
 
-// Certificate functions
-export const createCertificate = async (certificateData: Omit<Certificate, 'id' | 'generatedAt'>) => {
-  const certificatesRef = collection(db, COLLECTIONS.CERTIFICATES);
-  const docRef = await addDoc(certificatesRef, {
-    ...certificateData,
-    eventDate: Timestamp.fromDate(certificateData.eventDate),
-    generatedAt: serverTimestamp(),
-  });
-  return docRef.id;
+// User operations
+export const getUserRegistrations = async (userId: string): Promise<Registration[]> => {
+  const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
+  const q = query(registrationsRef, where('userId', '==', userId));
+  const querySnapshot = await getDocs(q);
+  
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    eventId: doc.data().eventId,
+    userId: doc.data().userId,
+    userEmail: doc.data().userEmail,
+    userName: doc.data().userName,
+    userCPF: doc.data().userCPF,
+    checkedIn: doc.data().checkedIn,
+    checkedOut: doc.data().checkedOut,
+    certificateGenerated: doc.data().certificateGenerated,
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    checkInTime: doc.data().checkInTime?.toDate(),
+    checkOutTime: doc.data().checkOutTime?.toDate(),
+  })) as Registration[];
 };
 

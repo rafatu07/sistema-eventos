@@ -24,8 +24,6 @@ import {
   Award,
   QrCode,
   FileDown,
-  ChevronDown,
-  ChevronUp,
   Edit,
   Download
 } from 'lucide-react';
