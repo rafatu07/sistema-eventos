@@ -107,54 +107,6 @@ export default function EventDetailsPage() {
     }
   };
 
-  const handleCheckIn = async () => {
-    if (!registration) return;
-
-    setActionLoading(true);
-    try {
-      await updateRegistration(registration.id, {
-        checkedIn: true,
-        checkInTime: new Date(),
-      });
-
-      setRegistration({
-        ...registration,
-        checkedIn: true,
-        checkInTime: new Date(),
-      });
-
-    } catch (error) {
-      console.error('Error during check-in:', error);
-      setError('Erro ao fazer check-in');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCheckOut = async () => {
-    if (!registration) return;
-
-    setActionLoading(true);
-    try {
-      await updateRegistration(registration.id, {
-        checkedOut: true,
-        checkOutTime: new Date(),
-      });
-
-      setRegistration({
-        ...registration,
-        checkedOut: true,
-        checkOutTime: new Date(),
-      });
-
-    } catch (error) {
-      console.error('Error during check-out:', error);
-      setError('Erro ao fazer check-out');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const generateCertificate = async () => {
     if (!registration || !event) return;
 
@@ -388,31 +340,9 @@ export default function EventDetailsPage() {
                           </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex flex-wrap gap-3 pt-4">
-                          {!registration.checkedIn && (
-                            <button
-                              onClick={handleCheckIn}
-                              disabled={actionLoading}
-                              className="btn-primary"
-                            >
-                              <UserCheck className="h-4 w-4 mr-2" />
-                              {actionLoading ? 'Processando...' : 'Fazer Check-in'}
-                            </button>
-                          )}
-
-                          {registration.checkedIn && !registration.checkedOut && (
-                            <button
-                              onClick={handleCheckOut}
-                              disabled={actionLoading}
-                              className="btn-primary"
-                            >
-                              <LogOut className="h-4 w-4 mr-2" />
-                              {actionLoading ? 'Processando...' : 'Fazer Check-out'}
-                            </button>
-                          )}
-
-                          {registration.checkedOut && !registration.certificateGenerated && (
+                        {/* Certificate Action */}
+                        {registration.checkedOut && !registration.certificateGenerated && (
+                          <div className="pt-4">
                             <button
                               onClick={generateCertificate}
                               disabled={actionLoading}
@@ -421,9 +351,11 @@ export default function EventDetailsPage() {
                               <Award className="h-4 w-4 mr-2" />
                               {actionLoading ? 'Gerando...' : 'Gerar Certificado'}
                             </button>
-                          )}
+                          </div>
+                        )}
 
-                          {registration.certificateGenerated && registration.certificateUrl && (
+                        {registration.certificateGenerated && registration.certificateUrl && (
+                          <div className="pt-4">
                             <a
                               href={registration.certificateUrl}
                               target="_blank"
@@ -433,8 +365,28 @@ export default function EventDetailsPage() {
                               <FileDown className="h-4 w-4 mr-2" />
                               Baixar Certificado
                             </a>
-                          )}
-                        </div>
+                          </div>
+                        )}
+
+                        {/* Info for non-admin users */}
+                        {!user?.isAdmin && (
+                          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0">
+                                <UserCheck className="h-5 w-5 text-blue-600 mt-0.5" />
+                              </div>
+                              <div className="ml-3">
+                                <h4 className="text-sm font-medium text-blue-900">
+                                  Check-in e Check-out
+                                </h4>
+                                <p className="text-sm text-blue-700 mt-1">
+                                  O check-in e check-out serão realizados por um organizador do evento no local. 
+                                  Você pode acompanhar o status aqui.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
