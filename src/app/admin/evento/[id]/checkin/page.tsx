@@ -492,4 +492,3 @@ export default function AdminCheckinPage() {
     </ProtectedRoute>
   );
 } 
-} 
