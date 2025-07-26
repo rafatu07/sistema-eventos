@@ -1,41 +1,40 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
+import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { 
   getEvent, 
   getRegistration, 
+  getEventRegistrations, 
   createRegistration, 
-  updateRegistration,
-  getEventRegistrations 
+  updateRegistration 
 } from '@/lib/firestore';
 import { Event, Registration } from '@/types';
 import { 
-  Calendar, 
   MapPin, 
   Clock, 
-  Users, 
   UserPlus, 
   UserCheck, 
-  LogOut,
+  LogOut, 
   Award,
-  Edit,
-  Download,
   QrCode,
-  FileDown
+  FileDown,
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  Download
 } from 'lucide-react';
 import Link from 'next/link';
-import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 
 export default function EventDetailsPage() {
   const params = useParams();
-  const router = useRouter();
-  const eventId = params.id as string;
   const { user } = useAuth();
+  const eventId = params.id as string;
   
   const [event, setEvent] = useState<Event | null>(null);
   const [registration, setRegistration] = useState<Registration | null>(null);

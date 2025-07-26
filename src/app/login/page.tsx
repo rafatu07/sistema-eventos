@@ -34,8 +34,8 @@ export default function LoginPage() {
       } else {
         await signUp(email, password, displayName);
       }
-    } catch (error: any) {
-      setError(error.message || 'Ocorreu um erro inesperado. Tente novamente.');
+    } catch (error) {
+      setError((error as Error).message || 'Ocorreu um erro inesperado. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -47,8 +47,8 @@ export default function LoginPage() {
 
     try {
       await signInWithGoogle();
-    } catch (error: any) {
-      setError(error.message || 'Erro ao fazer login com Google. Tente novamente.');
+    } catch (error) {
+      setError((error as Error).message || 'Erro ao fazer login com Google. Tente novamente.');
     } finally {
       setLoading(false);
     }

@@ -51,8 +51,8 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
       }
 
       router.push('/dashboard');
-    } catch (error: any) {
-      setError(error.message || 'Ocorreu um erro. Tente novamente.');
+    } catch (error) {
+      setError((error as Error).message || 'Ocorreu um erro. Tente novamente.');
     } finally {
       setLoading(false);
     }

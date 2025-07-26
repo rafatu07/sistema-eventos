@@ -9,7 +9,6 @@ import {
   onAuthStateChanged,
   updateProfile,
   User as FirebaseUser,
-  AuthError,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from '@/lib/firebase';
@@ -27,7 +26,7 @@ export const useAuth = () => {
 };
 
 // Função para traduzir erros do Firebase para mensagens amigáveis
-const getFirebaseErrorMessage = (error: any): string => {
+const getFirebaseErrorMessage = (error: { code?: string; message?: string }): string => {
   const errorCode = error?.code || '';
   
   switch (errorCode) {
@@ -106,9 +105,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithEmailAndPassword(auth, email, password);
       const userData = await createUserDocument(result.user);
       setUser(userData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing in:', error);
-      const friendlyMessage = getFirebaseErrorMessage(error);
+      const friendlyMessage = getFirebaseErrorMessage(error as { code?: string; message?: string });
       throw new Error(friendlyMessage);
     }
   };
@@ -122,9 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const userData = await createUserDocument(result.user);
       setUser(userData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing up:', error);
-      const friendlyMessage = getFirebaseErrorMessage(error);
+      const friendlyMessage = getFirebaseErrorMessage(error as { code?: string; message?: string });
       throw new Error(friendlyMessage);
     }
   };
@@ -134,9 +133,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithPopup(auth, googleProvider);
       const userData = await createUserDocument(result.user);
       setUser(userData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing in with Google:', error);
-      const friendlyMessage = getFirebaseErrorMessage(error);
+      const friendlyMessage = getFirebaseErrorMessage(error as { code?: string; message?: string });
       throw new Error(friendlyMessage);
     }
   };
@@ -147,9 +146,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       // Limpar login temporário se existir
       localStorage.removeItem('tempLogin');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing out:', error);
-      const friendlyMessage = getFirebaseErrorMessage(error);
+      const friendlyMessage = getFirebaseErrorMessage(error as { code?: string; message?: string });
       throw new Error(friendlyMessage);
     }
   };

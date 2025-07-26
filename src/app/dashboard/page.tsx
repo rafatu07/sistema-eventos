@@ -18,9 +18,7 @@ import {
   BarChart3,
   Link as LinkIcon,
   Trash2,
-  ExternalLink,
   Check,
-  Copy,
   AlertTriangle,
   X
 } from 'lucide-react';
@@ -212,7 +210,7 @@ export default function DashboardPage() {
     };
   };
 
-  const copyPublicLink = async (eventId: string, eventName: string) => {
+  const copyPublicLink = async (eventId: string) => {
     const publicUrl = `${window.location.origin}/public/evento/${eventId}`;
     
     try {
@@ -225,7 +223,7 @@ export default function DashboardPage() {
         setShowToast(false);
         setCopiedLink(null);
       }, 3000);
-    } catch (error) {
+    } catch {
       // Fallback para browsers que não suportam clipboard API
       const textArea = document.createElement('textarea');
       textArea.value = publicUrl;
@@ -279,8 +277,7 @@ export default function DashboardPage() {
         setShowToast(false);
       }, 3000);
 
-    } catch (error) {
-      console.error('Error deleting event:', error);
+    } catch {
       alert('Erro ao excluir evento. Tente novamente.');
     } finally {
       setDeletingEvent(null);
@@ -508,7 +505,7 @@ export default function DashboardPage() {
                             {/* Botões secundários */}
                             <div className="grid grid-cols-2 gap-2">
                               <button
-                                onClick={() => copyPublicLink(event.id, event.name)}
+                                onClick={() => copyPublicLink(event.id)}
                                 className={`btn-outline text-xs flex items-center justify-center transition-all ${
                                   linkCopied ? 'bg-green-50 border-green-300 text-green-700' : ''
                                 }`}

@@ -6,7 +6,7 @@ import { createRegistration, isUserAdmin } from '@/lib/firestore';
 import { PublicRegistrationData } from '@/types';
 
 // Função para traduzir erros do Firebase para mensagens amigáveis
-const getFirebaseErrorMessage = (error: any): string => {
+const getFirebaseErrorMessage = (error: { code?: string; message?: string }): string => {
   const errorCode = error?.code || '';
   
   switch (errorCode) {
@@ -31,7 +31,7 @@ const getFirebaseErrorMessage = (error: any): string => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { eventId, name, email, cpf, phone }: { eventId: string } & PublicRegistrationData = body;
+    const { eventId, name, email, cpf }: { eventId: string } & PublicRegistrationData = body;
 
     if (!eventId || !name || !email || !cpf) {
       return NextResponse.json(
@@ -101,9 +101,11 @@ export async function POST(request: NextRequest) {
         tempPassword: tempPassword, // Para login automático
       });
 
-    } catch (authError: any) {
+    } catch (authError) {
+      const error = authError as { code?: string; message?: string };
+      
       // Se usuário já existe, apenas criar inscrição
-      if (authError.code === 'auth/email-already-in-use') {
+      if (error.code === 'auth/email-already-in-use') {
         try {
           // Verificar se usuário existe no Firestore
           const usersRef = collection(db, 'users');
@@ -160,16 +162,16 @@ export async function POST(request: NextRequest) {
         }
       } else {
         // Outros erros de autenticação
-        const friendlyMessage = getFirebaseErrorMessage(authError);
+        const friendlyMessage = getFirebaseErrorMessage(error);
         throw new Error(friendlyMessage);
       }
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in public registration:', error);
     
     // Se já é uma mensagem amigável, usar ela
-    const errorMessage = error.message || 'Erro interno do servidor. Tente novamente.';
+    const errorMessage = (error as Error).message || 'Erro interno do servidor. Tente novamente.';
     
     return NextResponse.json(
       { error: errorMessage },
