@@ -24,7 +24,8 @@ import {
   Award,
   QrCode,
   FileDown,
-  Edit
+  Edit,
+  Download
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -38,9 +39,11 @@ export default function EventDetailsPage() {
   const [allRegistrations, setAllRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
   const [error, setError] = useState('');
   const [showQR, setShowQR] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Garantir que a formatação de datas aconteça apenas no cliente
   useEffect(() => {
@@ -147,7 +150,11 @@ export default function EventDetailsPage() {
   const generateCertificate = async () => {
     if (!registration || !event) return;
 
+    // Limpar mensagens anteriores
+    setError('');
+    setSuccessMessage('');
     setActionLoading(true);
+    
     try {
       const response = await fetch('/api/generate-certificate', {
         method: 'POST',
@@ -184,6 +191,90 @@ export default function EventDetailsPage() {
       setError('Erro ao gerar certificado');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const downloadParticipantsList = async () => {
+    if (!event || !user?.isAdmin) return;
+
+    // Limpar mensagens anteriores
+    setError('');
+    setSuccessMessage('');
+    setDownloadLoading(true);
+    
+    try {
+      // Buscar lista completa de registrations
+      const registrations = await getEventRegistrations(event.id);
+      
+      if (registrations.length === 0) {
+        setError('Não há participantes inscritos neste evento');
+        return;
+      }
+      
+      // Preparar dados para CSV
+      const csvData = registrations.map(reg => ({
+        'Nome': reg.userName,
+        'Email': reg.userEmail,
+        'CPF': reg.userCPF || 'Não informado',
+        'Data da Inscrição': isClient ? reg.createdAt.toLocaleDateString('pt-BR') : 'N/A',
+        'Check-in Realizado': reg.checkedIn ? 'Sim' : 'Não',
+        'Data do Check-in': reg.checkedIn && reg.checkInTime && isClient 
+          ? reg.checkInTime.toLocaleString('pt-BR') 
+          : 'N/A',
+        'Check-out Realizado': reg.checkedOut ? 'Sim' : 'Não',
+        'Data do Check-out': reg.checkedOut && reg.checkOutTime && isClient 
+          ? reg.checkOutTime.toLocaleString('pt-BR') 
+          : 'N/A',
+        'Certificado Gerado': reg.certificateGenerated ? 'Sim' : 'Não',
+      }));
+
+      // Gerar CSV com cabeçalho de informações do evento
+      const eventInfo = [
+        `"Evento: ${event.name}"`,
+        `"Descrição: ${event.description}"`,
+        `"Data: ${times.dateStr}"`,
+        `"Horário: ${times.fullTimeStr}"`,
+        `"Local: ${event.location}"`,
+        `"Total de Participantes: ${registrations.length}"`,
+        `"Relatório gerado em: ${isClient ? new Date().toLocaleString('pt-BR') : new Date().toISOString()}"`,
+        '', // Linha em branco
+      ];
+
+      const headers = Object.keys(csvData[0] || {});
+      const csvContent = [
+        ...eventInfo,
+        headers.join(','),
+        ...csvData.map(row => 
+          headers.map(header => `"${row[header as keyof typeof row] || ''}"`).join(',')
+        )
+      ].join('\n');
+
+      // Adicionar BOM para UTF-8 (para o Excel reconhecer acentos)
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        const fileName = `participantes_${event.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.setAttribute('href', url);
+        link.setAttribute('download', fileName);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+      
+      // Mostrar mensagem de sucesso
+      setSuccessMessage(`Lista de participantes baixada com sucesso! (${registrations.length} participantes)`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+      
+    } catch (error) {
+      console.error('Error downloading participants list:', error);
+      setError('Erro ao baixar lista de participantes');
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -286,6 +377,44 @@ export default function EventDetailsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center">
+                  <Download className="h-5 w-5 text-green-600 mr-2" />
+                  <p className="text-green-800 font-medium">{successMessage}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-red-800 font-medium">{error}</p>
+                  </div>
+                  <div className="ml-auto pl-3">
+                    <div className="-mx-1.5 -my-1.5">
+                      <button
+                        onClick={() => setError('')}
+                        className="inline-flex bg-red-50 rounded-md p-1.5 text-red-500 hover:bg-red-100"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="px-4 sm:px-0">
@@ -306,7 +435,7 @@ export default function EventDetailsPage() {
                           Gerenciamento do Evento
                         </h4>
                         <p className="text-gray-600 mb-6">
-                          Use os botões abaixo para editar o evento ou gerenciar check-ins dos participantes.
+                          Use os botões abaixo para editar o evento, gerenciar check-ins dos participantes ou baixar a lista de inscritos.
                         </p>
                         
                         <div className="flex flex-wrap justify-center gap-4">
@@ -325,6 +454,20 @@ export default function EventDetailsPage() {
                             <UserCheck className="h-4 w-4 mr-2" />
                             Gerenciar Check-in
                           </Link>
+
+                          <button
+                            onClick={downloadParticipantsList}
+                            disabled={downloadLoading || allRegistrations.length === 0}
+                            className="btn-outline flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={allRegistrations.length === 0 ? "Nenhum participante inscrito" : "Baixar lista de participantes"}
+                          >
+                            {downloadLoading ? (
+                              <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2" />
+                            ) : (
+                              <Download className="h-4 w-4 mr-2" />
+                            )}
+                            {downloadLoading ? 'Gerando...' : 'Baixar Lista'}
+                          </button>
                         </div>
                       </div>
                     </div>
