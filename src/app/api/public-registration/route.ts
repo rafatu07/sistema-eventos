@@ -251,28 +251,27 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const duration = Date.now() - startTime;
+    const errorMessage = (error as Error).message || 'Erro interno do servidor. Tente novamente.';
+    
     logError('Erro no registro público', error as Error, {
       identifier,
-      duration,
-      eventId: body?.eventId
+      duration
     });
     
     // Log de auditoria para falha
-    if (body?.eventId) {
-      logAudit(AuditAction.REGISTER, identifier, false, {
-        eventId: body.eventId,
-        error: (error as Error).message
-      });
-    }
-    
-    // Se já é uma mensagem amigável, usar ela
-    const errorMessage = (error as Error).message || 'Erro interno do servidor. Tente novamente.';
+    logAudit(AuditAction.REGISTER, identifier, false, {
+      error: errorMessage
+    });
     
     return NextResponse.json(
       { error: errorMessage },
       { 
         status: 500,
-        headers: createRateLimitHeaders(rateLimitResult)
+        headers: createRateLimitHeaders({
+          limit: RATE_LIMIT_CONFIGS.PUBLIC_REGISTRATION.maxRequests,
+          remaining: 0,
+          resetTime: Date.now() + RATE_LIMIT_CONFIGS.PUBLIC_REGISTRATION.windowMs
+        })
       }
     );
   }

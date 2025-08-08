@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
     const pdfBuffer = Buffer.from(pdfBytes);
 
     // Upload PDF to Cloudinary
-    const certificateUrl = await uploadPDFToCloudinary(pdfBuffer, `certificate_${userId}_${eventId}`);
+    const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_${userId}_${eventId}`);
+    const certificateUrl = uploadResult.secureUrl;
 
     logInfo('Certificado enviado para Cloudinary', { 
       userId, 
@@ -126,7 +127,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: createRateLimitHeaders({
+          limit: RATE_LIMIT_CONFIGS.CERTIFICATE.maxRequests,
+          remaining: 0,
+          resetTime: Date.now() + RATE_LIMIT_CONFIGS.CERTIFICATE.windowMs
+        })
+      }
     );
   }
 }
