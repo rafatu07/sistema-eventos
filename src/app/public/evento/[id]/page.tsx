@@ -6,6 +6,7 @@ import { getEvent } from '@/lib/firestore';
 import { Event } from '@/types';
 import { Loading } from '@/components/Loading';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
+import { validateCPF, validateEmail, validateFullName, formatCPF } from '@/lib/validators';
 import { 
   Calendar, 
   MapPin, 
@@ -77,14 +78,10 @@ export default function PublicEventPage() {
   };
 
   const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-    
+    const formattedCPF = formatCPF(e.target.value);
     setFormData(prev => ({
       ...prev,
-      cpf: value
+      cpf: formattedCPF
     }));
   };
 
@@ -94,9 +91,27 @@ export default function PublicEventPage() {
     setError('');
     setSuccess('');
 
-    // Validações
+    // Validações usando validators centralizados
     if (!formData.name || !formData.email || !formData.cpf || !formData.password) {
       setError('Por favor, preencha todos os campos obrigatórios.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (!validateFullName(formData.name)) {
+      setError('Por favor, digite seu nome completo.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (!validateEmail(formData.email)) {
+      setError('Por favor, digite um email válido.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (!validateCPF(formData.cpf)) {
+      setError('Por favor, digite um CPF válido.');
       setSubmitting(false);
       return;
     }
@@ -109,20 +124,6 @@ export default function PublicEventPage() {
 
     if (formData.password !== formData.confirmPassword) {
       setError('As senhas não coincidem.');
-      setSubmitting(false);
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError('Por favor, digite um email válido.');
-      setSubmitting(false);
-      return;
-    }
-
-    const cpfNumbers = formData.cpf.replace(/\D/g, '');
-    if (cpfNumbers.length !== 11) {
-      setError('Por favor, digite um CPF válido.');
       setSubmitting(false);
       return;
     }

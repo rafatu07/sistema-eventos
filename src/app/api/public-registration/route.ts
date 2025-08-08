@@ -4,6 +4,9 @@ import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { auth, db } from '@/lib/firebase';
 import { createRegistration, isUserAdmin } from '@/lib/firestore';
 import { PublicRegistrationData } from '@/types';
+import { rateLimit, getRequestIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
+import { validateCPF, validateEmail, validateFullName, sanitizeInput } from '@/lib/validators';
+import { logError, logInfo, logAudit, AuditAction } from '@/lib/logger';
 
 // Função para traduzir erros do Firebase para mensagens amigáveis
 const getFirebaseErrorMessage = (error: { code?: string; message?: string }): string => {
@@ -29,6 +32,26 @@ const getFirebaseErrorMessage = (error: { code?: string; message?: string }): st
 };
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const identifier = getRequestIdentifier(request);
+  
+  // Rate limiting
+  const rateLimitResult = rateLimit(identifier, RATE_LIMIT_CONFIGS.PUBLIC_REGISTRATION);
+  if (!rateLimitResult.success) {
+    logInfo('Rate limit excedido para registro público', { 
+      identifier, 
+      retryAfter: rateLimitResult.retryAfter 
+    });
+    
+    return NextResponse.json(
+      { error: 'Muitas tentativas de registro. Tente novamente em alguns minutos.' },
+      { 
+        status: 429,
+        headers: createRateLimitHeaders(rateLimitResult)
+      }
+    );
+  }
+
   try {
     const body = await request.json();
     const { eventId, name, email, cpf, password }: { 
@@ -36,36 +59,53 @@ export async function POST(request: NextRequest) {
       password: string; 
     } & Omit<PublicRegistrationData, 'phone'> = body;
 
+    logInfo('Tentativa de registro público', { eventId, email: email?.substring(0, 3) + '***' });
+
+    // Validação de campos obrigatórios
     if (!eventId || !name || !email || !cpf || !password) {
+      logInfo('Campos obrigatórios faltando no registro público');
       return NextResponse.json(
         { error: 'Por favor, preencha todos os campos obrigatórios.' },
-        { status: 400 }
+        { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
       );
     }
 
-    // Validação básica de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Sanitizar inputs
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedEmail = sanitizeInput(email.toLowerCase());
+    const sanitizedCPF = sanitizeInput(cpf);
+
+    // Validações robustas
+    if (!validateEmail(sanitizedEmail)) {
+      logInfo('Email inválido no registro público', { email: sanitizedEmail });
       return NextResponse.json(
         { error: 'Email inválido. Verifique se digitou corretamente.' },
-        { status: 400 }
+        { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
       );
     }
 
-    // Validação básica de CPF (deve ter 11 dígitos)
-    const cpfNumbers = cpf.replace(/\D/g, '');
-    if (cpfNumbers.length !== 11) {
+    if (!validateFullName(sanitizedName)) {
+      logInfo('Nome inválido no registro público');
       return NextResponse.json(
-        { error: 'CPF inválido. Deve conter 11 dígitos.' },
-        { status: 400 }
+        { error: 'Por favor, digite seu nome completo.' },
+        { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
+      );
+    }
+
+    if (!validateCPF(sanitizedCPF)) {
+      logInfo('CPF inválido no registro público');
+      return NextResponse.json(
+        { error: 'CPF inválido. Verifique se digitou corretamente.' },
+        { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
       );
     }
 
     // Validação de senha
     if (password.length < 6) {
+      logInfo('Senha muito fraca no registro público');
       return NextResponse.json(
         { error: 'A senha deve ter pelo menos 6 caracteres.' },
-        { status: 400 }
+        { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
       );
     }
 
@@ -101,11 +141,28 @@ export async function POST(request: NextRequest) {
 
       const registrationId = await createRegistration(registrationData);
 
+      // Log de auditoria para novo usuário
+      logAudit(AuditAction.REGISTER, firebaseUser.uid, true, {
+        eventId,
+        email: sanitizedEmail,
+        registrationId
+      });
+
+      const duration = Date.now() - startTime;
+      logInfo('Registro público realizado com sucesso', {
+        userId: firebaseUser.uid,
+        eventId,
+        registrationId,
+        duration
+      });
+
       return NextResponse.json({
         success: true,
         message: 'Inscrição realizada com sucesso! Você receberá acesso ao seu dashboard.',
         userId: firebaseUser.uid,
         registrationId: registrationId,
+      }, {
+        headers: createRateLimitHeaders(rateLimitResult)
       });
 
     } catch (authError) {
@@ -153,12 +210,30 @@ export async function POST(request: NextRequest) {
 
             const registrationId = await createRegistration(registrationData);
 
+            // Log de auditoria para usuário existente
+            logAudit(AuditAction.REGISTRATION_CREATE, userId, true, {
+              eventId,
+              email: sanitizedEmail,
+              registrationId,
+              existingUser: true
+            });
+
+            const duration = Date.now() - startTime;
+            logInfo('Registro público realizado para usuário existente', {
+              userId,
+              eventId,
+              registrationId,
+              duration
+            });
+
             return NextResponse.json({
               success: true,
               message: 'Inscrição realizada com sucesso! Faça login com sua conta existente.',
               userId: userId,
               registrationId: registrationId,
               existingUser: true,
+            }, {
+              headers: createRateLimitHeaders(rateLimitResult)
             });
           } else {
             throw new Error('Usuário não encontrado no sistema.');
@@ -175,14 +250,30 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error in public registration:', error);
+    const duration = Date.now() - startTime;
+    logError('Erro no registro público', error as Error, {
+      identifier,
+      duration,
+      eventId: body?.eventId
+    });
+    
+    // Log de auditoria para falha
+    if (body?.eventId) {
+      logAudit(AuditAction.REGISTER, identifier, false, {
+        eventId: body.eventId,
+        error: (error as Error).message
+      });
+    }
     
     // Se já é uma mensagem amigável, usar ela
     const errorMessage = (error as Error).message || 'Erro interno do servidor. Tente novamente.';
     
     return NextResponse.json(
       { error: errorMessage },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: createRateLimitHeaders(rateLimitResult)
+      }
     );
   }
 } 

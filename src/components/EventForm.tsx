@@ -7,6 +7,7 @@ import { createEvent, updateEvent } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, MapPin, FileText, Save, ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { validateTimeRange, validateFutureDate, sanitizeInput } from '@/lib/validators';
 
 interface EventFormProps {
   event?: Event;
@@ -53,23 +54,28 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
         throw new Error('Usuário não autenticado');
       }
 
-      // Validar se horário de término é depois do horário de início
-      if (formData.startTime >= formData.endTime) {
-        throw new Error('O horário de término deve ser posterior ao horário de início');
-      }
-
       // Combinar data com horários para criar Date objects completos
       const eventDate = new Date(formData.date);
       const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
       const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
 
+      // Validar se horário de término é depois do horário de início
+      if (!validateTimeRange(startDateTime, endDateTime)) {
+        throw new Error('O horário de término deve ser posterior ao horário de início');
+      }
+
+      // Validar se a data do evento é futura (apenas para novos eventos)
+      if (!isEditing && !validateFutureDate(startDateTime)) {
+        throw new Error('A data do evento deve ser futura');
+      }
+
       const eventData = {
-        name: formData.name,
-        description: formData.description,
+        name: sanitizeInput(formData.name),
+        description: sanitizeInput(formData.description),
         date: eventDate,
         startTime: startDateTime,
         endTime: endDateTime,
-        location: formData.location,
+        location: sanitizeInput(formData.location),
         createdBy: user.uid,
       };
 
