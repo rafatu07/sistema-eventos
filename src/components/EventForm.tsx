@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Event, EventFormData } from '@/types';
+import { Event } from '@/types';
 import { createEvent, updateEvent } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, MapPin, FileText, Save, ArrowLeft, Clock } from 'lucide-react';

@@ -21,9 +21,10 @@ export function Providers({ children }: ProvidersProps) {
             // Tempo que os dados ficam no cache
             gcTime: 5 * 60 * 1000, // 5 minutos (substitui cacheTime)
             // Retry automático em caso de erro
-            retry: (failureCount, error: any) => {
+            retry: (failureCount, error: unknown) => {
               // Não fazer retry para erros 4xx (cliente)
-              if (error?.status >= 400 && error?.status < 500) {
+              const errorWithStatus = error as { status?: number };
+              if (errorWithStatus?.status && errorWithStatus.status >= 400 && errorWithStatus.status < 500) {
                 return false;
               }
               // Máximo 3 tentativas para outros erros

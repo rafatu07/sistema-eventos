@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ErrorBoundary, ErrorFallbackProps } from './ErrorBoundary';
-import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 

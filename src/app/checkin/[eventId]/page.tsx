@@ -31,7 +31,20 @@ export default function QRCheckinPage() {
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [checkInResult, setCheckInResult] = useState<any>(null);
+  const [checkInResult, setCheckInResult] = useState<{
+    success?: boolean;
+    message?: string;
+    eventName?: string;
+    checkInTime?: string;
+    alreadyCheckedIn?: boolean;
+    registration?: {
+      id: string;
+      userName: string;
+      userEmail: string;
+      checkedIn: boolean;
+      checkInTime: Date;
+    };
+  } | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   // Garantir que a formatação de datas aconteça apenas no cliente

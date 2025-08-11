@@ -10,8 +10,7 @@ import {
   getEvent, 
   getRegistration, 
   getEventRegistrations, 
-  createRegistration, 
-  updateRegistration 
+  createRegistration
 } from '@/lib/firestore';
 import { Event, Registration } from '@/types';
 import { 

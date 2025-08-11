@@ -21,7 +21,7 @@ export function useAsyncError() {
 /**
  * Hook para executar funções assíncronas com tratamento automático de erro
  */
-export function useAsyncErrorHandler<T extends (...args: any[]) => Promise<any>>(
+export function useAsyncErrorHandler<T extends (...args: unknown[]) => Promise<unknown>>(
   asyncFunction: T,
   dependencies: React.DependencyList = []
 ): [T, { loading: boolean; error: Error | null; clearError: () => void }] {

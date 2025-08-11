@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 
 /**
  * Hook para gerenciar foco e navegação por teclado

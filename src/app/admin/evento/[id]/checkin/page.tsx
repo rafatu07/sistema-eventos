@@ -34,7 +34,6 @@ import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 
 export default function AdminCheckinPage() {
   const params = useParams();
-  const { user } = useAuth();
   const eventId = params.id as string;
   
   const [event, setEvent] = useState<Event | null>(null);

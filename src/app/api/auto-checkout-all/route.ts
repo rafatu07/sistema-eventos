@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllEvents, autoCheckoutEventParticipants } from '@/lib/firestore';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // Get all events
     const events = await getAllEvents();

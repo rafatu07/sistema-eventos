@@ -10,7 +10,7 @@ const RATE_LIMITED_ROUTES = {
 } as const;
 
 // Rotas que devem ser protegidas com rate limiting geral
-const PROTECTED_API_ROUTES = ['/api/'];
+// const PROTECTED_API_ROUTES = ['/api/'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

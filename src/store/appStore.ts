@@ -125,7 +125,7 @@ type AppStore = AppState & AppActions;
 // === STORE ===
 export const useAppStore = create<AppStore>()(
   persist(
-    immer((set, get) => ({
+    immer((set) => ({
       // === ESTADO INICIAL ===
       user: null,
       isAuthenticated: false,
