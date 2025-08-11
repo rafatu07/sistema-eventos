@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/Loading';
+import { SEOHead } from '@/components/SEOHead';
 import { AlertCircle, Info } from 'lucide-react';
 
 function LoginForm() {
@@ -78,8 +79,17 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <>
+      <SEOHead 
+        title={isLogin ? 'Login - Sistema de Gestão de Eventos' : 'Cadastro - Sistema de Gestão de Eventos'}
+        description={isLogin 
+          ? 'Faça login no Sistema de Gestão de Eventos para acessar sua conta e gerenciar seus eventos.'
+          : 'Crie sua conta no Sistema de Gestão de Eventos e comece a gerenciar eventos de forma eficiente.'
+        }
+        keywords={['login', 'entrar', 'cadastro', 'conta', 'acesso', 'eventos']}
+      />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             {isLogin ? 'Entre na sua conta' : 'Crie sua conta'}
@@ -207,8 +217,9 @@ function LoginForm() {
             </button>
           </div>
         </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

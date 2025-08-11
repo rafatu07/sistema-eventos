@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { getEvent } from '@/lib/firestore';
 import { Event } from '@/types';
 import { Loading } from '@/components/Loading';
-import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { validateCPF, validateEmail, validateFullName, formatCPF } from '@/lib/validators';
 import { 
   Calendar, 
@@ -30,7 +29,6 @@ export default function PublicEventPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showQR, setShowQR] = useState(false);
   const [isClient, setIsClient] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -288,74 +286,50 @@ export default function PublicEventPage() {
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Event Info */}
-          <div className="space-y-8">
+          <div className="flex flex-col">
             {/* Event Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-8 text-white shadow-lg">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-8 text-white shadow-lg mb-8">
               <h1 className="text-4xl font-bold mb-4">{event.name}</h1>
               <p className="text-blue-100 text-xl leading-relaxed">{event.description}</p>
             </div>
 
-            {/* Event Details */}
-            <div className="card">
-              <div className="card-content">
-                <div className="space-y-8">
+            {/* Event Details - Mesmo tamanho que o card do formulário */}
+            <div className="card flex-1">
+              <div className="card-content h-full flex flex-col justify-center">
+                <div className="space-y-12">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center mr-6">
-                      <Calendar className="h-8 w-8 text-blue-600" />
+                    <div className="flex-shrink-0 w-20 h-20 bg-blue-100 rounded-xl flex items-center justify-center mr-8">
+                      <Calendar className="h-10 w-10 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Data</h3>
-                      <p className="text-gray-700 text-lg">{times.dateStr}</p>
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-3">Data</h3>
+                      <p className="text-gray-700 text-xl font-medium">{times.dateStr}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mr-6">
-                      <Clock className="h-8 w-8 text-green-600" />
+                    <div className="flex-shrink-0 w-20 h-20 bg-green-100 rounded-xl flex items-center justify-center mr-8">
+                      <Clock className="h-10 w-10 text-green-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Horário</h3>
-                      <div className="text-gray-700 text-lg space-y-1">
-                        <p>Início: <span className="font-medium">{times.startTimeStr}</span></p>
-                        <p>Término: <span className="font-medium">{times.endTimeStr}</span></p>
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-3">Horário</h3>
+                      <div className="text-gray-700 text-xl space-y-2">
+                        <p>Início: <span className="font-semibold">{times.startTimeStr}</span></p>
+                        <p>Término: <span className="font-semibold">{times.endTimeStr}</span></p>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 w-16 h-16 bg-purple-100 rounded-xl flex items-center justify-center mr-6">
-                      <MapPin className="h-8 w-8 text-purple-600" />
+                    <div className="flex-shrink-0 w-20 h-20 bg-purple-100 rounded-xl flex items-center justify-center mr-8">
+                      <MapPin className="h-10 w-10 text-purple-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Local</h3>
-                      <p className="text-gray-700 text-lg">{event.location}</p>
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-3">Local</h3>
+                      <p className="text-gray-700 text-xl font-medium">{event.location}</p>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* QR Code Section */}
-            <div className="card">
-              <div className="card-content">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">QR Code do Evento</h3>
-                  <button
-                    onClick={() => setShowQR(!showQR)}
-                    className="btn-outline"
-                  >
-                    {showQR ? 'Ocultar' : 'Mostrar'} QR Code
-                  </button>
-                </div>
-                
-                {showQR && isClient && (
-                  <div className="flex justify-center pt-4">
-                    <QRCodeGenerator 
-                      value={window.location.href}
-                      size={200}
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </div>

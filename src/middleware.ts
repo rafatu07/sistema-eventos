@@ -5,6 +5,7 @@ import { rateLimit, getRequestIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHea
 const RATE_LIMITED_ROUTES = {
   '/api/public-registration': RATE_LIMIT_CONFIGS.PUBLIC_REGISTRATION,
   '/api/generate-certificate': RATE_LIMIT_CONFIGS.CERTIFICATE,
+  '/api/qr-checkin': RATE_LIMIT_CONFIGS.GENERAL,
   '/api/auth': RATE_LIMIT_CONFIGS.AUTH,
 } as const;
 

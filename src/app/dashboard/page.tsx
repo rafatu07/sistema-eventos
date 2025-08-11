@@ -227,7 +227,7 @@ export default function DashboardPage() {
                       </p>
                       <p className="text-2xl font-bold text-gray-900">
                         {user.isAdmin 
-                          ? userEvents.filter(e => e.date > new Date()).length
+                          ? userEvents.filter(e => e.endTime > new Date()).length
                           : userRegistrations.filter(r => r.checkedIn).length
                         }
                       </p>
@@ -246,7 +246,7 @@ export default function DashboardPage() {
                       </p>
                       <p className="text-2xl font-bold text-gray-900">
                         {user.isAdmin 
-                          ? userEvents.filter(e => e.date < new Date()).length
+                          ? userEvents.filter(e => e.endTime <= new Date()).length
                           : userRegistrations.filter(r => r.certificateGenerated).length
                         }
                       </p>
@@ -339,31 +339,39 @@ export default function DashboardPage() {
                           </div>
                         )}
                         
-                        <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
+                          {/* Botão principal - Gerenciar/Ver Detalhes */}
                           <Link
                             href={`/eventos/${event.id}`}
-                            className="btn-primary flex-1 text-center"
+                            className="btn-primary w-full text-center flex items-center justify-center"
                           >
+                            <Edit className="h-4 w-4 mr-2" />
                             {user.isAdmin ? 'Gerenciar Evento' : 'Ver Detalhes'}
                           </Link>
                           
                           {user.isAdmin && (
                             <>
+                              {/* Botão de Link Público - Mesmo tamanho */}
                               <button
                                 onClick={() => copyPublicLink(event.id)}
-                                className="btn-outline flex items-center justify-center px-3"
-                                title="Copiar link público"
+                                className="btn-outline w-full flex items-center justify-center text-blue-600 border-blue-300 hover:bg-blue-50"
+                                title="Copiar link de inscrição pública"
                               >
-                                <LinkIcon className="h-4 w-4" />
+                                <LinkIcon className="h-4 w-4 mr-2" />
+                                Link de Inscrição Pública
                               </button>
                               
-                              <button
-                                onClick={() => handleDeleteEvent(event)}
-                                className="btn-outline flex items-center justify-center px-3 text-red-600 border-red-300 hover:bg-red-50"
-                                title="Excluir evento"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              {/* Botão de deletar - Menor */}
+                              <div className="flex justify-end">
+                                <button
+                                  onClick={() => handleDeleteEvent(event)}
+                                  className="btn-outline flex items-center justify-center px-3 py-1 text-red-600 border-red-300 hover:bg-red-50 text-xs"
+                                  title="Excluir evento"
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Excluir
+                                </button>
+                              </div>
                             </>
                           )}
                         </div>
@@ -380,7 +388,10 @@ export default function DashboardPage() {
       {/* Toast Notification */}
       {showToast && (
         <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-          <p className="text-sm font-medium">Link copiado para área de transferência!</p>
+          <div className="flex items-center">
+            <LinkIcon className="h-4 w-4 mr-2" />
+            <p className="text-sm font-medium">Link de inscrição pública copiado!</p>
+          </div>
         </div>
       )}
 

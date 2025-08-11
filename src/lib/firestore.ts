@@ -10,9 +10,15 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
+  endBefore,
+  limitToLast,
   Timestamp,
   serverTimestamp,
   DocumentData,
+  DocumentSnapshot,
+  QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Event, Registration } from '@/types';
@@ -22,6 +28,53 @@ const COLLECTIONS = {
   EVENTS: 'events',
   REGISTRATIONS: 'registrations',
 } as const;
+
+// Interfaces para paginação
+export interface PaginationOptions {
+  limit?: number;
+  startAfterDoc?: QueryDocumentSnapshot;
+  endBeforeDoc?: QueryDocumentSnapshot;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  totalCount?: number;
+  firstDoc?: QueryDocumentSnapshot;
+  lastDoc?: QueryDocumentSnapshot;
+}
+
+// Cache simples para consultas
+const queryCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos
+
+function getCachedResult<T>(cacheKey: string): T | null {
+  const cached = queryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+  queryCache.delete(cacheKey);
+  return null;
+}
+
+function setCachedResult<T>(cacheKey: string, data: T): void {
+  queryCache.set(cacheKey, { data, timestamp: Date.now() });
+}
+
+function invalidateCache(pattern?: string): void {
+  if (pattern) {
+    // Remove entradas específicas do cache
+    for (const key of queryCache.keys()) {
+      if (key.includes(pattern)) {
+        queryCache.delete(key);
+      }
+    }
+  } else {
+    // Limpa todo o cache
+    queryCache.clear();
+  }
+}
 
 // Admin email check
 export const isUserAdmin = (email: string): boolean => {
@@ -42,6 +95,10 @@ export const createEvent = async (eventData: Omit<Event, 'id' | 'createdAt' | 'u
   };
   
   const docRef = await addDoc(eventsRef, newEvent);
+  
+  // Invalidar cache de eventos
+  invalidateCache('events');
+  
   return docRef.id;
 };
 
@@ -68,12 +125,17 @@ export const getEvent = async (eventId: string): Promise<Event | null> => {
   return null;
 };
 
+// Versão original (mantida para compatibilidade)
 export const getAllEvents = async (): Promise<Event[]> => {
+  const cacheKey = 'all-events';
+  const cached = getCachedResult<Event[]>(cacheKey);
+  if (cached) return cached;
+
   const eventsRef = collection(db, COLLECTIONS.EVENTS);
   const q = query(eventsRef, orderBy('date', 'desc'));
   const querySnapshot = await getDocs(q);
   
-  return querySnapshot.docs.map(doc => ({
+  const events = querySnapshot.docs.map(doc => ({
     id: doc.id,
     name: doc.data().name,
     description: doc.data().description,
@@ -85,6 +147,59 @@ export const getAllEvents = async (): Promise<Event[]> => {
     createdAt: doc.data().createdAt?.toDate() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate() || new Date(),
   })) as Event[];
+
+  setCachedResult(cacheKey, events);
+  return events;
+};
+
+// Versão paginada otimizada
+export const getEventsPaginated = async (
+  options: PaginationOptions = {}
+): Promise<PaginatedResult<Event>> => {
+  const { limit: pageLimit = 10, startAfterDoc, endBeforeDoc } = options;
+  const cacheKey = `events-paginated-${pageLimit}-${startAfterDoc?.id || 'start'}-${endBeforeDoc?.id || 'end'}`;
+  
+  const cached = getCachedResult<PaginatedResult<Event>>(cacheKey);
+  if (cached) return cached;
+
+  const eventsRef = collection(db, COLLECTIONS.EVENTS);
+  let q = query(eventsRef, orderBy('date', 'desc'), limit(pageLimit + 1)); // +1 para verificar se há próxima página
+
+  if (startAfterDoc) {
+    q = query(eventsRef, orderBy('date', 'desc'), startAfter(startAfterDoc), limit(pageLimit + 1));
+  } else if (endBeforeDoc) {
+    q = query(eventsRef, orderBy('date', 'desc'), endBefore(endBeforeDoc), limitToLast(pageLimit + 1));
+  }
+
+  const querySnapshot = await getDocs(q);
+  const docs = querySnapshot.docs;
+  
+  const hasNextPage = docs.length > pageLimit;
+  const hasPreviousPage = !!startAfterDoc || !!endBeforeDoc;
+  
+  const events = docs.slice(0, pageLimit).map(doc => ({
+    id: doc.id,
+    name: doc.data().name,
+    description: doc.data().description,
+    date: doc.data().date.toDate(),
+    startTime: doc.data().startTime.toDate(),
+    endTime: doc.data().endTime.toDate(),
+    location: doc.data().location,
+    createdBy: doc.data().createdBy,
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+  })) as Event[];
+
+  const result: PaginatedResult<Event> = {
+    items: events,
+    hasNextPage,
+    hasPreviousPage,
+    firstDoc: docs[0],
+    lastDoc: docs[pageLimit - 1],
+  };
+
+  setCachedResult(cacheKey, result);
+  return result;
 };
 
 export const updateEvent = async (eventId: string, eventData: Partial<Event>) => {
@@ -107,6 +222,10 @@ export const updateEvent = async (eventId: string, eventData: Partial<Event>) =>
   }
   
   await updateDoc(eventRef, updateData);
+  
+  // Invalidar cache de eventos
+  invalidateCache('events');
+  invalidateCache(`event-${eventId}`);
 };
 
 export const deleteEvent = async (eventId: string) => {
@@ -122,6 +241,11 @@ export const deleteEvent = async (eventId: string) => {
   // Then delete the event
   const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
   await deleteDoc(eventRef);
+  
+  // Invalidar cache
+  invalidateCache('events');
+  invalidateCache(`event-${eventId}`);
+  invalidateCache('registrations');
 };
 
 // Registration CRUD operations

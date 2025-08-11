@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
-import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { 
   getEvent, 
   getRegistration, 
@@ -22,12 +21,15 @@ import {
   UserCheck, 
   LogOut, 
   Award,
-  QrCode,
   FileDown,
   Edit,
-  Download
+  Download,
+  QrCode,
+  Copy,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
+import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 
 export default function EventDetailsPage() {
   const params = useParams();
@@ -41,9 +43,10 @@ export default function EventDetailsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showQR, setShowQR] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeCopied, setQrCodeCopied] = useState(false);
 
   // Garantir que a formatação de datas aconteça apenas no cliente
   useEffect(() => {
@@ -278,6 +281,23 @@ export default function EventDetailsPage() {
     }
   };
 
+  const copyCheckinLink = async () => {
+    if (!event) return;
+    
+    const checkinUrl = `${window.location.origin}/checkin/${event.id}`;
+    
+    try {
+      await navigator.clipboard.writeText(checkinUrl);
+      setQrCodeCopied(true);
+      
+      setTimeout(() => {
+        setQrCodeCopied(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Failed to copy checkin link:', error);
+    }
+  };
+
   const formatEventTimes = (event: Event) => {
     if (!isClient) {
       // Durante o SSR, retorna valores seguros que não variam
@@ -468,9 +488,89 @@ export default function EventDetailsPage() {
                             )}
                             {downloadLoading ? 'Gerando...' : 'Baixar Lista'}
                           </button>
+
+                          <button
+                            onClick={() => setShowQRCode(!showQRCode)}
+                            className="btn-outline flex items-center text-purple-600 border-purple-300 hover:bg-purple-50"
+                          >
+                            <QrCode className="h-4 w-4 mr-2" />
+                            {showQRCode ? 'Ocultar QR Code' : 'Mostrar QR Code'}
+                          </button>
                         </div>
                       </div>
                     </div>
+
+                    {/* QR Code Section */}
+                    {showQRCode && (
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <div className="text-center">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                            QR Code para Check-in
+                          </h4>
+                          <p className="text-gray-600 mb-6">
+                            Os participantes podem escanear este QR Code para fazer check-in automaticamente no evento.
+                          </p>
+                          
+                          {event && (
+                            <div className="flex flex-col items-center space-y-4">
+                              <QRCodeGenerator 
+                                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/checkin/${event.id}`}
+                                size={200}
+                                title=""
+                              />
+                              
+                              <div className="flex flex-col sm:flex-row gap-3">
+                                <button
+                                  onClick={copyCheckinLink}
+                                  className="btn-outline flex items-center"
+                                >
+                                  {qrCodeCopied ? (
+                                    <>
+                                      <UserCheck className="h-4 w-4 mr-2 text-green-600" />
+                                      Link Copiado!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="h-4 w-4 mr-2" />
+                                      Copiar Link
+                                    </>
+                                  )}
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    const checkinUrl = `${window.location.origin}/checkin/${event.id}`;
+                                    if (navigator.share) {
+                                      navigator.share({
+                                        title: `Check-in: ${event.name}`,
+                                        text: `Faça check-in no evento: ${event.name}`,
+                                        url: checkinUrl,
+                                      });
+                                    }
+                                  }}
+                                  className="btn-outline flex items-center"
+                                >
+                                  <Share2 className="h-4 w-4 mr-2" />
+                                  Compartilhar
+                                </button>
+                              </div>
+                              
+                              <div className="max-w-md mx-auto">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                                  <strong>Instruções:</strong>
+                                  <ul className="mt-2 space-y-1 list-disc list-inside">
+                                    <li>Mostre este QR Code para os participantes escanearem</li>
+                                    <li>Os participantes precisam estar logados para fazer check-in</li>
+                                    <li>Check-in ficará disponível 30 minutos antes do evento</li>
+                                    <li>O link também pode ser compartilhado diretamente</li>
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* User View */
@@ -618,45 +718,6 @@ export default function EventDetailsPage() {
                     </div>
                   </div>
                 )}
-
-                {/* QR Code Section - Only for registered users */}
-                {registration && !user?.isAdmin && (
-                  <div className="card">
-                    <div className="card-header">
-                      <h3 className="text-lg font-semibold">QR Code do Evento</h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Use este QR Code para acesso rápido ao evento
-                      </p>
-                    </div>
-                    
-                    <div className="card-content">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <QrCode className="h-5 w-5 text-gray-600 mr-3" />
-                          <span className="text-sm text-gray-700">
-                            QR Code personalizado para sua inscrição
-                          </span>
-                        </div>
-                        
-                        <button
-                          onClick={() => setShowQR(!showQR)}
-                          className="btn-outline"
-                        >
-                          {showQR ? 'Ocultar' : 'Mostrar'} QR Code
-                        </button>
-                      </div>
-                      
-                      {showQR && isClient && (
-                        <div className="mt-6 flex justify-center">
-                          <QRCodeGenerator 
-                            value={`${window.location.origin}/eventos/${event.id}?reg=${registration.id}`}
-                            size={200}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Sidebar */}
@@ -764,6 +825,16 @@ export default function EventDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification for QR Code Link */}
+      {qrCodeCopied && (
+        <div className="fixed bottom-4 right-4 bg-purple-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          <div className="flex items-center">
+            <QrCode className="h-4 w-4 mr-2" />
+            <p className="text-sm font-medium">Link de check-in via QR Code copiado!</p>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }

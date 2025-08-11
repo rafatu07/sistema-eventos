@@ -6,24 +6,38 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "build:analyze": "ANALYZE=true npm run build",
+    "build:production": "NODE_ENV=production npm run build",
+    "preview": "npm run build && npm run start",
+    "clean": "rimraf .next out dist",
+    "deps:update": "npm update && npm audit fix",
+    "deps:check": "npm outdated"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.1",
     "@tanstack/react-query": "^5.84.1",
     "@tanstack/react-query-devtools": "^5.84.1",
     "@types/qrcode": "^1.5.5",
     "cloudinary": "^2.7.0",
     "firebase": "^12.0.0",
+    "immer": "^10.1.1",
     "lucide-react": "^0.525.0",
     "next": "15.4.4",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-qr-code": "^2.0.18"
+    "react-hook-form": "^7.62.0",
+    "react-qr-code": "^2.0.18",
+    "zod": "^4.0.17",
+    "zustand": "^5.0.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@svgr/webpack": "^8.1.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -32,6 +46,7 @@
     "eslint-config-next": "15.4.4",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.14",
-    "typescript": "^5"
+    "typescript": "^5",
+    "webpack-bundle-analyzer": "^4.10.2"
   }
 }
