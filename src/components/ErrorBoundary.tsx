@@ -67,7 +67,7 @@ export class ErrorBoundary extends Component<Props, State> {
     this.reportError(error, errorInfo);
   }
 
-  componentDidUpdate(prevProps: Props) {
+  override componentDidUpdate(prevProps: Props) {
     const { resetKeys, resetOnPropsChange } = this.props;
     const { hasError } = this.state;
 
