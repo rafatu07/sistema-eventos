@@ -173,7 +173,7 @@ export function usePreloadOnHover<T>(
 // Componente para lazy loading de rotas
 export function LazyRoute({ 
   children, 
-  preload = false 
+  preload: _preload = false 
 }: { 
   children: React.ReactNode;
   preload?: boolean;

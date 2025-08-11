@@ -15,7 +15,7 @@ import {
   createRegistration,
   updateRegistration
 } from './firestore';
-import { Event, Registration, EventFormData } from '@/types';
+import { Event, Registration } from '@/types';
 import { logError, logInfo } from './logger';
 
 // Chaves de query organizadas

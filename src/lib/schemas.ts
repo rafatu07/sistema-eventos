@@ -135,7 +135,7 @@ export const eventSchema = z
           
           // Permitir data atual ou futura
           return eventDateLocal >= todayLocal;
-        } catch (error) {
+        } catch {
           return false;
         }
       }, 'Data não pode ser passada'),
@@ -284,8 +284,8 @@ export function getFieldErrors<T>(schema: z.ZodSchema<T>, data: unknown) {
 }
 
 // Função para sanitizar dados antes da validação
-export function sanitizeFormData(data: Record<string, any>): Record<string, any> {
-  const sanitized: Record<string, any> = {};
+export function sanitizeFormData(data: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
   
   for (const [key, value] of Object.entries(data)) {
     if (typeof value === 'string') {

@@ -135,7 +135,7 @@ export function useFieldValidation<TFormData extends FieldValues>(
   const [isValidating, setIsValidating] = React.useState(false);
 
   const validateField = React.useCallback(
-    async (value: any, allData?: Partial<TFormData>) => {
+    async (value: unknown, allData?: Partial<TFormData>) => {
       setIsValidating(true);
       
       try {
@@ -158,7 +158,7 @@ export function useFieldValidation<TFormData extends FieldValues>(
             setError(result.success ? null : result.error.issues[0]?.message || 'Erro de validação');
           }
         }
-      } catch (err) {
+      } catch {
         setError('Erro durante validação');
       } finally {
         setIsValidating(false);
@@ -190,7 +190,7 @@ export function useDebouncedValidation<T>(
         try {
           const validationError = await validationFn(value);
           setError(validationError);
-        } catch (err) {
+        } catch {
           setError('Erro durante validação');
         } finally {
           setIsValidating(false);

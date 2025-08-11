@@ -57,7 +57,7 @@ export interface LogEntry {
   action?: AuditAction;
   ipAddress?: string;
   userAgent?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   stackTrace?: string;
 }
 
@@ -65,7 +65,7 @@ export interface AuditLogEntry extends LogEntry {
   action: AuditAction;
   userId: string;
   success: boolean;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 class LoggerService {
@@ -82,7 +82,7 @@ class LoggerService {
   /**
    * Log básico
    */
-  log(level: LogLevel, message: string, metadata?: Record<string, any>): void {
+  log(level: LogLevel, message: string, metadata?: Record<string, unknown>): void {
     const entry: LogEntry = {
       id: this.generateLogId(),
       timestamp: new Date().toISOString(),
@@ -97,7 +97,7 @@ class LoggerService {
   /**
    * Log de erro com stack trace
    */
-  error(message: string, error?: Error, metadata?: Record<string, any>): void {
+  error(message: string, error?: Error, metadata?: Record<string, unknown>): void {
     const entry: LogEntry = {
       id: this.generateLogId(),
       timestamp: new Date().toISOString(),
@@ -118,21 +118,21 @@ class LoggerService {
   /**
    * Log de aviso
    */
-  warn(message: string, metadata?: Record<string, any>): void {
+  warn(message: string, metadata?: Record<string, unknown>): void {
     this.log(LogLevel.WARN, message, metadata);
   }
 
   /**
    * Log de informação
    */
-  info(message: string, metadata?: Record<string, any>): void {
+  info(message: string, metadata?: Record<string, unknown>): void {
     this.log(LogLevel.INFO, message, metadata);
   }
 
   /**
    * Log de debug (apenas em desenvolvimento)
    */
-  debug(message: string, metadata?: Record<string, any>): void {
+  debug(message: string, metadata?: Record<string, unknown>): void {
     if (this.isDevelopment) {
       this.log(LogLevel.DEBUG, message, metadata);
     }
@@ -145,7 +145,7 @@ class LoggerService {
     action: AuditAction,
     userId: string,
     success: boolean,
-    details?: Record<string, any>
+    details?: Record<string, unknown>
   ): void {
     const entry: AuditLogEntry = {
       id: this.generateLogId(),
@@ -173,7 +173,7 @@ class LoggerService {
     statusCode: number,
     userId?: string,
     duration?: number,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     const entry: LogEntry = {
       id: this.generateLogId(),
@@ -200,7 +200,7 @@ class LoggerService {
     identifier: string,
     endpoint: string,
     limit: number,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     this.audit(
       AuditAction.API_RATE_LIMIT,
@@ -361,19 +361,19 @@ class LoggerService {
 export const Logger = new LoggerService();
 
 // Helpers para uso mais fácil
-export const logError = (message: string, error?: Error, metadata?: Record<string, any>) => {
+export const logError = (message: string, error?: Error, metadata?: Record<string, unknown>) => {
   Logger.error(message, error, metadata);
 };
 
-export const logWarn = (message: string, metadata?: Record<string, any>) => {
+export const logWarn = (message: string, metadata?: Record<string, unknown>) => {
   Logger.warn(message, metadata);
 };
 
-export const logInfo = (message: string, metadata?: Record<string, any>) => {
+export const logInfo = (message: string, metadata?: Record<string, unknown>) => {
   Logger.info(message, metadata);
 };
 
-export const logDebug = (message: string, metadata?: Record<string, any>) => {
+export const logDebug = (message: string, metadata?: Record<string, unknown>) => {
   Logger.debug(message, metadata);
 };
 
@@ -381,7 +381,7 @@ export const logAudit = (
   action: AuditAction,
   userId: string,
   success: boolean,
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ) => {
   Logger.audit(action, userId, success, details);
 };
@@ -392,7 +392,7 @@ export const logApiAccess = (
   statusCode: number,
   userId?: string,
   duration?: number,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) => {
   Logger.apiAccess(method, path, statusCode, userId, duration, metadata);
 };

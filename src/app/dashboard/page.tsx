@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [userRegistrations, setUserRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [, setCopiedLink] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{

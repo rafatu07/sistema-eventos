@@ -8,7 +8,7 @@ import {
   PaginationOptions,
   PaginatedResult
 } from '@/lib/firestore';
-import { Event, EventFormData } from '@/types';
+import { Event } from '@/types';
 
 // Hook para eventos paginados
 export function useEventsPaginated(options: PaginationOptions = {}) {

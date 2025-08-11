@@ -294,14 +294,16 @@ User Agent: ${navigator.userAgent}
 
 // Hook para usar ErrorBoundary de forma declarativa
 export function useErrorHandler() {
-  return (error: Error) => {
-    // Re-throw em um useEffect para que seja capturado pelo ErrorBoundary
-    React.useEffect(() => {
-      if (error) {
-        throw error;
-      }
-    }, [error]);
-  };
+  const [error, setError] = React.useState<Error | null>(null);
+  
+  // Re-throw em um useEffect para que seja capturado pelo ErrorBoundary
+  React.useEffect(() => {
+    if (error) {
+      throw error;
+    }
+  }, [error]);
+
+  return setError;
 }
 
 // HOC para envolver componentes automaticamente

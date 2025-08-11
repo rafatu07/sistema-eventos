@@ -17,7 +17,7 @@ import {
   Timestamp,
   serverTimestamp,
   DocumentData,
-  DocumentSnapshot,
+  // DocumentSnapshot,
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -46,13 +46,13 @@ export interface PaginatedResult<T> {
 }
 
 // Cache simples para consultas
-const queryCache = new Map<string, { data: any; timestamp: number }>();
+const queryCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos
 
 function getCachedResult<T>(cacheKey: string): T | null {
   const cached = queryCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.data;
+    return cached.data as T;
   }
   queryCache.delete(cacheKey);
   return null;
@@ -272,6 +272,7 @@ export const getRegistration = async (eventId: string, userId: string): Promise<
   
   if (!querySnapshot.empty) {
     const doc = querySnapshot.docs[0];
+    if (!doc) return null;
     const data = doc.data();
     return {
       id: doc.id,
