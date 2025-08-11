@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm, UseFormProps, UseFormReturn, FieldValues, Path, Resolver } from 'react-hook-form';
+import { useForm, UseFormProps, UseFormReturn, FieldValues, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z, ZodTypeAny } from 'zod';
 import { useNotifications } from '@/components/NotificationSystem';
@@ -35,6 +35,7 @@ export function useValidatedForm<TFormData extends FieldValues>({
   const notifications = useNotifications();
   
   const form = useForm<TFormData>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema as any) as any,
     mode: 'onChange', // Validar ao alterar
     reValidateMode: 'onChange',

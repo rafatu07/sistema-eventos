@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAllEvents, autoCheckoutEventParticipants } from '@/lib/firestore';
 
 export async function POST() {
