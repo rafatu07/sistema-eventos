@@ -9,7 +9,7 @@ interface QRCodeGeneratorProps {
   title?: string;
 }
 
-export const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({ 
+const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({ 
   value, 
   size = 256, 
   title = 'QR Code' 
@@ -31,4 +31,10 @@ export const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
     </div>
   );
 };
+
+// Exportação padrão para lazy loading
+export default QRCodeGenerator;
+
+// Exportação nomeada para compatibilidade
+export { QRCodeGenerator };
 
