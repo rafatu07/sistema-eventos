@@ -273,29 +273,21 @@ export function useUpdateRegistration() {
   return useMutation({
     mutationFn: async ({ 
       registrationId, 
-      data, 
-      eventId: _eventId, 
-      userId: _userId 
+      data 
     }: { 
       registrationId: string; 
       data: Partial<Registration>;
-      eventId: string;
-      userId: string;
     }) => {
       logInfo(`Atualizando registro ${registrationId}`);
       await updateRegistration(registrationId, data);
       logInfo(`Registro ${registrationId} atualizado com sucesso`);
     },
-    onSuccess: (_, { eventId, userId }) => {
-      // Invalidar caches relacionados
+    onSuccess: () => {
+      // Invalidar todos os caches de registrations para garantir sincronização
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.userRegistrations(userId) 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.eventRegistrations(eventId) 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.registration(eventId, userId) 
+        predicate: (query) => 
+          query.queryKey.includes('registrations') || 
+          query.queryKey.includes('registration')
       });
       logInfo('Cache de registros invalidado após atualização');
     },

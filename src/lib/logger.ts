@@ -111,7 +111,7 @@ class LoggerService {
     
     // Em produção, enviar para serviço de monitoramento
     if (!this.isDevelopment) {
-      this.sendToMonitoringService(entry);
+      this.sendToMonitoringService();
     }
   }
 
@@ -230,7 +230,7 @@ class LoggerService {
     
     // Salvar em arquivo ou banco se necessário
     if (this.isServer) {
-      this.persistLog(entry);
+      this.persistLog();
     }
   }
 
@@ -240,7 +240,7 @@ class LoggerService {
   private writeAuditLog(entry: AuditLogEntry): void {
     // Em produção, salvar logs de auditoria em local seguro
     if (!this.isDevelopment && this.isServer) {
-      this.persistAuditLog(entry);
+      this.persistAuditLog();
     }
   }
 
@@ -275,7 +275,7 @@ class LoggerService {
   /**
    * Persistir log em arquivo ou banco de dados
    */
-  private async persistLog(_entry: LogEntry): Promise<void> {
+  private async persistLog(): Promise<void> {
     try {
       // Implementar persistência conforme necessário
       // Exemplos: arquivo, banco de dados, serviço externo
@@ -292,7 +292,7 @@ class LoggerService {
   /**
    * Persistir log de auditoria
    */
-  private async persistAuditLog(_entry: AuditLogEntry): Promise<void> {
+  private async persistAuditLog(): Promise<void> {
     try {
       // Salvar logs de auditoria em local seguro
       // Exemplo: banco de dados dedicado, serviço de auditoria
@@ -308,7 +308,7 @@ class LoggerService {
   /**
    * Enviar erros críticos para serviço de monitoramento
    */
-  private async sendToMonitoringService(_entry: LogEntry): Promise<void> {
+  private async sendToMonitoringService(): Promise<void> {
     try {
       // Integrar com serviços como Sentry, LogRocket, etc.
       // fetch('/api/monitoring/error', {
@@ -324,16 +324,7 @@ class LoggerService {
   /**
    * Buscar logs (para dashboard administrativo)
    */
-  async getLogs(
-    _filters: {
-      level?: LogLevel;
-      userId?: string;
-      action?: AuditAction;
-      startDate?: Date;
-      endDate?: Date;
-      limit?: number;
-    } = {}
-  ): Promise<LogEntry[]> {
+  async getLogs(): Promise<LogEntry[]> {
     // Implementar busca em logs persistidos
     // Por enquanto, retorna array vazio
     return [];
@@ -342,15 +333,7 @@ class LoggerService {
   /**
    * Buscar logs de auditoria
    */
-  async getAuditLogs(
-    _filters: {
-      userId?: string;
-      action?: AuditAction;
-      startDate?: Date;
-      endDate?: Date;
-      limit?: number;
-    } = {}
-  ): Promise<AuditLogEntry[]> {
+  async getAuditLogs(): Promise<AuditLogEntry[]> {
     // Implementar busca em logs de auditoria
     // Por enquanto, retorna array vazio
     return [];

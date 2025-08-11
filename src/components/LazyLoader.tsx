@@ -95,7 +95,7 @@ export const LazyQRCodeGenerator = createLazyComponent(
 
 // Observer para lazy loading baseado em visibilidade
 export function useIntersectionObserver<T extends HTMLElement>(
-  ref: React.RefObject<T>,
+  ref: React.RefObject<T | null>,
   options: IntersectionObserverInit = {}
 ) {
   const [isIntersecting, setIsIntersecting] = React.useState(false);
@@ -136,7 +136,7 @@ export function LazyIntersection({
   ...options
 }: LazyLoaderProps & IntersectionObserverInit) {
   const ref = React.useRef<HTMLDivElement>(null);
-  const isVisible = useIntersectionObserver(ref, options);
+  const isVisible = useIntersectionObserver<HTMLDivElement>(ref, options);
 
   return (
     <div ref={ref} className={className}>
@@ -175,11 +175,9 @@ export function usePreloadOnHover<T>(
 
 // Componente para lazy loading de rotas
 export function LazyRoute({ 
-  children, 
-  preload: _preload = false 
+  children
 }: { 
   children: React.ReactNode;
-  preload?: boolean;
 }) {
   return (
     <LazyLoader

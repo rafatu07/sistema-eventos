@@ -1,7 +1,7 @@
 import React from 'react';
-import { useForm, UseFormProps, UseFormReturn, FieldValues, Path } from 'react-hook-form';
+import { useForm, UseFormProps, UseFormReturn, FieldValues, Path, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { z, ZodTypeAny } from 'zod';
 import { useNotifications } from '@/components/NotificationSystem';
 import { sanitizeFormData } from '@/lib/schemas';
 
@@ -35,7 +35,7 @@ export function useValidatedForm<TFormData extends FieldValues>({
   const notifications = useNotifications();
   
   const form = useForm<TFormData>({
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema as any) as any,
     mode: 'onChange', // Validar ao alterar
     reValidateMode: 'onChange',
     ...formOptions,
@@ -123,7 +123,7 @@ export function useValidatedForm<TFormData extends FieldValues>({
     hasFieldError,
     clearErrors,
     setFieldError,
-  };
+  } as UseValidatedFormReturn<TFormData>;
 }
 
 // Hook para validação de campo individual
@@ -153,11 +153,15 @@ export function useFieldValidation<TFormData extends FieldValues>(
         } else {
           // Validação simples do campo individual
           try {
-            const zodObject = schema as any;
-            if (zodObject.shape && zodObject.shape[fieldName]) {
-              const fieldSchema = zodObject.shape[fieldName];
-              const result = fieldSchema.safeParse(value);
-              setError(result.success ? null : result.error.issues[0]?.message || 'Erro de validação');
+            const zodObject = schema as z.ZodObject<Record<string, ZodTypeAny>>;
+            if (zodObject.shape && zodObject.shape[fieldName as string]) {
+              const fieldSchema = zodObject.shape[fieldName as string];
+              if (fieldSchema) {
+                const result = fieldSchema.safeParse(value);
+                setError(result.success ? null : result.error.issues[0]?.message || 'Erro de validação');
+              } else {
+                setError(null);
+              }
             } else {
               setError(null);
             }
