@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { registrationId, eventId, userId: bodyUserId, userName, eventName, eventDate } = body;
+    const { registrationId, eventId, userId: bodyUserId, userName, eventName, eventDate, eventStartTime, eventEndTime } = body;
     userId = bodyUserId;
 
     // Rate limiting baseado no usuário
@@ -58,10 +58,22 @@ export async function POST(request: NextRequest) {
     const sanitizedEventName = sanitizeInput(eventName);
 
     // Generate PDF
+    console.log('Generating PDF with data:', {
+      userName: sanitizedUserName,
+      eventName: sanitizedEventName,
+      eventDate: new Date(eventDate),
+      eventId: eventId,
+      hasStartTime: !!eventStartTime,
+      hasEndTime: !!eventEndTime
+    });
+
     const pdfBytes = await generateCertificatePDF({
       userName: sanitizedUserName,
       eventName: sanitizedEventName,
       eventDate: new Date(eventDate),
+      eventStartTime: eventStartTime ? new Date(eventStartTime) : undefined,
+      eventEndTime: eventEndTime ? new Date(eventEndTime) : undefined,
+      eventId: eventId,
     });
 
     logInfo('PDF gerado com sucesso', { 

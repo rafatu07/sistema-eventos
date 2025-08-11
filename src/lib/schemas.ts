@@ -253,6 +253,75 @@ export type ProfileUpdateFormData = z.infer<typeof profileUpdateSchema>;
 export type PasswordResetFormData = z.infer<typeof passwordResetSchema>;
 export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 export type ContactFormData = z.infer<typeof contactSchema>;
+export type CertificateConfigData = z.infer<typeof certificateConfigSchema>;
+
+// Schema para configuração de certificados
+export const certificateConfigSchema = z.object({
+  // Configurações gerais
+  template: z.enum(['modern', 'classic', 'elegant', 'minimalist']).default('modern'),
+  orientation: z.enum(['landscape', 'portrait']).default('landscape'),
+  
+  // Cores
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato #RRGGBB').default('#2563eb'),
+  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato #RRGGBB').default('#64748b'),
+  backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato #RRGGBB').default('#ffffff'),
+  borderColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato #RRGGBB').default('#e2e8f0'),
+  
+  // Tipografia
+  titleFontSize: z.number().min(16).max(48).default(24),
+  nameFontSize: z.number().min(14).max(36).default(18),
+  bodyFontSize: z.number().min(10).max(20).default(12),
+  fontFamily: z.enum(['helvetica', 'times', 'courier']).default('helvetica'),
+  
+  // Textos personalizáveis
+  title: z.string().min(1).max(100).default('Certificado de Participação'),
+  subtitle: z.string().max(200).optional(),
+  bodyText: z.string().min(10).max(500).default('Certificamos que {userName} participou do evento {eventName}, realizado em {eventDate} das {eventTime}.'),
+  footer: z.string().max(200).optional(),
+  
+  // Posicionamento (percentuais)
+  titlePosition: z.object({
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100)
+  }).default({ x: 50, y: 25 }),
+  namePosition: z.object({
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100)
+  }).default({ x: 50, y: 45 }),
+  bodyPosition: z.object({
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100)
+  }).default({ x: 50, y: 65 }),
+  
+  // Logo
+  logoUrl: z.string().url().optional(),
+  logoSize: z.number().min(20).max(200).default(80),
+  logoPosition: z.object({
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100)
+  }).default({ x: 10, y: 10 }),
+  
+  // Opções avançadas
+  showBorder: z.boolean().default(true),
+  borderWidth: z.number().min(1).max(10).default(2),
+  showWatermark: z.boolean().default(false),
+  watermarkText: z.string().max(50).default('CERTIFICADO'),
+  watermarkOpacity: z.number().min(0.1).max(0.5).default(0.1),
+  
+  // Validação digital
+  includeQRCode: z.boolean().default(false),
+  qrCodeText: z.string().max(200).optional(),
+  qrCodePosition: z.object({
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100)
+  }).default({ x: 85, y: 85 }),
+  
+  // Metadados
+  eventId: z.string(),
+  createdBy: z.string(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+});
 
 // === UTILITÁRIOS DE VALIDAÇÃO ===
 

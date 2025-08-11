@@ -25,7 +25,8 @@ import {
   Download,
   QrCode,
   Copy,
-  Share2
+  Share2,
+  FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
@@ -211,6 +212,8 @@ export default function EventDetailsPage() {
           userName: registration.userName,
           eventName: event.name,
           eventDate: event.date.toISOString(),
+          eventStartTime: event.startTime?.toISOString(),
+          eventEndTime: event.endTime?.toISOString(),
         }),
       });
 
@@ -488,6 +491,14 @@ export default function EventDetailsPage() {
                           >
                             <Edit className="h-4 w-4 mr-2" />
                             Editar Evento
+                          </Link>
+                          
+                          <Link
+                            href={`/dashboard/eventos/${event.id}/certificado`}
+                            className="btn-outline flex items-center text-green-600 border-green-300 hover:bg-green-50"
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            Configurar Certificado
                           </Link>
                           
                           <Link

@@ -73,3 +73,39 @@ export interface PublicRegistrationData {
   password: string;
 }
 
+export interface CertificateConfig {
+  id: string;
+  eventId: string;
+  template: 'modern' | 'classic' | 'elegant' | 'minimalist';
+  orientation: 'landscape' | 'portrait';
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  borderColor: string;
+  titleFontSize: number;
+  nameFontSize: number;
+  bodyFontSize: number;
+  fontFamily: 'helvetica' | 'times' | 'courier';
+  title: string;
+  subtitle?: string;
+  bodyText: string;
+  footer?: string;
+  titlePosition: { x: number; y: number };
+  namePosition: { x: number; y: number };
+  bodyPosition: { x: number; y: number };
+  logoUrl?: string;
+  logoSize: number;
+  logoPosition: { x: number; y: number };
+  showBorder: boolean;
+  borderWidth: number;
+  showWatermark: boolean;
+  watermarkText: string;
+  watermarkOpacity: number;
+  includeQRCode: boolean;
+  qrCodeText?: string;
+  qrCodePosition: { x: number; y: number };
+  createdBy: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+

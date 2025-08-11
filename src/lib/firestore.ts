@@ -21,12 +21,14 @@ import {
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Event, Registration } from '@/types';
+import { Event, Registration, CertificateConfig } from '@/types';
+import { CertificateConfigData } from './schemas';
 
 const COLLECTIONS = {
   USERS: 'users',
   EVENTS: 'events',
   REGISTRATIONS: 'registrations',
+  CERTIFICATE_CONFIGS: 'certificate_configs',
 } as const;
 
 // Interfaces para paginação
