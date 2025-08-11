@@ -239,22 +239,37 @@ export default function QRCheckinPage() {
 
           {/* Login Required */}
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <LogIn className="mx-auto h-16 w-16 text-blue-600 mb-6" />
+            <QrCode className="mx-auto h-16 w-16 text-blue-600 mb-6" />
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Login Necessário
+              Check-in por QR Code
             </h2>
             <p className="text-gray-600 mb-6 leading-relaxed">
-              Para fazer check-in neste evento, você precisa estar logado em sua conta. 
-              Se ainda não tem uma conta, você pode se registrar no evento.
+              Para fazer check-in neste evento via QR Code, você precisa estar logado em sua conta. 
+              Após o login, você será automaticamente redirecionado para confirmar seu check-in.
             </p>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <CheckCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-left">
+                  <p className="font-medium text-blue-900 mb-1">Processo rápido e seguro:</p>
+                  <ul className="text-blue-700 space-y-1 text-sm">
+                    <li>• Faça login com sua conta</li>
+                    <li>• Check-in automático será processado</li>
+                    <li>• Confirmação instantânea</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
                 href={`/login?redirect=${encodeURIComponent(`/checkin/${eventId}`)}`}
-                className="btn-primary flex items-center justify-center"
+                className="btn-primary flex items-center justify-center group"
               >
                 <LogIn className="h-4 w-4 mr-2" />
-                Fazer Login
+                Fazer Login para Check-in
+                <ArrowRight className="h-4 w-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
               </Link>
               
               <Link 
@@ -264,6 +279,12 @@ export default function QRCheckinPage() {
                 <UserCheck className="h-4 w-4 mr-2" />
                 Registrar no Evento
               </Link>
+            </div>
+
+            <div className="mt-6 text-center">
+              <p className="text-xs text-gray-500">
+                Não tem conta? <Link href="/register" className="text-blue-600 hover:text-blue-700 underline">Registre-se aqui</Link>
+              </p>
             </div>
           </div>
         </div>

@@ -29,6 +29,7 @@
     "lucide-react": "^0.525.0",
     "next": "15.4.4",
     "pdf-lib": "^1.17.1",
+    "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",

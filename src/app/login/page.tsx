@@ -22,14 +22,29 @@ function LoginForm() {
 
   useEffect(() => {
     if (user && !authLoading) {
+      const redirectUrl = searchParams.get('redirect');
+      if (redirectUrl) {
+        // Decodificar e validar a URL de redirecionamento
+        try {
+          const decodedUrl = decodeURIComponent(redirectUrl);
+          // Verificar se é uma URL interna válida
+          if (decodedUrl.startsWith('/') && !decodedUrl.startsWith('//')) {
+            router.push(decodedUrl);
+            return;
+          }
+        } catch {
+          // Se houver erro no decode, ir para dashboard
+        }
+      }
       router.push('/dashboard');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, searchParams]);
 
   useEffect(() => {
     // Verificar se há parâmetros de URL para preencher dados
     const emailParam = searchParams.get('email');
     const messageParam = searchParams.get('message');
+    const redirectParam = searchParams.get('redirect');
     
     if (emailParam) {
       setEmail(decodeURIComponent(emailParam));
@@ -37,6 +52,8 @@ function LoginForm() {
     
     if (messageParam) {
       setInfo(decodeURIComponent(messageParam));
+    } else if (redirectParam?.includes('/checkin/')) {
+      setInfo('Faça login para confirmar seu check-in no evento via QR Code');
     }
   }, [searchParams]);
 

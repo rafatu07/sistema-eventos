@@ -14,9 +14,20 @@ import {
   Users, 
   Edit,
   Trash2,
-  Link as LinkIcon
+  Link as LinkIcon,
+  QrCode,
+  Camera,
+  CheckCircle,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+// Dynamic import para o QR Scanner (só carrega quando necessário)
+const QRScanner = dynamic(() => import('@/components/QRScanner'), {
+  ssr: false,
+  loading: () => <div className="text-center p-4">Carregando scanner...</div>
+});
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -35,6 +46,12 @@ export default function DashboardPage() {
   });
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [scanResult, setScanResult] = useState<{
+    success?: boolean;
+    message?: string;
+    eventName?: string;
+  } | null>(null);
 
   // Garantir que a formatação de datas aconteça apenas no cliente
   useEffect(() => {
@@ -102,6 +119,87 @@ export default function DashboardPage() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Funções do QR Scanner
+  const handleQRScan = async (qrCodeData: string) => {
+    try {
+      // Extrair o event ID do QR code (formato: domain/checkin/eventId)
+      const url = new URL(qrCodeData);
+      const pathParts = url.pathname.split('/');
+      
+      if (pathParts[1] !== 'checkin' || !pathParts[2]) {
+        setScanResult({
+          success: false,
+          message: 'QR Code inválido. Certifique-se de que é um QR code de check-in de evento.',
+        });
+        setShowQRScanner(false);
+        return;
+      }
+
+      const eventId = pathParts[2];
+      
+      // Fazer check-in via API
+      const response = await fetch('/api/qr-checkin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          eventId, 
+          userId: user?.uid 
+        }),
+      });
+
+      const data = await response.json();
+
+      setScanResult({
+        success: data.success,
+        message: data.message || (data.success ? 'Check-in realizado com sucesso!' : 'Erro no check-in'),
+        eventName: data.eventName,
+      });
+
+      // Recarregar dados para atualizar o status
+      if (data.success) {
+        const loadData = async () => {
+          setLoading(true);
+          try {
+            if (user?.isAdmin) {
+              const allEvents = await getAllEvents();
+              setEvents(allEvents);
+            }
+            
+            if (user?.uid) {
+              const registrations = await getUserRegistrations(user.uid);
+              setUserRegistrations(registrations);
+            }
+          } catch (error) {
+            console.error('Error loading data:', error);
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        loadData();
+      }
+      
+      setShowQRScanner(false);
+    } catch (error) {
+      console.error('Erro ao processar QR code:', error);
+      setScanResult({
+        success: false,
+        message: 'Erro ao processar QR code. Verifique se é um link válido.',
+      });
+      setShowQRScanner(false);
+    }
+  };
+
+  const closeQRScanner = () => {
+    setShowQRScanner(false);
+  };
+
+  const closeScanResult = () => {
+    setScanResult(null);
   };
 
   const formatEventTimes = (event: Event) => {
@@ -188,15 +286,27 @@ export default function DashboardPage() {
                 </p>
               </div>
               
-              {user.isAdmin && (
-                <Link
-                  href="/dashboard/eventos/novo"
-                  className="btn-primary flex items-center"
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Criar Evento
-                </Link>
-              )}
+              <div className="flex gap-3">
+                {!user.isAdmin && (
+                  <button
+                    onClick={() => setShowQRScanner(true)}
+                    className="btn-primary flex items-center"
+                  >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Check-in com QR Code
+                  </button>
+                )}
+                
+                {user.isAdmin && (
+                  <Link
+                    href="/dashboard/eventos/novo"
+                    className="btn-primary flex items-center"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Criar Evento
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
 
@@ -453,6 +563,55 @@ export default function DashboardPage() {
                 ) : (
                   'Excluir Evento'
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Scanner */}
+      {showQRScanner && (
+        <QRScanner
+          onScan={handleQRScan}
+          onClose={closeQRScanner}
+          isActive={showQRScanner}
+        />
+      )}
+
+      {/* Scan Result Modal */}
+      {scanResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                scanResult.success ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {scanResult.success ? (
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                ) : (
+                  <X className="h-8 w-8 text-red-600" />
+                )}
+              </div>
+              
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {scanResult.success ? 'Check-in Realizado!' : 'Erro no Check-in'}
+              </h3>
+              
+              {scanResult.eventName && (
+                <p className="text-sm text-gray-600 mb-3">
+                  Evento: <span className="font-medium">{scanResult.eventName}</span>
+                </p>
+              )}
+              
+              <p className="text-gray-700 mb-6">
+                {scanResult.message}
+              </p>
+              
+              <button
+                onClick={closeScanResult}
+                className="w-full btn-primary"
+              >
+                Fechar
               </button>
             </div>
           </div>
