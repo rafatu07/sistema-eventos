@@ -27,10 +27,12 @@ import {
   ChevronRight,
   QrCode,
   Share2,
-  Copy
+  Copy,
+  Download
 } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
+import { downloadQRCodePDF } from '@/lib/qr-pdf-generator';
 
 export default function AdminCheckinPage() {
   const params = useParams();
@@ -45,6 +47,7 @@ export default function AdminCheckinPage() {
   const [isClient, setIsClient] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeCopied, setQrCodeCopied] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,6 +254,28 @@ export default function AdminCheckinPage() {
       }, 3000);
     } catch (error) {
       console.error('Failed to copy checkin link:', error);
+    }
+  };
+
+  const generateQRCodePDF = async () => {
+    if (!event) return;
+    
+    setGeneratingPDF(true);
+    
+    try {
+      const qrCodeUrl = `${window.location.origin}/checkin/${event.id}`;
+      const baseUrl = window.location.origin;
+      
+      await downloadQRCodePDF({
+        event,
+        qrCodeUrl,
+        baseUrl
+      });
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar PDF. Tente novamente.');
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -476,6 +501,24 @@ export default function AdminCheckinPage() {
                               >
                                 <Share2 className="h-4 w-4 mr-2" />
                                 Compartilhar
+                              </button>
+
+                              <button
+                                onClick={generateQRCodePDF}
+                                disabled={generatingPDF}
+                                className="btn-outline flex items-center text-green-600 border-green-300 hover:bg-green-50 disabled:opacity-50"
+                              >
+                                {generatingPDF ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin mr-2" />
+                                    Gerando PDF...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Baixar PDF
+                                  </>
+                                )}
                               </button>
                             </div>
                           </div>

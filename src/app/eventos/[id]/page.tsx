@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
+import { downloadQRCodePDF } from '@/lib/qr-pdf-generator';
 
 export default function EventDetailsPage() {
   const params = useParams();
@@ -46,6 +47,7 @@ export default function EventDetailsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeCopied, setQrCodeCopied] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   // Garantir que a formatação de datas aconteça apenas no cliente
   useEffect(() => {
@@ -114,6 +116,45 @@ export default function EventDetailsPage() {
 
     return () => clearInterval(interval);
   }, [event, eventId]);
+
+  const copyCheckinLink = async () => {
+    if (!event) return;
+    
+    const checkinUrl = `${window.location.origin}/checkin/${event.id}`;
+    
+    try {
+      await navigator.clipboard.writeText(checkinUrl);
+      setQrCodeCopied(true);
+      
+      setTimeout(() => {
+        setQrCodeCopied(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Failed to copy checkin link:', error);
+    }
+  };
+
+  const generateQRCodePDF = async () => {
+    if (!event) return;
+    
+    setGeneratingPDF(true);
+    
+    try {
+      const qrCodeUrl = `${window.location.origin}/checkin/${event.id}`;
+      const baseUrl = window.location.origin;
+      
+      await downloadQRCodePDF({
+        event,
+        qrCodeUrl,
+        baseUrl
+      });
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar PDF. Tente novamente.');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
 
   const handleRegister = async () => {
     if (!event || !user || user.isAdmin) return;
@@ -277,23 +318,6 @@ export default function EventDetailsPage() {
       setError('Erro ao baixar lista de participantes');
     } finally {
       setDownloadLoading(false);
-    }
-  };
-
-  const copyCheckinLink = async () => {
-    if (!event) return;
-    
-    const checkinUrl = `${window.location.origin}/checkin/${event.id}`;
-    
-    try {
-      await navigator.clipboard.writeText(checkinUrl);
-      setQrCodeCopied(true);
-      
-      setTimeout(() => {
-        setQrCodeCopied(false);
-      }, 3000);
-    } catch (error) {
-      console.error('Failed to copy checkin link:', error);
     }
   };
 
@@ -551,6 +575,24 @@ export default function EventDetailsPage() {
                                 >
                                   <Share2 className="h-4 w-4 mr-2" />
                                   Compartilhar
+                                </button>
+
+                                <button
+                                  onClick={generateQRCodePDF}
+                                  disabled={generatingPDF}
+                                  className="btn-outline flex items-center text-green-600 border-green-300 hover:bg-green-50 disabled:opacity-50"
+                                >
+                                  {generatingPDF ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin mr-2" />
+                                      Gerando PDF...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Baixar PDF
+                                    </>
+                                  )}
                                 </button>
                               </div>
                               

@@ -160,27 +160,14 @@ export default function DashboardPage() {
       });
 
       // Recarregar dados para atualizar o status
-      if (data.success) {
-        const loadData = async () => {
-          setLoading(true);
-          try {
-            if (user?.isAdmin) {
-              const allEvents = await getAllEvents();
-              setEvents(allEvents);
-            }
-            
-            if (user?.uid) {
-              const registrations = await getUserRegistrations(user.uid);
-              setUserRegistrations(registrations);
-            }
-          } catch (error) {
-            console.error('Error loading data:', error);
-          } finally {
-            setLoading(false);
-          }
-        };
-        
-        loadData();
+      if (data.success && user?.uid) {
+        // Recarregar apenas os registrations do usuário para atualizar o status
+        try {
+          const registrations = await getUserRegistrations(user.uid);
+          setUserRegistrations(registrations);
+        } catch (error) {
+          console.error('Error reloading user registrations:', error);
+        }
       }
       
       setShowQRScanner(false);
@@ -201,6 +188,22 @@ export default function DashboardPage() {
   const closeScanResult = () => {
     setScanResult(null);
   };
+
+  // Função para garantir dados únicos (evitar duplicatas)
+  const getUniqueRegistrations = (registrations: Registration[]): Registration[] => {
+    const unique = new Map();
+    registrations.forEach(reg => {
+      const key = `${reg.eventId}-${reg.userId}`;
+      if (!unique.has(key)) {
+        unique.set(key, reg);
+      }
+    });
+    return Array.from(unique.values());
+  };
+
+  // Calcular estatísticas com dados únicos
+  const uniqueRegistrations = getUniqueRegistrations(userRegistrations);
+  const checkedInCount = uniqueRegistrations.filter(r => r.checkedIn).length;
 
   const formatEventTimes = (event: Event) => {
     if (!isClient) {
@@ -262,7 +265,7 @@ export default function DashboardPage() {
   const userEvents = user.isAdmin 
     ? events 
     : events.filter(event => 
-        userRegistrations.some(reg => reg.eventId === event.id)
+        uniqueRegistrations.some(reg => reg.eventId === event.id)
       );
 
   return (
@@ -321,7 +324,9 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium text-gray-600">
                         {user.isAdmin ? 'Total de Eventos' : 'Eventos Inscritos'}
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">{userEvents.length}</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {user.isAdmin ? userEvents.length : uniqueRegistrations.length}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -338,7 +343,7 @@ export default function DashboardPage() {
                       <p className="text-2xl font-bold text-gray-900">
                         {user.isAdmin 
                           ? userEvents.filter(e => e.endTime > new Date()).length
-                          : userRegistrations.filter(r => r.checkedIn).length
+                          : checkedInCount
                         }
                       </p>
                     </div>
@@ -357,7 +362,7 @@ export default function DashboardPage() {
                       <p className="text-2xl font-bold text-gray-900">
                         {user.isAdmin 
                           ? userEvents.filter(e => e.endTime <= new Date()).length
-                          : userRegistrations.filter(r => r.certificateGenerated).length
+                          : uniqueRegistrations.filter(r => r.certificateGenerated).length
                         }
                       </p>
                     </div>
@@ -394,7 +399,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {userEvents.map((event) => {
                   const times = formatEventTimes(event);
-                  const registration = userRegistrations.find(r => r.eventId === event.id);
+                  const registration = uniqueRegistrations.find(r => r.eventId === event.id);
                   
                   return (
                     <div key={event.id} className="card hover:shadow-lg transition-shadow">
