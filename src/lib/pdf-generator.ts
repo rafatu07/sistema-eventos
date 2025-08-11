@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { sanitizeTextForPDF } from './text-utils';
 
 export interface CertificateData {
   userName: string;
@@ -7,8 +8,9 @@ export interface CertificateData {
 }
 
 export const generateCertificatePDF = async (data: CertificateData): Promise<Uint8Array> => {
-  // Create a new PDFDocument
-  const pdfDoc = await PDFDocument.create();
+  try {
+    // Create a new PDFDocument
+    const pdfDoc = await PDFDocument.create();
   
   // Add a page
   const page = pdfDoc.addPage([842, 595]); // A4 landscape
@@ -62,8 +64,9 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
   });
   
   // User name
-  page.drawText(data.userName, {
-    x: width / 2 - (data.userName.length * 12) / 2,
+  const sanitizedUserName = sanitizeTextForPDF(data.userName);
+  page.drawText(sanitizedUserName, {
+    x: width / 2 - (sanitizedUserName.length * 12) / 2,
     y: height - 230,
     size: 24,
     font: timesRomanBoldFont,
@@ -80,8 +83,9 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
   });
   
   // Event name
-  page.drawText(data.eventName, {
-    x: width / 2 - (data.eventName.length * 10) / 2,
+  const sanitizedEventName = sanitizeTextForPDF(data.eventName);
+  page.drawText(sanitizedEventName, {
+    x: width / 2 - (sanitizedEventName.length * 10) / 2,
     y: height - 330,
     size: 20,
     font: timesRomanBoldFont,
@@ -130,8 +134,21 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     borderWidth: 2,
   });
   
-  // Serialize the PDFDocument to bytes
-  const pdfBytes = await pdfDoc.save();
-  return pdfBytes;
+    // Serialize the PDFDocument to bytes
+    const pdfBytes = await pdfDoc.save();
+    return pdfBytes;
+  } catch (error) {
+    console.error('Erro ao gerar certificado PDF:', error);
+    
+    // Erro mais específico baseado no tipo de erro
+    if (error instanceof Error) {
+      if (error.message.includes('encode')) {
+        throw new Error('Erro de codificação de caracteres no certificado. Verifique se o nome do usuário e evento não contêm caracteres especiais.');
+      }
+      throw new Error(`Erro ao gerar certificado: ${error.message}`);
+    }
+    
+    throw new Error('Erro interno ao gerar certificado. Tente novamente ou entre em contato com o suporte.');
+  }
 };
 

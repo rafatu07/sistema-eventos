@@ -3,6 +3,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { Event } from '@/types';
+import { sanitizeTextForPDF, sanitizeFileName } from './text-utils';
 
 export interface QRCodePDFOptions {
   event: Event;
@@ -59,8 +60,9 @@ export const generateQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
     });
 
     // Nome do evento
-    page.drawText(event.name, {
-      x: centerX - (event.name.length * 6),
+    const sanitizedEventName = sanitizeTextForPDF(event.name);
+    page.drawText(sanitizedEventName, {
+      x: centerX - (sanitizedEventName.length * 6),
       y: height - 120,
       size: 20,
       font: boldFont,
@@ -84,7 +86,7 @@ export const generateQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
     })}`;
 
     // Data
-    page.drawText(`📅 Data: ${eventDate}`, {
+    page.drawText(`Data: ${eventDate}`, {
       x: margin,
       y: height - 170,
       size: 14,
@@ -93,7 +95,7 @@ export const generateQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
     });
 
     // Horário
-    page.drawText(`🕒 Horário: ${eventTime}`, {
+    page.drawText(`Horario: ${eventTime}`, {
       x: margin,
       y: height - 195,
       size: 14,
@@ -102,7 +104,8 @@ export const generateQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
     });
 
     // Local
-    page.drawText(`📍 Local: ${event.location}`, {
+    const sanitizedLocation = sanitizeTextForPDF(event.location);
+    page.drawText(`Local: ${sanitizedLocation}`, {
       x: margin,
       y: height - 220,
       size: 14,
@@ -191,7 +194,18 @@ export const generateQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
     return await pdfDoc.save();
   } catch (error) {
     console.error('Erro ao gerar PDF do QR Code:', error);
-    throw new Error('Erro ao gerar PDF. Tente novamente.');
+    
+    // Erro mais específico baseado no tipo de erro
+    if (error instanceof Error) {
+      if (error.message.includes('encode')) {
+        throw new Error('Erro de codificação de caracteres. Verifique se o nome do evento e local não contêm caracteres especiais.');
+      } else if (error.message.includes('QR Code')) {
+        throw new Error('Erro ao gerar o QR Code. Tente novamente.');
+      }
+      throw new Error(`Erro ao gerar PDF: ${error.message}`);
+    }
+    
+    throw new Error('Erro interno ao gerar PDF. Tente novamente ou entre em contato com o suporte.');
   }
 };
 
@@ -206,7 +220,8 @@ export const downloadQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
     // Criar elemento de download
     const a = document.createElement('a');
     a.href = url;
-    a.download = `qr-code-checkin-${event.name.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+    const fileName = sanitizeFileName(`qr-code-checkin-${event.name}`);
+    a.download = `${fileName}.pdf`;
     document.body.appendChild(a);
     a.click();
     
