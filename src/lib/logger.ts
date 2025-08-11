@@ -275,7 +275,7 @@ class LoggerService {
   /**
    * Persistir log em arquivo ou banco de dados
    */
-  private async persistLog(entry: LogEntry): Promise<void> {
+  private async persistLog(_entry: LogEntry): Promise<void> {
     try {
       // Implementar persistência conforme necessário
       // Exemplos: arquivo, banco de dados, serviço externo
@@ -292,7 +292,7 @@ class LoggerService {
   /**
    * Persistir log de auditoria
    */
-  private async persistAuditLog(entry: AuditLogEntry): Promise<void> {
+  private async persistAuditLog(_entry: AuditLogEntry): Promise<void> {
     try {
       // Salvar logs de auditoria em local seguro
       // Exemplo: banco de dados dedicado, serviço de auditoria
@@ -308,7 +308,7 @@ class LoggerService {
   /**
    * Enviar erros críticos para serviço de monitoramento
    */
-  private async sendToMonitoringService(entry: LogEntry): Promise<void> {
+  private async sendToMonitoringService(_entry: LogEntry): Promise<void> {
     try {
       // Integrar com serviços como Sentry, LogRocket, etc.
       // fetch('/api/monitoring/error', {
@@ -325,7 +325,7 @@ class LoggerService {
    * Buscar logs (para dashboard administrativo)
    */
   async getLogs(
-    filters: {
+    _filters: {
       level?: LogLevel;
       userId?: string;
       action?: AuditAction;
@@ -343,7 +343,7 @@ class LoggerService {
    * Buscar logs de auditoria
    */
   async getAuditLogs(
-    filters: {
+    _filters: {
       userId?: string;
       action?: AuditAction;
       startDate?: Date;

@@ -274,8 +274,8 @@ export function useUpdateRegistration() {
     mutationFn: async ({ 
       registrationId, 
       data, 
-      eventId, 
-      userId 
+      eventId: _eventId, 
+      userId: _userId 
     }: { 
       registrationId: string; 
       data: Partial<Registration>;

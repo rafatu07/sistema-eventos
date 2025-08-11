@@ -178,6 +178,9 @@ export async function POST(request: NextRequest) {
           
           if (!querySnapshot.empty) {
             const existingUser = querySnapshot.docs[0];
+            if (!existingUser) {
+              throw new Error('Erro ao buscar usuário existente');
+            }
             const userId = existingUser.id;
 
             // Verificar se já está inscrito no evento
