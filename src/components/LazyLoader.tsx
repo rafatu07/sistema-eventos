@@ -94,8 +94,8 @@ export const LazyQRCodeGenerator = createLazyComponent(
 );
 
 // Observer para lazy loading baseado em visibilidade
-export function useIntersectionObserver(
-  ref: React.RefObject<HTMLElement>,
+export function useIntersectionObserver<T extends HTMLElement>(
+  ref: React.RefObject<T>,
   options: IntersectionObserverInit = {}
 ) {
   const [isIntersecting, setIsIntersecting] = React.useState(false);

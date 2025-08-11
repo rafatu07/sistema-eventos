@@ -81,7 +81,9 @@ export function generatePublicEventMetadata(event: Event): Metadata {
       description: `Faça sua inscrição gratuita no evento ${event.name}`,
     },
     other: {
-      ...metadata.other,
+      'event:start_time': event.startTime.toISOString(),
+      'event:end_time': event.endTime.toISOString(),
+      'event:location': event.location,
       'event:registration': 'open',
     },
   };

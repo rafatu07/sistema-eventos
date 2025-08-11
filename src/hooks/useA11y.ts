@@ -31,12 +31,12 @@ export function useFocusManagement() {
     if (e.shiftKey) {
       if (document.activeElement === firstFocusable) {
         e.preventDefault();
-        lastFocusable.focus();
+        lastFocusable?.focus();
       }
     } else {
       if (document.activeElement === lastFocusable) {
         e.preventDefault();
-        firstFocusable.focus();
+        firstFocusable?.focus();
       }
     }
   };

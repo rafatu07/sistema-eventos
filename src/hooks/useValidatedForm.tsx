@@ -13,7 +13,7 @@ interface UseValidatedFormOptions<TFormData extends FieldValues> extends UseForm
   showErrorNotification?: boolean;
 }
 
-interface UseValidatedFormReturn<TFormData extends FieldValues> extends UseFormReturn<TFormData> {
+interface UseValidatedFormReturn<TFormData extends FieldValues> extends Omit<UseFormReturn<TFormData>, 'handleSubmit'> {
   isSubmitting: boolean;
   submitError: string | null;
   handleSubmit: (onSubmit: (data: TFormData) => Promise<void> | void) => (e?: React.BaseSyntheticEvent) => Promise<void>;
@@ -35,7 +35,7 @@ export function useValidatedForm<TFormData extends FieldValues>({
   const notifications = useNotifications();
   
   const form = useForm<TFormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     mode: 'onChange', // Validar ao alterar
     reValidateMode: 'onChange',
     ...formOptions,
@@ -152,10 +152,17 @@ export function useFieldValidation<TFormData extends FieldValues>(
           }
         } else {
           // Validação simples do campo individual
-          const fieldSchema = schema.shape[fieldName as keyof typeof schema.shape];
-          if (fieldSchema) {
-            const result = fieldSchema.safeParse(value);
-            setError(result.success ? null : result.error.issues[0]?.message || 'Erro de validação');
+          try {
+            const zodObject = schema as any;
+            if (zodObject.shape && zodObject.shape[fieldName]) {
+              const fieldSchema = zodObject.shape[fieldName];
+              const result = fieldSchema.safeParse(value);
+              setError(result.success ? null : result.error.issues[0]?.message || 'Erro de validação');
+            } else {
+              setError(null);
+            }
+          } catch {
+            setError(null);
           }
         }
       } catch {

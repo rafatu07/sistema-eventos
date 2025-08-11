@@ -104,7 +104,7 @@ function NotificationSystemInner() {
                 {notification.message}
               </p>
               <p className="mt-2 text-xs text-gray-500">
-                {new Date(notification.timestamp).toLocaleTimeString('pt-BR')}
+                {notification.createdAt ? new Date(notification.createdAt).toLocaleTimeString('pt-BR') : ''}
               </p>
             </div>
 
