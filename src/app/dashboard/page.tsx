@@ -16,7 +16,6 @@ import {
   Trash2,
   Link as LinkIcon,
   QrCode,
-  Camera,
   CheckCircle,
   X
 } from 'lucide-react';

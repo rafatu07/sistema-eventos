@@ -1,7 +1,5 @@
 import {
   collection,
-  doc,
-  getDoc,
   getDocs,
   addDoc,
   updateDoc,
@@ -9,7 +7,6 @@ import {
   query,
   where,
   serverTimestamp,
-  DocumentData,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { CertificateConfig } from '@/types';
@@ -22,7 +19,7 @@ export const createCertificateConfig = async (configData: Omit<CertificateConfig
   const configsRef = collection(db, CERTIFICATE_CONFIGS_COLLECTION);
   
   // Filter out undefined values for Firestore compatibility
-  const cleanedData: any = {};
+  const cleanedData: Record<string, unknown> = {};
   Object.entries(configData).forEach(([key, value]) => {
     if (value !== undefined) {
       cleanedData[key] = value;
@@ -110,7 +107,7 @@ export const updateCertificateConfig = async (eventId: string, configData: Parti
     console.log('Found existing configs:', querySnapshot.size);
     
     // Filter out undefined values for Firestore compatibility
-    const cleanedData: any = {};
+    const cleanedData: Record<string, unknown> = {};
     Object.entries(configData).forEach(([key, value]) => {
       if (value !== undefined) {
         cleanedData[key] = value;

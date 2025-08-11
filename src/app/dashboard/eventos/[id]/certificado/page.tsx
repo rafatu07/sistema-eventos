@@ -12,7 +12,7 @@ import { getEvent } from '@/lib/firestore';
 import { CertificateConfigData } from '@/lib/schemas';
 import { CertificateConfig } from '@/types';
 import { useNotifications } from '@/components/NotificationSystem';
-import { ArrowLeft, FileText, Eye, Save, Loader } from 'lucide-react';
+import { ArrowLeft, FileText, Eye, Loader } from 'lucide-react';
 
 export default function CertificateConfigPage() {
   const params = useParams();
@@ -331,7 +331,7 @@ export default function CertificateConfigPage() {
                       <label className="font-medium text-gray-600">Opções:</label>
                       <ul className="text-gray-900 mt-1 space-y-1">
                         {currentConfig.showBorder && <li>• Borda ativa</li>}
-                        {currentConfig.showWatermark && <li>• Marca d'água ativa</li>}
+                        {currentConfig.showWatermark && <li>• Marca d&apos;água ativa</li>}
                         {currentConfig.includeQRCode && <li>• QR Code ativo</li>}
                         {currentConfig.logoUrl && <li>• Logo personalizada</li>}
                       </ul>

@@ -161,7 +161,7 @@ class LoggerService {
     this.writeLog(entry);
     
     // Armazenar logs de auditoria em local separado se necessário
-    this.writeAuditLog(entry);
+    this.writeAuditLog();
   }
 
   /**
@@ -237,7 +237,7 @@ class LoggerService {
   /**
    * Escreve log de auditoria
    */
-  private writeAuditLog(_entry: AuditLogEntry): void {
+  private writeAuditLog(): void {
     // Em produção, salvar logs de auditoria em local seguro
     if (!this.isDevelopment && this.isServer) {
       this.persistAuditLog();

@@ -21,8 +21,7 @@ import {
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Event, Registration, CertificateConfig } from '@/types';
-import { CertificateConfigData } from './schemas';
+import { Event, Registration } from '@/types';
 
 const COLLECTIONS = {
   USERS: 'users',

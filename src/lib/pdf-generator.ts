@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees, PDFFont } from 'pdf-lib';
 import { sanitizeTextForPDF } from './text-utils';
 import { CertificateConfig } from '@/types';
 import { getCertificateConfig, getDefaultCertificateConfig } from './certificate-config';
@@ -153,7 +153,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     });
 
     // Helper function to get text width for centering
-    const getTextWidth = (text: string, font: any, size: number) => {
+    const getTextWidth = (text: string, font: PDFFont, size: number) => {
       return font.widthOfTextAtSize(text, size);
     };
 
@@ -214,7 +214,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       : '00:00';
     const formattedTimeRange = `${formattedStartTime} às ${formattedEndTime}`;
 
-    let bodyText = config.bodyText
+    const bodyText = config.bodyText
       .replace(/{userName}/g, data.userName)
       .replace(/{eventName}/g, data.eventName)
       .replace(/{eventDate}/g, formattedDate)
@@ -246,7 +246,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     // Draw each line
     const lineHeight = config.bodyFontSize * 1.2;
     const totalTextHeight = lines.length * lineHeight;
-    let startY = bodyPos.y + totalTextHeight / 2;
+    const startY = bodyPos.y + totalTextHeight / 2;
 
     lines.forEach((line, index) => {
       const lineWidth = getTextWidth(line, normalFont, config.bodyFontSize);

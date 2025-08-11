@@ -13,7 +13,6 @@ import {
   Type,
   Layout,
   Image as ImageIcon,
-  Eye,
   Save,
   RotateCcw,
   Settings,
@@ -62,9 +61,8 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     },
   });
 
-  const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, setValue, reset, trigger } = form;
+  const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, reset, trigger } = form;
   const watchedValues = watch();
-  const currentValues = { ...watchedValues, _forceUpdate: forceUpdate }; // Include forceUpdate for re-renders
 
   // Watch for changes in form values to mark as unsaved
   React.useEffect(() => {
@@ -249,7 +247,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                     Templates Predefinidos
                   </label>
                   <p className="text-sm text-gray-600 mb-4">
-                    Escolha um template e clique em "Aplicar" para configurar automaticamente todas as opções.
+                    Escolha um template e clique em &quot;Aplicar&quot; para configurar automaticamente todas as opções.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {CERTIFICATE_TEMPLATES.map((template) => (
@@ -795,14 +793,14 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                           {...register('showWatermark')}
                           className="mr-2"
                         />
-                        Mostrar Marca d'Água
+                        Mostrar Marca d&apos;Água
                       </label>
 
                       {watchedValues.showWatermark && (
                         <div className="space-y-3">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Texto da Marca d'Água
+                              Texto da Marca d&apos;Água
                             </label>
                             <input
                               type="text"
