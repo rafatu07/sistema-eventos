@@ -14,7 +14,9 @@
     "preview": "npm run build && npm run start",
     "clean": "rimraf .next out dist",
     "deps:update": "npm update && npm audit fix",
-    "deps:check": "npm outdated"
+    "deps:check": "npm outdated",
+    "pre-deploy": "npm run type-check && npm run lint && npm run build",
+    "verify": "npm run type-check && npm run lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
