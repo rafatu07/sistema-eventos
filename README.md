@@ -1063,4 +1063,3 @@ Agradecemos a todos os desenvolvedores que contribuem para o ecossistema open so
 [![Vercel](https://img.shields.io/badge/Vercel-Deployed-black)](https://vercel.com)
 
 </div>
-

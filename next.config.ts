@@ -175,6 +175,8 @@ const nextConfig: NextConfig = {
   // === ENVIRONMENT VARIABLES ===
   env: {
     ANALYZE: process.env.ANALYZE || 'false',
+    PDF_DEBUG_MODE: process.env.PDF_DEBUG_MODE || 'true',
+    FORCE_ASCII_PDF: process.env.FORCE_ASCII_PDF || 'true',
   },
 
   // === REWRITES (se necessário para API) ===

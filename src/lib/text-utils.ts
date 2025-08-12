@@ -3,25 +3,26 @@
  */
 
 /**
- * Sanitiza texto para uso em PDFs, convertendo acentos para ASCII
- * Como a biblioteca pdf-lib tem problemas com caracteres Unicode,
- * convertemos acentos para seus equivalentes ASCII apenas para PDF
+ * Sanitiza texto para uso em PDFs com máxima compatibilidade de produção
+ * Força uso apenas de caracteres ASCII básicos (32-126) para evitar problemas em produção
  */
 export const sanitizeTextForPDF = (text: string): string => {
-  return text
+  if (!text) return '';
+  
+  let sanitized = text
     // Remover emojis
     .replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
     // Remover caracteres de controle
     .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
     // Converter acentos portugueses para ASCII (específico para PDF)
-    .replace(/[àáâãäå]/g, 'a')
-    .replace(/[ÀÁÂÃÄÅ]/g, 'A')
+    .replace(/[àáâãäåæ]/g, 'a')
+    .replace(/[ÀÁÂÃÄÅÆ]/g, 'A')
     .replace(/[èéêë]/g, 'e')
     .replace(/[ÈÉÊË]/g, 'E')
     .replace(/[ìíîï]/g, 'i')
     .replace(/[ÌÍÎÏ]/g, 'I')
-    .replace(/[òóôõöø]/g, 'o')
-    .replace(/[ÒÓÔÕÖØ]/g, 'O')
+    .replace(/[òóôõöøœ]/g, 'o')
+    .replace(/[ÒÓÔÕÖØŒ]/g, 'O')
     .replace(/[ùúûü]/g, 'u')
     .replace(/[ÙÚÛÜ]/g, 'U')
     .replace(/[ýÿ]/g, 'y')
@@ -30,6 +31,11 @@ export const sanitizeTextForPDF = (text: string): string => {
     .replace(/[Ç]/g, 'C')
     .replace(/[ñ]/g, 'n')
     .replace(/[Ñ]/g, 'N')
+    .replace(/[ß]/g, 'ss')
+    .replace(/[ð]/g, 'd')
+    .replace(/[Ð]/g, 'D')
+    .replace(/[þ]/g, 'th')
+    .replace(/[Þ]/g, 'TH')
     // Substituir símbolos problemáticos
     .replace(/[\u201C\u201D]/g, '"') // aspas duplas curvas
     .replace(/[\u2018\u2019]/g, "'") // aspas simples curvas
@@ -41,7 +47,28 @@ export const sanitizeTextForPDF = (text: string): string => {
     .replace(/\u00A9/g, '(C)') // copyright
     .replace(/\u00AE/g, '(R)') // marca registrada
     .replace(/\u2122/g, 'TM')  // trademark
+    // Remover outros símbolos especiais que podem causar problemas
+    .replace(/[°]/g, ' graus')
+    .replace(/[±]/g, '+/-')
+    .replace(/[×]/g, 'x')
+    .replace(/[÷]/g, '/')
+    .replace(/[§]/g, 'secao')
+    .replace(/[¶]/g, 'paragrafo')
+    .replace(/[µ]/g, 'micro')
     .trim();
+
+  // Força apenas caracteres ASCII imprimíveis (32-126)
+  const asciiOnly = sanitized
+    .split('')
+    .map(char => {
+      const code = char.charCodeAt(0);
+      return (code >= 32 && code <= 126) ? char : '';
+    })
+    .join('')
+    .replace(/\s+/g, ' ') // Normalizar espaços múltiplos
+    .trim();
+    
+  return asciiOnly;
 };
 
 /**
