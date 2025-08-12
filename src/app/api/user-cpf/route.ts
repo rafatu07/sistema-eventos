@@ -59,7 +59,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const registration = querySnapshot.docs[0].data();
+    const firstDoc = querySnapshot.docs[0];
+    if (!firstDoc) {
+      logInfo('Documento não encontrado na query', { userId });
+      return NextResponse.json(
+        { cpf: null },
+        { 
+          status: 200,
+          headers: createRateLimitHeaders(rateLimitResult)
+        }
+      );
+    }
+
+    const registration = firstDoc.data();
     const cpf = registration.userCPF;
 
     logInfo('CPF encontrado para o usuário', { 
