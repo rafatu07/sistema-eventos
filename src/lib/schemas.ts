@@ -271,7 +271,7 @@ export const certificateConfigSchema = z.object({
   titleFontSize: z.number().min(16).max(48).default(24),
   nameFontSize: z.number().min(14).max(36).default(18),
   bodyFontSize: z.number().min(10).max(20).default(12),
-  fontFamily: z.enum(['helvetica', 'times', 'courier']).default('helvetica'),
+  fontFamily: z.enum(['helvetica', 'times', 'courier', 'DejaVuSans']).default('helvetica'),
   
   // Textos personalizáveis
   title: z.string().min(1).max(100).default('Certificado de Participação'),

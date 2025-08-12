@@ -364,7 +364,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
 };
 
 // Funções auxiliares
-function getFontFamily(family: string): string {
+function getFontFamily(_family: string): string {
   // Sempre retornamos a família registrada que sabemos existir no runtime
   // Ignoramos o nome vindo da config para garantir compatibilidade em produção
   return 'DejaVuSans';
