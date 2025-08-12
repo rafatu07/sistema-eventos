@@ -8,6 +8,7 @@ import { CertificateConfig } from '@/types';
 import { useNotifications } from '@/components/NotificationSystem';
 import { CERTIFICATE_TEMPLATES, getTemplateConfig } from '@/lib/certificate-templates';
 import { getDefaultCertificateConfig } from '@/lib/certificate-config';
+import { ImageUpload } from '@/components/ImageUpload';
 import {
   Palette,
   Type,
@@ -61,8 +62,145 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     },
   });
 
-  const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, reset, trigger } = form;
+  const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, reset, trigger, setValue } = form;
   const watchedValues = watch();
+
+  // Função para salvamento automático da logo
+  const saveLogoAutomatically = async (logoUrl: string) => {
+    try {
+      console.log('🔄 AUTO-SAVE: Iniciando salvamento automático da logo...');
+      
+      if (!onSave) {
+        console.warn('⚠️  AUTO-SAVE: onSave não disponível, pulando...');
+        return;
+      }
+
+      // Pegar dados atuais do formulário
+      const currentData = watchedValues;
+      
+      // Criar dados atualizados com a nova logo
+      const updatedData = {
+        ...currentData,
+        logoUrl: logoUrl
+      };
+      
+      console.log('💾 AUTO-SAVE: Salvando configuração com nova logo:', logoUrl);
+      
+      // Salvar apenas a logoUrl atualizada
+      await onSave(updatedData);
+      
+      console.log('✅ AUTO-SAVE: Logo salva automaticamente no banco!');
+      notifications.success('Logo Salva', 'Logo foi salva automaticamente na configuração!');
+      
+    } catch (error) {
+      console.error('❌ AUTO-SAVE: Erro ao salvar logo automaticamente:', error);
+      notifications.error('Erro Auto-Save', 'Erro ao salvar logo automaticamente. Clique em "Salvar Configuração" manualmente.');
+    }
+  };
+
+  // Função para testar certificado com configuração atual
+  const testCurrentConfig = async () => {
+    try {
+      console.log('🧪 TESTE: Testando certificado com configuração atual...');
+      
+      // Extrair eventId da URL ou props
+      const urlParts = window.location.pathname.split('/');
+      const currentEventId = urlParts[urlParts.indexOf('eventos') + 1];
+      
+      if (!currentEventId) {
+        notifications.error('Erro', 'Não foi possível identificar o evento atual');
+        return;
+      }
+      
+      console.log('🔍 TESTE: Event ID identificado:', currentEventId);
+      
+      const response = await fetch('/api/debug-certificate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: currentEventId
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.certificateUrl) {
+        console.log('✅ TESTE: Certificado gerado com sucesso:', result.certificateUrl);
+        notifications.success('Teste Concluído', 'Certificado gerado! Abrindo em nova aba...');
+        
+        // Abrir certificado em nova aba
+        window.open(result.certificateUrl, '_blank');
+      } else {
+        console.error('❌ TESTE: Erro ao gerar certificado:', result);
+        notifications.error('Erro no Teste', result.error || 'Erro ao gerar certificado de teste');
+      }
+      
+    } catch (error) {
+      console.error('❌ TESTE: Erro no teste do certificado:', error);
+      notifications.error('Erro no Teste', 'Erro ao testar certificado. Verifique o console.');
+    }
+  };
+
+  // Função para upload de logo
+  const handleLogoUpload = async (file: File): Promise<string> => {
+    console.log('🖼️  UPLOAD: Iniciando upload de logo...', { fileName: file.name, size: file.size });
+    
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/upload-logo', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ UPLOAD: Erro no upload:', data);
+      throw new Error(data.error || 'Erro no upload da logo');
+    }
+
+    console.log('✅ UPLOAD: Upload bem-sucedido:', data.imageUrl);
+    notifications.success('Upload Concluído', 'Logo enviada e salva com sucesso!');
+    
+    // 🎯 SALVAMENTO AUTOMÁTICO: Salvar imediatamente após upload
+    console.log('💾 AUTO-SAVE: Salvando logo automaticamente...');
+    await saveLogoAutomatically(data.imageUrl);
+    
+    return data.imageUrl;
+  };
+
+  const handleLogoChange = (imageUrl: string | undefined) => {
+    console.log('🔄 LOGO_CHANGE: Mudando logoUrl para:', imageUrl);
+    console.log('🔍 LOGO_CHANGE: Valor anterior era:', watchedValues.logoUrl);
+    
+    setValue('logoUrl', imageUrl, { shouldValidate: true, shouldDirty: true });
+    
+    console.log('✅ LOGO_CHANGE: setValue chamado, verificando...', { 
+      novoValor: imageUrl,
+      valorAtualDoForm: watchedValues.logoUrl 
+    });
+    
+    // Update preview immediately
+    if (onConfigChange) {
+      const updatedConfig: CertificateConfig = {
+        ...watchedValues,
+        logoUrl: imageUrl,
+        id: config?.id || 'temp',
+        createdAt: config?.createdAt || new Date(),
+        updatedAt: new Date(),
+      } as CertificateConfig;
+      onConfigChange(updatedConfig);
+      console.log('🎯 LOGO_CHANGE: onConfigChange chamado com logoUrl:', imageUrl);
+    }
+  };
+
+  // Watch especificamente para logoUrl
+  React.useEffect(() => {
+    console.log('👀 WATCH: logoUrl mudou para:', watchedValues.logoUrl);
+  }, [watchedValues.logoUrl]);
 
   // Watch for changes in form values to mark as unsaved
   React.useEffect(() => {
@@ -85,9 +223,27 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   }, [watchedValues, config]);
 
   const onSubmit = async (data: CertificateConfigData) => {
-    if (onSave) {
-      await onSave(data);
-      setHasUnsavedChanges(false); // Clear unsaved changes after successful save
+    try {
+      console.log('📤 FORMULÁRIO: Iniciando salvamento da configuração...');
+      console.log('📋 FORMULÁRIO: Dados completos do form:', data);
+      
+      // Log específico para logoUrl
+      if (data.logoUrl) {
+        console.log('✅ FORMULÁRIO: logoUrl presente no form:', data.logoUrl);
+      } else {
+        console.log('❌ FORMULÁRIO: logoUrl NÃO presente no form!');
+        console.log('🔍 FORMULÁRIO: Valor atual do campo logoUrl:', watchedValues.logoUrl);
+      }
+      
+      if (onSave) {
+        await onSave(data);
+        setHasUnsavedChanges(false); // Clear unsaved changes after successful save
+        
+        console.log('✅ FORMULÁRIO: Configuração salva com sucesso!');
+      }
+    } catch (error) {
+      console.error('❌ FORMULÁRIO: Erro ao salvar configuração:', error);
+      throw error; // Re-throw para que o hook de formulário possa lidar com o erro
     }
   };
 
@@ -683,39 +839,131 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                     Logo/Imagem
                   </h4>
                   
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="logoUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                        URL da Logo
-                      </label>
+                  <div className="space-y-6">
+                    {/* Upload de Logo */}
+                    <ImageUpload
+                      currentImage={watchedValues.logoUrl}
+                      onImageChange={handleLogoChange}
+                      onImageUpload={handleLogoUpload}
+                      label="Logo do Certificado"
+                      maxSize={5}
+                      accept="image/*"
+                      className="max-w-md"
+                      disabled={isSubmitting}
+                    />
+
+                    {/* Campo de URL manual (alternativa ao upload) */}
+                    <div className="max-w-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <label htmlFor="logoUrl" className="text-sm font-medium text-gray-700">
+                          Ou usar URL externa
+                        </label>
+                        {watchedValues.logoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleLogoChange(undefined)}
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            Remover logo
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="url"
                         id="logoUrl"
                         {...register('logoUrl')}
                         className="input w-full"
                         placeholder="https://exemplo.com/logo.png"
+                        disabled={isSubmitting}
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cole uma URL de imagem como alternativa ao upload
+                      </p>
                       <FieldError error={getFieldError('logoUrl')} />
                     </div>
 
-                    <div>
-                      <label htmlFor="logoSize" className="block text-sm font-medium text-gray-700 mb-2">
-                        Tamanho da Logo
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="range"
-                          id="logoSize"
-                          {...register('logoSize', { valueAsNumber: true })}
-                          min="20"
-                          max="200"
-                          className="flex-1"
-                        />
-                        <span className="text-sm text-gray-600 w-12">
-                          {watchedValues.logoSize}px
-                        </span>
+                    {/* Configurações da Logo */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="logoSize" className="block text-sm font-medium text-gray-700 mb-2">
+                          Tamanho da Logo
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="range"
+                            id="logoSize"
+                            {...register('logoSize', { valueAsNumber: true })}
+                            min="20"
+                            max="200"
+                            className="flex-1"
+                            disabled={isSubmitting}
+                          />
+                          <span className="text-sm text-gray-600 w-12">
+                            {watchedValues.logoSize}px
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Controla a maior dimensão da logo (largura ou altura)
+                        </p>
+                        <FieldError error={getFieldError('logoSize')} />
                       </div>
-                      <FieldError error={getFieldError('logoSize')} />
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Proporção da Logo
+                        </label>
+                        <div className="space-y-3">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={true}
+                              disabled
+                              className="mr-2 opacity-50"
+                            />
+                            <span className="text-sm text-gray-600">
+                              Manter proporções originais ✅
+                            </span>
+                          </label>
+                          
+                          {/* Visual demonstration */}
+                          <div className="bg-gray-50 p-3 rounded border">
+                            <p className="text-xs font-medium text-gray-700 mb-2">Exemplo:</p>
+                            <div className="flex items-center space-x-4">
+                              <div className="text-center">
+                                <div className="w-12 h-6 bg-blue-200 border border-blue-300 rounded mb-1 flex items-center justify-center">
+                                  <span className="text-xs text-blue-700 font-bold">LOGO</span>
+                                </div>
+                                <p className="text-xs text-gray-600">Original<br/>(retangular)</p>
+                              </div>
+                              
+                              <span className="text-gray-400">→</span>
+                              
+                              <div className="text-center">
+                                <div className="w-12 h-6 bg-green-200 border border-green-300 rounded mb-1 flex items-center justify-center">
+                                  <span className="text-xs text-green-700 font-bold">LOGO</span>
+                                </div>
+                                <p className="text-xs text-green-600">No certificado<br/>(proporções mantidas)</p>
+                              </div>
+                            </div>
+                            <p className="text-xs text-green-600 mt-2 font-medium">
+                              ✅ Sem achatamento ou distorção!
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dicas para o usuário */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h6 className="text-sm font-semibold text-blue-900 mb-2">💡 Dicas para a logo</h6>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• <strong>Qualquer formato funciona</strong> - as proporções serão mantidas</li>
+                        <li>• PNG com fundo transparente é recomendado</li>
+                        <li>• Resolução mínima: 200px na maior dimensão</li>
+                        <li>• O tamanho controla a maior dimensão (largura ou altura)</li>
+                        <li>• Tamanho máximo do arquivo: 5MB</li>
+                        <li>• ✅ <strong>Não mais achatamento!</strong> Proporções preservadas</li>
+                      </ul>
                     </div>
                   </div>
 
@@ -912,6 +1160,19 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
             >
               Cancelar
             </button>
+            
+            <button
+              type="button"
+              onClick={testCurrentConfig}
+              className="btn-secondary bg-green-50 text-green-700 border-green-200 hover:bg-green-100 disabled:opacity-50"
+              disabled={isSubmitting}
+            >
+              <div className="flex items-center">
+                <span className="text-lg mr-1">🧪</span>
+                Testar
+              </div>
+            </button>
+            
             <button
               type="submit"
               disabled={isSubmitting}

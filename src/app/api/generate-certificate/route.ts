@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCertificatePDF } from '@/lib/pdf-generator';
-import { uploadPDFToCloudinary } from '@/lib/upload';
+import { generateCertificateImage } from '@/lib/certificate-image-generator';
+import { uploadPDFToCloudinary, uploadImageToCloudinary } from '@/lib/upload';
 import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
 import { logError, logInfo, logAudit, AuditAction } from '@/lib/logger';
+import { getCertificateConfig } from '@/lib/certificate-config';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -57,54 +59,113 @@ export async function POST(request: NextRequest) {
     const sanitizedUserName = sanitizeInput(userName);
     const sanitizedEventName = sanitizeInput(eventName);
 
-    // Generate PDF
-    console.log('Generating PDF with data:', {
-      userName: sanitizedUserName,
-      eventName: sanitizedEventName,
-      eventDate: new Date(eventDate),
-      eventId: eventId,
-      hasStartTime: !!eventStartTime,
-      hasEndTime: !!eventEndTime
-    });
-
-    const pdfBytes = await generateCertificatePDF({
+    const certificateData = {
       userName: sanitizedUserName,
       eventName: sanitizedEventName,
       eventDate: new Date(eventDate),
       eventStartTime: eventStartTime ? new Date(eventStartTime) : undefined,
       eventEndTime: eventEndTime ? new Date(eventEndTime) : undefined,
       eventId: eventId,
-    });
+    };
 
-    logInfo('PDF gerado com sucesso', { 
-      userId, 
-      eventId, 
-      pdfSize: pdfBytes.length 
-    });
+    // Buscar configurações personalizadas do certificado para este evento
+    console.log('🔍 Buscando configurações do certificado para evento:', eventId);
+    const certificateConfig = await getCertificateConfig(eventId);
+    
+    if (certificateConfig) {
+      console.log('✅ Configurações personalizadas encontradas:', {
+        template: certificateConfig.template,
+        hasLogo: !!certificateConfig.logoUrl,
+        includeQRCode: certificateConfig.includeQRCode
+      });
+    } else {
+      console.log('⚠️  Nenhuma configuração personalizada encontrada, usando padrão');
+    }
 
-    // Convert Uint8Array to Buffer for upload
-    const pdfBuffer = Buffer.from(pdfBytes);
+    // Preparar dados completos para geração
+    const fullCertificateData = {
+      ...certificateData,
+      config: certificateConfig // Incluir configurações personalizadas
+    };
 
-    // Upload PDF to Cloudinary
-    const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_${userId}_${eventId}`);
-    const certificateUrl = uploadResult.secureUrl;
+    let certificateUrl: string;
+    let generationType: 'image' | 'pdf' = 'image';
 
-    logInfo('Certificado enviado para Cloudinary', { 
-      userId, 
-      eventId, 
-      certificateUrl: certificateUrl.substring(0, 50) + '...'
-    });
+    try {
+      // Tentar gerar como imagem PNG primeiro (mais confiável para web)
+      console.log('🖼️  Tentando gerar certificado como imagem PNG com configurações:', {
+        hasConfig: !!certificateConfig,
+        template: certificateConfig?.template || 'default'
+      });
+      
+      const imageBuffer = await generateCertificateImage(fullCertificateData);
+      
+      logInfo('Imagem PNG gerada com sucesso', { 
+        userId, 
+        eventId, 
+        imageSize: imageBuffer.length 
+      });
+
+      // Upload imagem para Cloudinary
+      const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_${userId}_${eventId}`);
+      certificateUrl = uploadResult.secureUrl;
+      
+      logInfo('Certificado (imagem) enviado para Cloudinary', { 
+        userId, 
+        eventId, 
+        certificateUrl: certificateUrl.substring(0, 50) + '...'
+      });
+
+    } catch (imageError) {
+      console.warn('Falha ao gerar como imagem, tentando PDF:', imageError);
+      
+      try {
+        // Fallback: gerar como PDF
+        console.log('📄 Gerando PDF como fallback com configurações personalizadas:', {
+          hasConfig: !!certificateConfig,
+          template: certificateConfig?.template || 'default'
+        });
+        
+        const pdfBytes = await generateCertificatePDF(fullCertificateData);
+        
+        logInfo('PDF gerado com sucesso (fallback)', { 
+          userId, 
+          eventId, 
+          pdfSize: pdfBytes.length 
+        });
+
+        // Convert Uint8Array to Buffer for upload
+        const pdfBuffer = Buffer.from(pdfBytes);
+
+        // Upload PDF to Cloudinary
+        const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_${userId}_${eventId}`);
+        certificateUrl = uploadResult.secureUrl;
+        generationType = 'pdf';
+        
+        logInfo('Certificado (PDF) enviado para Cloudinary', { 
+          userId, 
+          eventId, 
+          certificateUrl: certificateUrl.substring(0, 50) + '...'
+        });
+
+      } catch (pdfError) {
+        console.error('Falha tanto em imagem quanto PDF:', { imageError, pdfError });
+        throw new Error(`Erro na geração: Imagem - ${(imageError as Error).message}; PDF - ${(pdfError as Error).message}`);
+      }
+    }
 
     // Update registration to mark certificate as generated
     await updateRegistration(registrationId, {
       certificateGenerated: true,
+      certificateUrl: certificateUrl,
     });
 
     // Log de auditoria
     logAudit(AuditAction.CERTIFICATE_GENERATE, userId, true, {
       eventId,
       registrationId,
-      certificateUrl
+      certificateUrl,
+      generationType
     });
 
     const duration = Date.now() - startTime;
@@ -112,13 +173,15 @@ export async function POST(request: NextRequest) {
       userId,
       eventId,
       registrationId,
-      duration
+      duration,
+      type: generationType
     });
 
     return NextResponse.json({
       success: true,
       certificateUrl,
-      message: 'Certificado gerado com sucesso!',
+      certificateType: generationType,
+      message: `Certificado gerado com sucesso como ${generationType === 'image' ? 'imagem PNG' : 'PDF'}!`,
     }, {
       headers: createRateLimitHeaders(rateLimitResult)
     });

@@ -49,7 +49,7 @@ export const getCertificateConfig = async (eventId: string): Promise<Certificate
     const doc = querySnapshot.docs[0];
     if (!doc) return null;
     const data = doc.data();
-    return {
+    const config = {
       id: doc.id,
       eventId: data.eventId,
       template: data.template,
@@ -84,6 +84,32 @@ export const getCertificateConfig = async (eventId: string): Promise<Certificate
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate(),
     } as CertificateConfig;
+    
+    console.log('📥 CARREGAMENTO: Configuração encontrada:', {
+      id: config.id,
+      template: config.template,
+      includeQRCode: config.includeQRCode,
+      qrCodeText: config.qrCodeText ? config.qrCodeText.substring(0, 30) + '...' : 'none',
+      logoUrl: config.logoUrl ? config.logoUrl.substring(0, 50) + '...' : 'none'
+    });
+    
+    // Log específico para logoUrl
+    if (config.logoUrl) {
+      console.log('✅ CARREGAMENTO: logoUrl carregada:', config.logoUrl);
+    } else {
+      console.log('❌ CARREGAMENTO: logoUrl NÃO encontrada na configuração!');
+    }
+    
+    console.log('🔍 CARREGAMENTO: Dados brutos do Firestore para logoUrl:', data.logoUrl);
+    
+    // Verificação adicional de integridade
+    if (data.logoUrl && !config.logoUrl) {
+      console.error('🚨 ERRO CRÍTICO: logoUrl existe no Firestore mas não foi mapeada no config!');
+      console.error('Data.logoUrl:', data.logoUrl);
+      console.error('Config.logoUrl:', config.logoUrl);
+    }
+    
+    return config;
   }
   
   console.log('No certificate config found for event:', eventId);
@@ -97,14 +123,21 @@ export const getCertificateConfig = async (eventId: string): Promise<Certificate
 
 export const updateCertificateConfig = async (eventId: string, configData: Partial<CertificateConfigData>) => {
   try {
-    console.log('Updating certificate config for event:', eventId);
-    console.log('Config data to update:', configData);
+    console.log('🔄 SALVAMENTO: Iniciando para evento:', eventId);
+    console.log('📋 SALVAMENTO: Dados recebidos:', configData);
+    
+    // Log específico para logoUrl
+    if (configData.logoUrl !== undefined) {
+      console.log('🖼️  SALVAMENTO: logoUrl encontrada:', configData.logoUrl);
+    } else {
+      console.log('⚠️  SALVAMENTO: logoUrl está undefined!');
+    }
     
     const configsRef = collection(db, CERTIFICATE_CONFIGS_COLLECTION);
     const q = query(configsRef, where('eventId', '==', eventId));
     const querySnapshot = await getDocs(q);
     
-    console.log('Found existing configs:', querySnapshot.size);
+    console.log('🔍 SALVAMENTO: Configurações existentes encontradas:', querySnapshot.size);
     
     // Filter out undefined values for Firestore compatibility
     const cleanedData: Record<string, unknown> = {};
@@ -114,7 +147,14 @@ export const updateCertificateConfig = async (eventId: string, configData: Parti
       }
     });
     
-    console.log('Cleaned data for Firestore:', cleanedData);
+    console.log('✨ SALVAMENTO: Dados limpos para Firestore:', cleanedData);
+    
+    // Log específico para logoUrl nos dados limpos
+    if (cleanedData.logoUrl) {
+      console.log('✅ SALVAMENTO: logoUrl será salva:', cleanedData.logoUrl);
+    } else {
+      console.log('❌ SALVAMENTO: logoUrl NÃO será salva (undefined ou vazia)');
+    }
     
     if (!querySnapshot.empty) {
       console.log('Updating existing config...');

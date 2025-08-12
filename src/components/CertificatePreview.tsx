@@ -95,15 +95,22 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
               height: `${config.logoSize}px`,
             }}
           >
-            <Image
-              src={config.logoUrl}
-              alt="Logo"
-              fill
-              className="object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+            <div className="relative w-full h-full">
+              <Image
+                src={config.logoUrl}
+                alt="Logo do certificado"
+                fill
+                className="object-contain drop-shadow-sm"
+                sizes={`${config.logoSize}px`}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  console.warn('Erro ao carregar logo:', config.logoUrl);
+                }}
+                onLoad={() => {
+                  console.log('Logo carregada com sucesso:', config.logoUrl);
+                }}
+              />
+            </div>
           </div>
         )}
 

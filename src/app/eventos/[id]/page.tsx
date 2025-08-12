@@ -220,14 +220,32 @@ export default function EventDetailsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setRegistration({
-          ...registration,
-          certificateGenerated: true,
-          certificateUrl: data.certificateUrl,
-        });
+        // Reload registration data from database to ensure consistency
+        try {
+          const updatedRegistration = await getRegistration(event.id, registration.userId);
+          if (updatedRegistration) {
+            setRegistration(updatedRegistration);
+          } else {
+            // Fallback to manual update if reload fails
+            setRegistration({
+              ...registration,
+              certificateGenerated: true,
+              certificateUrl: data.certificateUrl,
+            });
+          }
+        } catch (reloadError) {
+          console.warn('Failed to reload registration, using manual update:', reloadError);
+          // Fallback to manual update
+          setRegistration({
+            ...registration,
+            certificateGenerated: true,
+            certificateUrl: data.certificateUrl,
+          });
+        }
         
         // Open certificate in new tab
         window.open(data.certificateUrl, '_blank');
+        setSuccessMessage('Certificado gerado com sucesso!');
       } else {
         throw new Error(data.error);
       }
@@ -721,6 +739,17 @@ export default function EventDetailsPage() {
                           </div>
 
                           {/* Certificate Action */}
+                          {(() => {
+                            console.log('Certificate Debug:', {
+                              checkedOut: registration.checkedOut,
+                              certificateGenerated: registration.certificateGenerated,
+                              certificateUrl: registration.certificateUrl,
+                              showGenerateButton: registration.checkedOut && !registration.certificateGenerated,
+                              showDownloadButton: registration.certificateGenerated && registration.certificateUrl
+                            });
+                            return null;
+                          })()}
+                          
                           {registration.checkedOut && !registration.certificateGenerated && (
                             <div className="pt-4">
                               <button
@@ -745,6 +774,22 @@ export default function EventDetailsPage() {
                                 <FileDown className="h-4 w-4 mr-2" />
                                 Baixar Certificado
                               </a>
+                            </div>
+                          )}
+
+                          {registration.certificateGenerated && !registration.certificateUrl && (
+                            <div className="pt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <p className="text-yellow-800 text-sm">
+                                ⚠️ Certificado foi gerado mas a URL não está disponível. Tente gerar novamente.
+                              </p>
+                              <button
+                                onClick={generateCertificate}
+                                disabled={actionLoading}
+                                className="btn-outline mt-2 text-sm"
+                              >
+                                <Award className="h-4 w-4 mr-2" />
+                                {actionLoading ? 'Gerando...' : 'Gerar Novamente'}
+                              </button>
                             </div>
                           )}
 

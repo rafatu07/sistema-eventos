@@ -123,7 +123,7 @@ export default function CertificateConfigPage() {
         {/* Header */}
         <div className="mb-8">
           <Link
-            href={`/dashboard/eventos/${eventId}`}
+            href={`/eventos/${eventId}`}
             className="inline-flex items-center text-blue-600 hover:text-blue-500 mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
