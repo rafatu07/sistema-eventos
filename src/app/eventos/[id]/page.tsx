@@ -252,7 +252,16 @@ export default function EventDetailsPage() {
 
     } catch (error) {
       console.error('Error generating certificate:', error);
-      setError('Erro ao gerar certificado');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar certificado';
+      
+      // Provide specific error messages
+      if (errorMessage.includes('Rate limit exceeded') || errorMessage.includes('Muitas tentativas')) {
+        setError('Muitas tentativas de geração. Aguarde alguns segundos e tente novamente.');
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        setError('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setActionLoading(false);
     }

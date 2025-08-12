@@ -28,7 +28,7 @@ export const RATE_LIMIT_CONFIGS = {
   // APIs de geração de certificados
   CERTIFICATE: {
     windowMs: 60 * 1000, // 1 minuto
-    maxRequests: 2, // 2 certificados por minuto por usuário
+    maxRequests: 10, // 10 certificados por minuto por usuário (para testes e regeneração)
   },
   // APIs gerais
   GENERAL: {
@@ -171,6 +171,17 @@ export function cleanupOldRecords(): void {
       rateLimitStore.set(identifier, validRecords);
     }
   }
+}
+
+/**
+ * Limpar rate limit para um usuário específico
+ * Útil para testes ou quando usuário atualiza configurações
+ * @param userId - ID do usuário
+ */
+export function clearUserRateLimit(userId: string): void {
+  const identifier = `user-${userId}`;
+  rateLimitStore.delete(identifier);
+  console.log(`🧹 Rate limit limpo para usuário: ${userId}`);
 }
 
 /**

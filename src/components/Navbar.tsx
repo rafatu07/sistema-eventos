@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Menu, X, Calendar, Users, LogOut } from 'lucide-react';
+import { Menu, X, Calendar, Users, LogOut, User } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -67,6 +67,14 @@ export const Navbar: React.FC = () => {
                 </span>
               )}
 
+              <Link
+                href="/perfil"
+                className="text-gray-700 hover:text-blue-600 p-2 rounded-md transition-colors"
+                title="Meu Perfil"
+              >
+                <User className="h-5 w-5" />
+              </Link>
+
               <button
                 onClick={handleSignOut}
                 className="text-gray-700 hover:text-red-600 p-2 rounded-md transition-colors"
@@ -123,6 +131,15 @@ export const Navbar: React.FC = () => {
                   </span>
                 )}
               </div>
+              
+              <Link
+                href="/perfil"
+                className="text-gray-700 hover:text-blue-600 block w-full text-left px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                <User className="inline h-4 w-4 mr-2" />
+                Meu Perfil
+              </Link>
               
               <button
                 onClick={handleSignOut}

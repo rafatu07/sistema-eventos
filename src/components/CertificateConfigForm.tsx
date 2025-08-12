@@ -159,6 +159,59 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     console.log('👀 WATCH: logoUrl mudou para:', watchedValues.logoUrl);
   }, [watchedValues.logoUrl]);
 
+  // Memoize the previous values to prevent infinite loops
+  const prevValuesRef = React.useRef<string>('');
+  
+  // Watch for all form changes to update preview in real-time
+  React.useEffect(() => {
+    if (onConfigChange) {
+      // Create a stable string representation of current values
+      const currentValuesString = JSON.stringify({
+        primaryColor: watchedValues.primaryColor,
+        secondaryColor: watchedValues.secondaryColor,
+        backgroundColor: watchedValues.backgroundColor,
+        borderColor: watchedValues.borderColor,
+        template: watchedValues.template,
+        orientation: watchedValues.orientation,
+        fontFamily: watchedValues.fontFamily,
+        logoUrl: watchedValues.logoUrl,
+        logoSize: watchedValues.logoSize,
+        showBorder: watchedValues.showBorder,
+        includeQRCode: watchedValues.includeQRCode
+      });
+      
+      // Only update if values actually changed
+      if (currentValuesString !== prevValuesRef.current) {
+        const oldValues = prevValuesRef.current ? JSON.parse(prevValuesRef.current) : {};
+        prevValuesRef.current = currentValuesString;
+        
+        const updatedConfig: CertificateConfig = {
+          ...watchedValues,
+          id: config?.id || 'temp',
+          createdAt: config?.createdAt || new Date(),
+          updatedAt: new Date(),
+        } as CertificateConfig;
+        
+        console.log('🎨 PREVIEW_UPDATE: Cores mudaram!', {
+          antes: {
+            primaryColor: oldValues.primaryColor,
+            secondaryColor: oldValues.secondaryColor,
+            backgroundColor: oldValues.backgroundColor,
+            borderColor: oldValues.borderColor
+          },
+          agora: {
+            primaryColor: watchedValues.primaryColor,
+            secondaryColor: watchedValues.secondaryColor,
+            backgroundColor: watchedValues.backgroundColor,
+            borderColor: watchedValues.borderColor
+          }
+        });
+        
+        onConfigChange(updatedConfig);
+      }
+    }
+  }, [watchedValues.primaryColor, watchedValues.secondaryColor, watchedValues.backgroundColor, watchedValues.borderColor, watchedValues.template, watchedValues.orientation, watchedValues.fontFamily, watchedValues.logoUrl, watchedValues.logoSize, watchedValues.showBorder, watchedValues.includeQRCode, onConfigChange, config?.id]);
+
   // Watch for changes in form values to mark as unsaved
   React.useEffect(() => {
     if (config) {
@@ -480,13 +533,20 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                       <input
                         type="color"
                         id="primaryColor"
-                        {...register('primaryColor')}
+                        value={watchedValues.primaryColor || '#7c3aed'}
+                        onChange={(e) => {
+                          console.log('🎨 COLOR_PICKER: Mudança na cor primária:', e.target.value);
+                          setValue('primaryColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
                         className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                       />
                       <input
                         type="text"
-                        {...register('primaryColor')}
-                        placeholder="#2563eb"
+                        value={watchedValues.primaryColor || '#7c3aed'}
+                        onChange={(e) => {
+                          setValue('primaryColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        placeholder="#7c3aed"
                         className="input flex-1"
                       />
                     </div>
@@ -501,13 +561,19 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                       <input
                         type="color"
                         id="secondaryColor"
-                        {...register('secondaryColor')}
+                        value={watchedValues.secondaryColor || '#6b7280'}
+                        onChange={(e) => {
+                          setValue('secondaryColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
                         className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                       />
                       <input
                         type="text"
-                        {...register('secondaryColor')}
-                        placeholder="#64748b"
+                        value={watchedValues.secondaryColor || '#6b7280'}
+                        onChange={(e) => {
+                          setValue('secondaryColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        placeholder="#6b7280"
                         className="input flex-1"
                       />
                     </div>
@@ -522,12 +588,18 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                       <input
                         type="color"
                         id="backgroundColor"
-                        {...register('backgroundColor')}
+                        value={watchedValues.backgroundColor || '#ffffff'}
+                        onChange={(e) => {
+                          setValue('backgroundColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
                         className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                       />
                       <input
                         type="text"
-                        {...register('backgroundColor')}
+                        value={watchedValues.backgroundColor || '#ffffff'}
+                        onChange={(e) => {
+                          setValue('backgroundColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
                         placeholder="#ffffff"
                         className="input flex-1"
                       />
@@ -543,13 +615,19 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                       <input
                         type="color"
                         id="borderColor"
-                        {...register('borderColor')}
+                        value={watchedValues.borderColor || '#c4b5fd'}
+                        onChange={(e) => {
+                          setValue('borderColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
                         className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                       />
                       <input
                         type="text"
-                        {...register('borderColor')}
-                        placeholder="#e2e8f0"
+                        value={watchedValues.borderColor || '#c4b5fd'}
+                        onChange={(e) => {
+                          setValue('borderColor', e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        placeholder="#c4b5fd"
                         className="input flex-1"
                       />
                     </div>
