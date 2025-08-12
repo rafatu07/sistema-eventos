@@ -3,16 +3,34 @@
  */
 
 /**
- * Sanitiza texto para uso em PDFs, preservando caracteres portugueses
- * Remove apenas emojis e caracteres problemáticos, mantendo acentos
+ * Sanitiza texto para uso em PDFs, convertendo acentos para ASCII
+ * Como a biblioteca pdf-lib tem problemas com caracteres Unicode,
+ * convertemos acentos para seus equivalentes ASCII apenas para PDF
  */
 export const sanitizeTextForPDF = (text: string): string => {
   return text
     // Remover emojis
     .replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
-    // Remover apenas caracteres problemáticos, preservando acentos portugueses
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove caracteres de controle
-    // Substituir apenas aspas e símbolos problemáticos, preservando acentos
+    // Remover caracteres de controle
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    // Converter acentos portugueses para ASCII (específico para PDF)
+    .replace(/[àáâãäå]/g, 'a')
+    .replace(/[ÀÁÂÃÄÅ]/g, 'A')
+    .replace(/[èéêë]/g, 'e')
+    .replace(/[ÈÉÊË]/g, 'E')
+    .replace(/[ìíîï]/g, 'i')
+    .replace(/[ÌÍÎÏ]/g, 'I')
+    .replace(/[òóôõöø]/g, 'o')
+    .replace(/[ÒÓÔÕÖØ]/g, 'O')
+    .replace(/[ùúûü]/g, 'u')
+    .replace(/[ÙÚÛÜ]/g, 'U')
+    .replace(/[ýÿ]/g, 'y')
+    .replace(/[ÝŸ]/g, 'Y')
+    .replace(/[ç]/g, 'c')
+    .replace(/[Ç]/g, 'C')
+    .replace(/[ñ]/g, 'n')
+    .replace(/[Ñ]/g, 'N')
+    // Substituir símbolos problemáticos
     .replace(/[\u201C\u201D]/g, '"') // aspas duplas curvas
     .replace(/[\u2018\u2019]/g, "'") // aspas simples curvas
     .replace(/[\u2013\u2014]/g, '-') // en dash e em dash

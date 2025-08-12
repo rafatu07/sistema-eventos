@@ -325,11 +325,14 @@ export const updateRegistration = async (registrationId: string, data: Partial<R
     const registrationRef = doc(db, COLLECTIONS.REGISTRATIONS, registrationId);
     const updateData: DocumentData = {};
     
-    // Handle regular fields
+    // Handle regular fields (excluding special fields that need custom treatment)
     Object.keys(data).forEach(key => {
-      if (key !== 'checkInTime' && key !== 'checkOutTime') {
-        updateData[key] = data[key as keyof Registration];
-        console.log(`[firestore] Campo regular ${key}:`, data[key as keyof Registration]);
+      if (key !== 'checkInTime' && key !== 'checkOutTime' && key !== 'certificateUrl') {
+        const value = data[key as keyof Registration];
+        if (value !== undefined) {
+          updateData[key] = value;
+          console.log(`[firestore] Campo regular ${key}:`, value);
+        }
       }
     });
     
@@ -363,6 +366,18 @@ export const updateRegistration = async (registrationId: string, data: Partial<R
           console.error(`[firestore] Erro ao converter checkOutTime para Timestamp:`, timestampError);
           throw new Error(`Erro ao converter checkOutTime: ${timestampError}`);
         }
+      }
+    }
+    
+    // Handle certificateUrl field with special logic for undefined values
+    if ('certificateUrl' in data) {
+      console.log(`[firestore] Processando certificateUrl:`, data.certificateUrl);
+      if (data.certificateUrl === undefined || data.certificateUrl === null) {
+        updateData.certificateUrl = deleteField();
+        console.log(`[firestore] certificateUrl será removido`);
+      } else {
+        updateData.certificateUrl = data.certificateUrl;
+        console.log(`[firestore] certificateUrl será atualizado:`, data.certificateUrl);
       }
     }
     

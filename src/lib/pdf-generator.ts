@@ -40,8 +40,14 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       throw new Error('Unable to load certificate configuration');
     }
 
-    // Create PDF document
-    const pdfDoc = await PDFDocument.create();
+    // Create PDF document with explicit metadata
+    const pdfDoc = await PDFDocument.create({
+      producer: 'Sistema de Eventos - Certificados',
+      title: 'Certificado de Participação',
+      subject: `Certificado para ${data.userName}`,
+      keywords: ['certificado', 'participação', 'evento'],
+      language: 'pt-BR',
+    });
 
     // Determine page size based on orientation
     const isLandscape = config.orientation === 'landscape';
@@ -49,40 +55,21 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     const page = pdfDoc.addPage(pageSize);
     const { width, height } = page.getSize();
 
-    // Embed fonts - Usando fontes com melhor suporte a Unicode
+    // Embed fonts - Forçar uso apenas de Helvetica para máxima compatibilidade
     let normalFont, boldFont;
     
     try {
-      // Tentar usar fontes que suportam melhor caracteres acentuados
-      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      const timesFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-      const timesBoldFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
-      const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
-      const courierBoldFont = await pdfDoc.embedFont(StandardFonts.CourierBold);
-
-      // Select fonts based on configuration
-      switch (config.fontFamily) {
-        case 'times':
-          normalFont = timesFont;
-          boldFont = timesBoldFont;
-          break;
-        case 'courier':
-          normalFont = courierFont;
-          boldFont = courierBoldFont;
-          break;
-        default:
-          normalFont = helveticaFont;
-          boldFont = helveticaBoldFont;
-      }
+      console.log('🔤 Carregando fontes Helvetica para máxima compatibilidade...');
       
-      console.log('✅ Fontes PDF carregadas com sucesso:', config.fontFamily);
-      
-    } catch (fontError) {
-      console.error('❌ Erro ao carregar fontes:', fontError);
-      // Fallback para Helvetica como padrão
+      // Usar apenas Helvetica que tem melhor suporte a caracteres básicos
       normalFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
       boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      
+      console.log('✅ Fontes Helvetica carregadas com sucesso');
+      
+    } catch (fontError) {
+      console.error('❌ Erro crítico ao carregar fontes:', fontError);
+      throw new Error(`Erro ao carregar fontes do PDF: ${fontError}`);
     }
 
     // Parse colors from hex
@@ -172,8 +159,10 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     // Title
     const titlePos = getPosition(config.titlePosition);
     const sanitizedTitle = sanitizeTextForPDF(config.title);
-    console.log('📋 Título original:', config.title);
-    console.log('🧹 Título sanitizado:', sanitizedTitle);
+    console.log('📋 Título original:', JSON.stringify(config.title));
+    console.log('🧹 Título sanitizado:', JSON.stringify(sanitizedTitle));
+    console.log('🔤 Título caracteres:', sanitizedTitle.split('').map(char => `${char}(${char.charCodeAt(0)})`).join(' '));
+    
     const titleWidth = getTextWidth(sanitizedTitle, boldFont, config.titleFontSize);
     page.drawText(sanitizedTitle, {
       x: titlePos.x - titleWidth / 2,
@@ -182,7 +171,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       font: boldFont,
       color: primaryColor,
     });
-    console.log('✍️  Título renderizado no PDF');
+    console.log('✍️  Título renderizado no PDF:', titlePos.x, titlePos.y);
 
     // Subtitle (if provided)
     if (config.subtitle) {
@@ -204,8 +193,10 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     // Participant name
     const namePos = getPosition(config.namePosition);
     const sanitizedUserName = sanitizeTextForPDF(data.userName);
-    console.log('🏷️  Nome original:', data.userName);
-    console.log('🧹 Nome sanitizado:', sanitizedUserName);
+    console.log('🏷️  Nome original:', JSON.stringify(data.userName));
+    console.log('🧹 Nome sanitizado:', JSON.stringify(sanitizedUserName));
+    console.log('🔤 Nome caracteres:', sanitizedUserName.split('').map(char => `${char}(${char.charCodeAt(0)})`).join(' '));
+    
     const nameWidth = getTextWidth(sanitizedUserName, boldFont, config.nameFontSize);
     page.drawText(sanitizedUserName, {
       x: namePos.x - nameWidth / 2,
@@ -214,7 +205,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       font: boldFont,
       color: primaryColor,
     });
-    console.log('✍️  Nome renderizado no PDF');
+    console.log('✍️  Nome renderizado no PDF:', namePos.x, namePos.y);
 
     // Body text with variable replacement
     const bodyPos = getPosition(config.bodyPosition);
@@ -242,8 +233,9 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       .replace(/{eventEndTime}/g, formattedEndTime);
 
     const sanitizedBodyText = sanitizeTextForPDF(bodyText);
-    console.log('📄 Texto do corpo original:', bodyText);
-    console.log('🧹 Texto do corpo sanitizado:', sanitizedBodyText);
+    console.log('📄 Texto do corpo original:', JSON.stringify(bodyText));
+    console.log('🧹 Texto do corpo sanitizado:', JSON.stringify(sanitizedBodyText));
+    console.log('🔤 Primeiros 50 caracteres do corpo:', sanitizedBodyText.substring(0, 50).split('').map(char => `${char}(${char.charCodeAt(0)})`).join(' '));
     
     // Handle multiline text
     const maxWidth = width * 0.8;
@@ -381,9 +373,18 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       color: secondaryColor,
     });
 
-    // Serialize PDF
-    const pdfBytes = await pdfDoc.save();
-    console.log('PDF generated successfully, size:', pdfBytes.length);
+    // Serialize PDF with specific options
+    console.log('💾 Salvando PDF com configurações específicas...');
+    const pdfBytes = await pdfDoc.save({
+      useObjectStreams: false, // Força compatibilidade com readers antigos
+      addDefaultPage: false,   // Não adicionar página padrão extra
+    });
+    
+    console.log('✅ PDF gerado com sucesso!');
+    console.log('📊 Tamanho do PDF:', pdfBytes.length, 'bytes');
+    console.log('📄 Total de páginas:', pdfDoc.getPageCount());
+    console.log('🔤 Fontes usadas: Helvetica, HelveticaBold');
+    
     return pdfBytes;
 
   } catch (error) {
