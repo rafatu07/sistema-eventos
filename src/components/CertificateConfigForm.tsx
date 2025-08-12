@@ -98,50 +98,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     }
   };
 
-  // Função para testar certificado com configuração atual
-  const testCurrentConfig = async () => {
-    try {
-      console.log('🧪 TESTE: Testando certificado com configuração atual...');
-      
-      // Extrair eventId da URL ou props
-      const urlParts = window.location.pathname.split('/');
-      const currentEventId = urlParts[urlParts.indexOf('eventos') + 1];
-      
-      if (!currentEventId) {
-        notifications.error('Erro', 'Não foi possível identificar o evento atual');
-        return;
-      }
-      
-      console.log('🔍 TESTE: Event ID identificado:', currentEventId);
-      
-      const response = await fetch('/api/debug-certificate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          eventId: currentEventId
-        }),
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok && result.certificateUrl) {
-        console.log('✅ TESTE: Certificado gerado com sucesso:', result.certificateUrl);
-        notifications.success('Teste Concluído', 'Certificado gerado! Abrindo em nova aba...');
-        
-        // Abrir certificado em nova aba
-        window.open(result.certificateUrl, '_blank');
-      } else {
-        console.error('❌ TESTE: Erro ao gerar certificado:', result);
-        notifications.error('Erro no Teste', result.error || 'Erro ao gerar certificado de teste');
-      }
-      
-    } catch (error) {
-      console.error('❌ TESTE: Erro no teste do certificado:', error);
-      notifications.error('Erro no Teste', 'Erro ao testar certificado. Verifique o console.');
-    }
-  };
+
 
   // Função para upload de logo
   const handleLogoUpload = async (file: File): Promise<string> => {
@@ -1161,17 +1118,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
               Cancelar
             </button>
             
-            <button
-              type="button"
-              onClick={testCurrentConfig}
-              className="btn-secondary bg-green-50 text-green-700 border-green-200 hover:bg-green-100 disabled:opacity-50"
-              disabled={isSubmitting}
-            >
-              <div className="flex items-center">
-                <span className="text-lg mr-1">🧪</span>
-                Testar
-              </div>
-            </button>
+            
             
             <button
               type="submit"

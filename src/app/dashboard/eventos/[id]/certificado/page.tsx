@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CertificateConfigForm } from '@/components/CertificateConfigForm';
-import { CertificatePreviewWithControls } from '@/components/CertificatePreview';
+import { CertificatePreview } from '@/components/CertificatePreview';
 import { getCertificateConfig, updateCertificateConfig, getDefaultCertificateConfig } from '@/lib/certificate-config';
 import { getEvent } from '@/lib/firestore';
 import { CertificateConfigData } from '@/lib/schemas';
@@ -107,15 +107,7 @@ export default function CertificateConfigPage() {
     await saveCertificateConfigMutation.mutateAsync(configData);
   };
 
-  const handleExportPreview = () => {
-    // Implementar exportação do preview em imagem
-    notifications.info('Em Desenvolvimento', 'Funcionalidade de exportação será implementada em breve');
-  };
 
-  const handleToggleFullscreen = () => {
-    // Implementar visualização em tela cheia
-    notifications.info('Em Desenvolvimento', 'Visualização em tela cheia será implementada em breve');
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -188,16 +180,30 @@ export default function CertificateConfigPage() {
             ) : (
               currentConfig && (
                 <div className="bg-white rounded-lg shadow-sm border p-6">
-                                  <CertificatePreviewWithControls
-                  config={currentConfig}
-                  eventName={event.name}
-                  participantName="João Silva"
-                  eventDate={event.date}
-                  eventStartTime={event.startTime}
-                  eventEndTime={event.endTime}
-                  onExportPreview={handleExportPreview}
-                  onToggleFullscreen={handleToggleFullscreen}
-                />
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Preview do Certificado
+                    </h3>
+                    
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                      <CertificatePreview
+                        config={currentConfig}
+                        eventName={event.name}
+                        participantName="João Silva"
+                        eventDate={event.date}
+                        eventStartTime={event.startTime}
+                        eventEndTime={event.endTime}
+                      />
+                    </div>
+
+                    {/* Preview Info */}
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p><strong>Template:</strong> {currentConfig.template}</p>
+                      <p><strong>Orientação:</strong> {currentConfig.orientation === 'landscape' ? 'Paisagem' : 'Retrato'}</p>
+                      <p><strong>Fonte:</strong> {currentConfig.fontFamily}</p>
+                      <p><strong>Cor principal:</strong> <span className="inline-block w-4 h-4 rounded border ml-1" style={{ backgroundColor: currentConfig.primaryColor }} /></p>
+                    </div>
+                  </div>
                 </div>
               )
             )}
@@ -214,15 +220,16 @@ export default function CertificateConfigPage() {
                       <Eye className="h-5 w-5 mr-2" />
                       Preview
                     </h3>
-                    <CertificatePreviewWithControls
-                      config={currentConfig}
-                      eventName={event.name}
-                      participantName="João Silva"
-                      eventDate={event.date}
-                      eventStartTime={event.startTime}
-                      eventEndTime={event.endTime}
-                      className="scale-75 origin-top"
-                    />
+                    <div className="scale-75 origin-top bg-gray-100 p-4 rounded-lg">
+                      <CertificatePreview
+                        config={currentConfig}
+                        eventName={event.name}
+                        participantName="João Silva"
+                        eventDate={event.date}
+                        eventStartTime={event.startTime}
+                        eventEndTime={event.endTime}
+                      />
+                    </div>
                   </div>
                 )}
 
