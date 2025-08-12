@@ -365,9 +365,14 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
 
 // Funções auxiliares
 function getFontFamily(_family: string): string {
-  // Sempre retornamos a família registrada que sabemos existir no runtime
-  // Ignoramos o nome vindo da config para garantir compatibilidade em produção
-  return 'DejaVuSans';
+  // Se fontes customizadas foram registradas, usar DejaVuSans
+  if (fontsRegistered) {
+    return 'DejaVuSans';
+  }
+  
+  // Fallback para fontes do sistema com melhor suporte a acentos
+  // Arial é mais confiável que Sans em ambientes serverless
+  return 'Arial, sans-serif';
 }
 
 function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
@@ -380,12 +385,20 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   fontFamily?: string;
 }) {
   const weight = (options.fontWeight || 'normal').toLowerCase() === 'bold' ? 'bold' : 'normal';
-  const family = options.fontFamily || 'DejaVuSans';
+  const family = options.fontFamily || getFontFamily('');
+  
+  // Se forçar ASCII ou fontes não foram registradas, sanitizar texto
+  const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
+    ? sanitizeTextForPDF(text)
+    : text;
+  
   ctx.font = `${weight} ${options.fontSize}px ${family}`;
   ctx.fillStyle = options.color;
   ctx.textAlign = options.align || 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText(text, options.x, options.y);
+  
+  console.log(`🖍️  Desenhando texto: "${finalText}" com fonte: ${family} (${weight})`);
+  ctx.fillText(finalText, options.x, options.y);
 }
 
 function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options: {
@@ -397,13 +410,19 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  const family = options.fontFamily || 'DejaVuSans';
+  const family = options.fontFamily || getFontFamily('');
+  
+  // Se forçar ASCII ou fontes não foram registradas, sanitizar texto
+  const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
+    ? sanitizeTextForPDF(text)
+    : text;
+  
   ctx.font = `${options.fontSize}px ${family}`;
   ctx.fillStyle = options.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   
-  const words = text.split(' ');
+  const words = finalText.split(' ');
   const lines: string[] = [];
   let currentLine = '';
   
@@ -423,20 +442,26 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   const startY = options.y - (lines.length * options.lineHeight) / 2;
   
   lines.forEach((line, index) => {
+    console.log(`🖍️  Desenhando linha ${index + 1}: "${line}" com fonte: ${family}`);
     ctx.fillText(line, options.x, startY + index * options.lineHeight);
   });
 }
 
 function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number, text: string, opacity: number, color: string) {
+  const family = getFontFamily('');
+  const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
+    ? sanitizeTextForPDF(text)
+    : text;
+
   ctx.save();
   ctx.translate(width / 2, height / 2);
   ctx.rotate(-Math.PI / 4);
   ctx.globalAlpha = opacity;
-  ctx.font = 'bold 80px DejaVuSans';
+  ctx.font = `bold 80px ${family}`;
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 0, 0);
+  ctx.fillText(finalText, 0, 0);
   ctx.restore();
 }
 
@@ -482,6 +507,8 @@ function drawQRPlaceholder(ctx: CanvasRenderingContext2D, options: {
   size: number;
   color: string;
 }) {
+  const family = getFontFamily('');
+  
   ctx.strokeStyle = options.color;
   ctx.lineWidth = 4;
   ctx.strokeRect(
@@ -491,7 +518,7 @@ function drawQRPlaceholder(ctx: CanvasRenderingContext2D, options: {
     options.size
   );
   
-  ctx.font = '24px DejaVuSans';
+  ctx.font = `24px ${family}`;
   ctx.fillStyle = options.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -542,27 +569,62 @@ let fontsRegistered = false;
 
 async function ensureFontsRegistered(registerFont: (src: string, options: { family: string }) => void) {
   if (fontsRegistered) return;
+  
+  console.log('🔤 Iniciando registro de fontes para produção...');
+  
   try {
+    // Múltiplas URLs como fallback
+    const fontSources = [
+      {
+        regular: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
+        bold: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf'
+      },
+      {
+        regular: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
+        bold: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Bold.ttf'
+      },
+      {
+        regular: 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsiH0B4gaVIUwaEQbjA.woff2',
+        bold: 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsiH0B4gaVIUwaEQbjA.woff2'
+      }
+    ];
+
     const tmpDir = process.env.TEMP || '/tmp';
     const regularPath = path.join(tmpDir, 'DejaVuSans.ttf');
     const boldPath = path.join(tmpDir, 'DejaVuSans-Bold.ttf');
 
-    // URLs estáveis do repositório oficial DejaVu Fonts
-    const regularUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf';
-    const boldUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans-Bold.ttf';
+    let fontLoaded = false;
 
-    // Baixar se ainda não existir no sistema de arquivos efêmero
-    await downloadIfMissing(regularUrl, regularPath);
-    await downloadIfMissing(boldUrl, boldPath);
+    // Tentar cada fonte até uma funcionar
+    for (const source of fontSources) {
+      try {
+        console.log('🔄 Tentando carregar fontes de:', source.regular.substring(0, 50) + '...');
+        
+        await downloadIfMissing(source.regular, regularPath);
+        await downloadIfMissing(source.bold, boldPath);
 
-    // Registrar famílias
-    registerFont(regularPath, { family: 'DejaVuSans' });
-    registerFont(boldPath, { family: 'DejaVuSans' });
+        // Registrar famílias
+        registerFont(regularPath, { family: 'DejaVuSans' });
+        registerFont(boldPath, { family: 'DejaVuSans' });
 
-    fontsRegistered = true;
-    console.log('✅ Fontes DejaVuSans registradas para canvas');
+        fontsRegistered = true;
+        fontLoaded = true;
+        console.log('✅ Fontes DejaVuSans registradas com sucesso');
+        break;
+      } catch (sourceError) {
+        console.warn('❌ Falha com fonte de:', source.regular.substring(0, 30), sourceError);
+        continue;
+      }
+    }
+
+    if (!fontLoaded) {
+      throw new Error('Nenhuma fonte pôde ser carregada de todas as fontes tentadas');
+    }
+
   } catch (err) {
-    console.warn('⚠️  Não foi possível registrar fontes customizadas. Usando padrões do sistema.', err);
+    console.warn('⚠️  Falha total no carregamento de fontes. Usando estratégia de fallback ASCII.', err);
+    // Definir flag para usar apenas ASCII
+    process.env.FORCE_ASCII_ONLY = 'true';
   }
 }
 

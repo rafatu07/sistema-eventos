@@ -150,7 +150,45 @@ export async function POST(request: NextRequest) {
 
       } catch (pdfError) {
         console.error('Falha tanto em imagem quanto PDF:', { imageError, pdfError });
-        throw new Error(`Erro na geração: Imagem - ${(imageError as Error).message}; PDF - ${(pdfError as Error).message}`);
+        
+        // Último recurso: tentar gerar certificado SVG simples
+        try {
+          console.log('🆘 Tentando fallback SVG simples...');
+          
+          const svgResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-fallback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userName: fullCertificateData.userName,
+              eventName: fullCertificateData.eventName,
+              eventDate: fullCertificateData.eventDate,
+              eventStartTime: fullCertificateData.eventStartTime,
+              eventEndTime: fullCertificateData.eventEndTime,
+            }),
+          });
+          
+          if (!svgResponse.ok) {
+            throw new Error(`SVG fallback falhou: ${svgResponse.status}`);
+          }
+          
+          const svgContent = await svgResponse.text();
+          const svgBuffer = Buffer.from(svgContent, 'utf-8');
+          
+          // Upload SVG como raw para Cloudinary
+          const uploadResult = await uploadPDFToCloudinary(svgBuffer, `certificate_fallback_${userId}_${eventId}`);
+          certificateUrl = uploadResult.secureUrl;
+          generationType = 'svg-fallback';
+          
+          logInfo('Certificado SVG de fallback gerado', { 
+            userId, 
+            eventId, 
+            certificateUrl: certificateUrl.substring(0, 50) + '...'
+          });
+          
+        } catch (svgError) {
+          console.error('Falha em todos os métodos de geração:', { imageError, pdfError, svgError });
+          throw new Error(`Erro completo na geração: Imagem - ${(imageError as Error).message}; PDF - ${(pdfError as Error).message}; SVG - ${(svgError as Error).message}`);
+        }
       }
     }
 
