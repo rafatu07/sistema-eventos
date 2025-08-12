@@ -3,11 +3,12 @@
 import React from 'react';
 import Image from 'next/image';
 import { CertificateConfigData } from '@/lib/schemas';
+import { CertificateConfig } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface CertificatePreviewProps {
-  config: CertificateConfigData;
+  config: CertificateConfigData | CertificateConfig;
   eventName?: string;
   participantName?: string;
   eventDate?: Date;
@@ -58,11 +59,14 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
           backgroundColor: config.backgroundColor,
           borderColor: config.showBorder ? config.borderColor : 'transparent',
           borderWidth: config.showBorder ? `${config.borderWidth}px` : '0',
-          fontFamily: config.fontFamily === 'helvetica' 
-            ? 'system-ui, -apple-system, sans-serif' 
-            : config.fontFamily === 'times' 
-            ? 'Times, serif' 
-            : 'Courier, monospace',
+          fontFamily:
+            config.fontFamily === 'helvetica'
+              ? 'system-ui, -apple-system, Arial, sans-serif'
+              : config.fontFamily === 'times'
+              ? 'Times, serif'
+              : config.fontFamily === 'courier'
+              ? 'Courier, monospace'
+              : 'Arial, sans-serif',
         }}
       >
         {/* Watermark */}
