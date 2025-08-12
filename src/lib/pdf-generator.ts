@@ -415,7 +415,6 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
 
     // Serialize PDF with specific options (configurações para produção)
     console.log('💾 Salvando PDF com configurações específicas...');
-    const isProduction = process.env.NODE_ENV === 'production';
     
     const saveOptions = {
       useObjectStreams: false, // Força compatibilidade com readers antigos
