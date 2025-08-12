@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCertificatePDF } from '@/lib/pdf-generator';
 import { generateCertificateImage } from '@/lib/certificate-image-generator';
-import { uploadPDFToCloudinary, uploadImageToCloudinary } from '@/lib/upload';
+import { uploadPDFToCloudinary, uploadImageToCloudinary, getSecurePDFUrl } from '@/lib/upload';
 import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
@@ -111,12 +111,22 @@ export async function POST(request: NextRequest) {
 
         const pdfBuffer = Buffer.from(pdfBytes);
         const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_PROD_${userId}_${eventId}`);
-        certificateUrl = uploadResult.secureUrl;
+        
+        // 🔐 Gerar URL segura (testa acesso público + fallback para URL assinada se necessário)
+        try {
+          certificateUrl = await getSecurePDFUrl(uploadResult.publicId, uploadResult.secureUrl);
+          console.log('✅ URL segura gerada para produção');
+        } catch (urlError) {
+          console.warn('❌ Falha ao gerar URL segura, usando URL original:', urlError);
+          certificateUrl = uploadResult.secureUrl;
+        }
+        
         generationType = 'pdf';
         
         logInfo('Certificado (PDF PRODUÇÃO) enviado para Cloudinary', { 
           userId, 
           eventId, 
+          publicId: uploadResult.publicId,
           certificateUrl: certificateUrl.substring(0, 50) + '...'
         });
 
@@ -198,12 +208,22 @@ export async function POST(request: NextRequest) {
 
           const pdfBuffer = Buffer.from(pdfBytes);
           const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_DEV_PDF_${userId}_${eventId}`);
-          certificateUrl = uploadResult.secureUrl;
+          
+          // Usar URL segura também em desenvolvimento para consistência
+          try {
+            certificateUrl = await getSecurePDFUrl(uploadResult.publicId, uploadResult.secureUrl);
+            console.log('✅ URL segura gerada para desenvolvimento');
+          } catch (urlError) {
+            console.warn('❌ Falha ao gerar URL segura, usando URL original:', urlError);
+            certificateUrl = uploadResult.secureUrl;
+          }
+          
           generationType = 'pdf';
           
           logInfo('Certificado (PDF fallback dev) enviado para Cloudinary', { 
             userId, 
             eventId, 
+            publicId: uploadResult.publicId,
             certificateUrl: certificateUrl.substring(0, 50) + '...'
           });
 
