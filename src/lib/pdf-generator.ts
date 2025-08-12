@@ -49,28 +49,40 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     const page = pdfDoc.addPage(pageSize);
     const { width, height } = page.getSize();
 
-    // Embed fonts
-    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const timesFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-    const timesBoldFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
-    const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
-    const courierBoldFont = await pdfDoc.embedFont(StandardFonts.CourierBold);
-
-    // Select fonts based on configuration
+    // Embed fonts - Usando fontes com melhor suporte a Unicode
     let normalFont, boldFont;
-    switch (config.fontFamily) {
-      case 'times':
-        normalFont = timesFont;
-        boldFont = timesBoldFont;
-        break;
-      case 'courier':
-        normalFont = courierFont;
-        boldFont = courierBoldFont;
-        break;
-      default:
-        normalFont = helveticaFont;
-        boldFont = helveticaBoldFont;
+    
+    try {
+      // Tentar usar fontes que suportam melhor caracteres acentuados
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      const timesFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+      const timesBoldFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+      const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
+      const courierBoldFont = await pdfDoc.embedFont(StandardFonts.CourierBold);
+
+      // Select fonts based on configuration
+      switch (config.fontFamily) {
+        case 'times':
+          normalFont = timesFont;
+          boldFont = timesBoldFont;
+          break;
+        case 'courier':
+          normalFont = courierFont;
+          boldFont = courierBoldFont;
+          break;
+        default:
+          normalFont = helveticaFont;
+          boldFont = helveticaBoldFont;
+      }
+      
+      console.log('✅ Fontes PDF carregadas com sucesso:', config.fontFamily);
+      
+    } catch (fontError) {
+      console.error('❌ Erro ao carregar fontes:', fontError);
+      // Fallback para Helvetica como padrão
+      normalFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     }
 
     // Parse colors from hex
@@ -159,14 +171,18 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
 
     // Title
     const titlePos = getPosition(config.titlePosition);
-    const titleWidth = getTextWidth(config.title, boldFont, config.titleFontSize);
-    page.drawText(config.title, {
+    const sanitizedTitle = sanitizeTextForPDF(config.title);
+    console.log('📋 Título original:', config.title);
+    console.log('🧹 Título sanitizado:', sanitizedTitle);
+    const titleWidth = getTextWidth(sanitizedTitle, boldFont, config.titleFontSize);
+    page.drawText(sanitizedTitle, {
       x: titlePos.x - titleWidth / 2,
       y: titlePos.y,
       size: config.titleFontSize,
       font: boldFont,
       color: primaryColor,
     });
+    console.log('✍️  Título renderizado no PDF');
 
     // Subtitle (if provided)
     if (config.subtitle) {
@@ -188,6 +204,8 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     // Participant name
     const namePos = getPosition(config.namePosition);
     const sanitizedUserName = sanitizeTextForPDF(data.userName);
+    console.log('🏷️  Nome original:', data.userName);
+    console.log('🧹 Nome sanitizado:', sanitizedUserName);
     const nameWidth = getTextWidth(sanitizedUserName, boldFont, config.nameFontSize);
     page.drawText(sanitizedUserName, {
       x: namePos.x - nameWidth / 2,
@@ -196,6 +214,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       font: boldFont,
       color: primaryColor,
     });
+    console.log('✍️  Nome renderizado no PDF');
 
     // Body text with variable replacement
     const bodyPos = getPosition(config.bodyPosition);
@@ -223,6 +242,8 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       .replace(/{eventEndTime}/g, formattedEndTime);
 
     const sanitizedBodyText = sanitizeTextForPDF(bodyText);
+    console.log('📄 Texto do corpo original:', bodyText);
+    console.log('🧹 Texto do corpo sanitizado:', sanitizedBodyText);
     
     // Handle multiline text
     const maxWidth = width * 0.8;
@@ -249,6 +270,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     const startY = bodyPos.y + totalTextHeight / 2;
 
     lines.forEach((line, index) => {
+      console.log(`✍️  Renderizando linha ${index + 1}: "${line}"`);
       const lineWidth = getTextWidth(line, normalFont, config.bodyFontSize);
       page.drawText(line, {
         x: bodyPos.x - lineWidth / 2,
@@ -258,6 +280,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
         color: secondaryColor,
       });
     });
+    console.log(`✅ ${lines.length} linhas renderizadas no PDF`);
 
     // Footer (if provided)
     if (config.footer) {

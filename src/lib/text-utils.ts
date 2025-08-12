@@ -3,48 +3,26 @@
  */
 
 /**
- * Sanitiza texto para uso em PDFs removendo emojis e caracteres especiais
- * que podem causar problemas de codificação WinAnsi
+ * Sanitiza texto para uso em PDFs, preservando caracteres portugueses
+ * Remove apenas emojis e caracteres problemáticos, mantendo acentos
  */
 export const sanitizeTextForPDF = (text: string): string => {
   return text
     // Remover emojis
     .replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
-    // Substituir caracteres especiais problemáticos
-    .replace(/[^\x00-\x7F]/g, function(char) {
-      const replacements: {[key: string]: string} = {
-        // Acentos em a
-        'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a',
-        'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A',
-        // Acentos em e
-        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-        'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
-        // Acentos em i
-        'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
-        'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
-        // Acentos em o
-        'ó': 'o', 'ò': 'o', 'õ': 'o', 'ô': 'o', 'ö': 'o',
-        'Ó': 'O', 'Ò': 'O', 'Õ': 'O', 'Ô': 'O', 'Ö': 'O',
-        // Acentos em u
-        'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
-        'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
-        // Caracteres especiais
-        'ç': 'c', 'Ç': 'C',
-        'ñ': 'n', 'Ñ': 'N',
-        // Símbolos comuns - usando códigos Unicode
-        '\u201C': '"', '\u201D': '"', // aspas duplas curvas
-        '\u2018': "'", '\u2019': "'", // aspas simples curvas
-        '\u2013': '-', '\u2014': '-', // en dash e em dash
-        '\u2026': '...', // reticências
-        '\u20AC': 'EUR', // símbolo do Euro
-        '\u00A3': 'GBP', // símbolo da Libra
-        '\u00A5': 'JPY', // símbolo do Yen
-        '\u00A9': '(C)', // copyright
-        '\u00AE': '(R)', // marca registrada
-        '\u2122': 'TM',  // trademark
-      };
-      return replacements[char] || '';
-    })
+    // Remover apenas caracteres problemáticos, preservando acentos portugueses
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove caracteres de controle
+    // Substituir apenas aspas e símbolos problemáticos, preservando acentos
+    .replace(/[\u201C\u201D]/g, '"') // aspas duplas curvas
+    .replace(/[\u2018\u2019]/g, "'") // aspas simples curvas
+    .replace(/[\u2013\u2014]/g, '-') // en dash e em dash
+    .replace(/\u2026/g, '...') // reticências
+    .replace(/\u20AC/g, 'EUR') // símbolo do Euro
+    .replace(/\u00A3/g, 'GBP') // símbolo da Libra
+    .replace(/\u00A5/g, 'JPY') // símbolo do Yen
+    .replace(/\u00A9/g, '(C)') // copyright
+    .replace(/\u00AE/g, '(R)') // marca registrada
+    .replace(/\u2122/g, 'TM')  // trademark
     .trim();
 };
 
