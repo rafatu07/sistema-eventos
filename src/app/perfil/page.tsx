@@ -117,12 +117,13 @@ export default function PerfilPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error changing password:', error);
       
-      if (error.code === 'auth/wrong-password') {
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === 'auth/wrong-password') {
         notifications.error('Erro', 'Senha atual incorreta.');
-      } else if (error.code === 'auth/weak-password') {
+      } else if (firebaseError.code === 'auth/weak-password') {
         notifications.error('Erro', 'A nova senha é muito fraca.');
       } else {
         notifications.error('Erro', 'Não foi possível alterar a senha. Tente novamente.');

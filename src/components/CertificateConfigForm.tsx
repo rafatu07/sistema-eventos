@@ -210,6 +210,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
         onConfigChange(updatedConfig);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedValues.primaryColor, watchedValues.secondaryColor, watchedValues.backgroundColor, watchedValues.borderColor, watchedValues.template, watchedValues.orientation, watchedValues.fontFamily, watchedValues.logoUrl, watchedValues.logoSize, watchedValues.showBorder, watchedValues.includeQRCode, onConfigChange, config?.id]);
 
   // Watch for changes in form values to mark as unsaved
