@@ -418,33 +418,44 @@ function getFontFamily(): string {
 
 // Multiplicadores de tamanho por template
 function getFontMultipliers(template: string) {
+  // CORREÇÃO AGRESSIVA: Multipliers drasticamente aumentados para garantir visibilidade
+  // Compensar redimensionamento, cache e otimizações automáticas do Cloudinary
   const multipliers = {
     elegant: {
-      title: 4.5,
-      subtitle: 2.4,
-      name: 3.6,
-      body: 3.4,
-      lineHeight: 4.0,
-      footer: 2.8,
-      timestamp: 2.2
+      title: 8.0,        // AUMENTADO DRASTICAMENTE: 4.5 → 8.0 (+78%)
+      subtitle: 4.5,     // AUMENTADO DRASTICAMENTE: 2.4 → 4.5 (+88%) 
+      name: 6.5,         // AUMENTADO DRASTICAMENTE: 3.6 → 6.5 (+81%)
+      body: 6.0,         // AUMENTADO DRASTICAMENTE: 3.4 → 6.0 (+76%)
+      lineHeight: 7.0,   // AUMENTADO DRASTICAMENTE: 4.0 → 7.0 (+75%)
+      footer: 5.0,       // AUMENTADO DRASTICAMENTE: 2.8 → 5.0 (+79%)
+      timestamp: 4.0     // AUMENTADO DRASTICAMENTE: 2.2 → 4.0 (+82%)
     },
     modern: {
-      title: 4.2,
-      subtitle: 2.2,
-      name: 3.4,
-      body: 3.2,
-      lineHeight: 3.8,
-      footer: 2.6,
-      timestamp: 2.0
+      title: 7.5,        // AUMENTADO DRASTICAMENTE: 4.2 → 7.5 (+79%)
+      subtitle: 4.0,     // AUMENTADO DRASTICAMENTE: 2.2 → 4.0 (+82%)
+      name: 6.0,         // AUMENTADO DRASTICAMENTE: 3.4 → 6.0 (+76%)
+      body: 5.5,         // AUMENTADO DRASTICAMENTE: 3.2 → 5.5 (+72%)
+      lineHeight: 6.5,   // AUMENTADO DRASTICAMENTE: 3.8 → 6.5 (+71%)
+      footer: 4.5,       // AUMENTADO DRASTICAMENTE: 2.6 → 4.5 (+73%)
+      timestamp: 3.5     // AUMENTADO DRASTICAMENTE: 2.0 → 3.5 (+75%)
     },
     classic: {
-      title: 4.0,
-      subtitle: 2.0,
-      name: 3.2,
-      body: 3.0,
-      lineHeight: 3.6,
-      footer: 2.4,
-      timestamp: 1.8
+      title: 7.0,        // AUMENTADO DRASTICAMENTE: 4.0 → 7.0 (+75%)
+      subtitle: 3.8,     // AUMENTADO DRASTICAMENTE: 2.0 → 3.8 (+90%)
+      name: 5.8,         // AUMENTADO DRASTICAMENTE: 3.2 → 5.8 (+81%)
+      body: 5.3,         // AUMENTADO DRASTICAMENTE: 3.0 → 5.3 (+77%)
+      lineHeight: 6.3,   // AUMENTADO DRASTICAMENTE: 3.6 → 6.3 (+75%)
+      footer: 4.3,       // AUMENTADO DRASTICAMENTE: 2.4 → 4.3 (+79%)
+      timestamp: 3.2     // AUMENTADO DRASTICAMENTE: 1.8 → 3.2 (+78%)
+    },
+    minimalist: {
+      title: 6.5,        // AUMENTADO DRASTICAMENTE: 5.0 → 6.5 (+30%)
+      subtitle: 3.5,     // AUMENTADO DRASTICAMENTE: 2.5 → 3.5 (+40%)
+      name: 5.2,         // AUMENTADO DRASTICAMENTE: 4.0 → 5.2 (+30%)
+      body: 5.0,         // AUMENTADO DRASTICAMENTE: 3.8 → 5.0 (+32%)
+      lineHeight: 6.0,   // AUMENTADO DRASTICAMENTE: 4.5 → 6.0 (+33%)
+      footer: 4.0,       // AUMENTADO DRASTICAMENTE: 3.0 → 4.0 (+33%)
+      timestamp: 3.0     // AUMENTADO DRASTICAMENTE: 2.2 → 3.0 (+36%)
     }
   };
   

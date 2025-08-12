@@ -775,7 +775,7 @@ export default function EventDetailsPage() {
                           {registration.certificateGenerated && registration.certificateUrl && (
                             <div className="pt-4">
                               <a
-                                href={registration.certificateUrl}
+                                href={`${registration.certificateUrl}?t=${Date.now()}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn-primary"

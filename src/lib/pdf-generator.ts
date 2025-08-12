@@ -174,6 +174,13 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       y: height - (height * pos.y) / 100, // Invert Y axis
     });
 
+    // Helper function to convert CSS pixels to PDF points
+    // CORREÇÃO: CSS pixels são maiores que pontos PDF, então aplicamos um fator de escala
+    // Isso garante que o PDF gerado tenha as mesmas dimensões visuais do preview HTML
+    // Preview usa: fontSize: "24px" → PDF precisa de: size: 32 pontos (24 * 1.33)
+    const CSS_TO_PDF_SCALE_FACTOR = 1.33; // 1 CSS pixel ≈ 1.33 PDF points
+    const scaleFontSize = (cssPixelSize: number) => Math.round(cssPixelSize * CSS_TO_PDF_SCALE_FACTOR);
+
     // Helper function to get text width for centering
     const getTextWidth = (text: string, font: PDFFont, size: number) => {
       return font.widthOfTextAtSize(text, size);
@@ -192,11 +199,12 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       }));
     }
     
-    const titleWidth = getTextWidth(sanitizedTitle, boldFont, config.titleFontSize);
+    const titleFontSize = scaleFontSize(config.titleFontSize);
+    const titleWidth = getTextWidth(sanitizedTitle, boldFont, titleFontSize);
     page.drawText(sanitizedTitle, {
       x: titlePos.x - titleWidth / 2,
       y: titlePos.y,
-      size: config.titleFontSize,
+      size: titleFontSize,
       font: boldFont,
       color: primaryColor,
     });
@@ -208,7 +216,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
         x: config.titlePosition.x,
         y: config.titlePosition.y + 5,
       });
-      const subtitleSize = config.titleFontSize * 0.6;
+      const subtitleSize = scaleFontSize(config.titleFontSize * 0.6);
       const subtitleWidth = getTextWidth(config.subtitle, normalFont, subtitleSize);
       page.drawText(config.subtitle, {
         x: subtitlePos.x - subtitleWidth / 2,
@@ -232,11 +240,12 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       }));
     }
     
-    const nameWidth = getTextWidth(sanitizedUserName, boldFont, config.nameFontSize);
+    const nameFontSize = scaleFontSize(config.nameFontSize);
+    const nameWidth = getTextWidth(sanitizedUserName, boldFont, nameFontSize);
     page.drawText(sanitizedUserName, {
       x: namePos.x - nameWidth / 2,
       y: namePos.y,
-      size: config.nameFontSize,
+      size: nameFontSize,
       font: boldFont,
       color: primaryColor,
     });
@@ -278,6 +287,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     console.log('📏 Tamanho do texto sanitizado:', sanitizedBodyText.length, 'caracteres');
     
     // Handle multiline text
+    const bodyFontSize = scaleFontSize(config.bodyFontSize);
     const maxWidth = width * 0.8;
     const words = sanitizedBodyText.split(' ');
     const lines: string[] = [];
@@ -285,7 +295,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
 
     for (const word of words) {
       const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      const testWidth = getTextWidth(testLine, normalFont, config.bodyFontSize);
+      const testWidth = getTextWidth(testLine, normalFont, bodyFontSize);
       
       if (testWidth <= maxWidth) {
         currentLine = testLine;
@@ -297,17 +307,17 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     if (currentLine) lines.push(currentLine);
 
     // Draw each line
-    const lineHeight = config.bodyFontSize * 1.2;
+    const lineHeight = bodyFontSize * 1.2;
     const totalTextHeight = lines.length * lineHeight;
     const startY = bodyPos.y + totalTextHeight / 2;
 
     lines.forEach((line, index) => {
       console.log(`✍️  Renderizando linha ${index + 1}: "${line}"`);
-      const lineWidth = getTextWidth(line, normalFont, config.bodyFontSize);
+      const lineWidth = getTextWidth(line, normalFont, bodyFontSize);
       page.drawText(line, {
         x: bodyPos.x - lineWidth / 2,
         y: startY - index * lineHeight,
-        size: config.bodyFontSize,
+        size: bodyFontSize,
         font: normalFont,
         color: secondaryColor,
       });
@@ -320,7 +330,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
         x: config.bodyPosition.x,
         y: config.bodyPosition.y + 15,
       });
-      const footerSize = config.bodyFontSize * 0.9;
+      const footerSize = scaleFontSize(config.bodyFontSize * 0.9);
       const footerWidth = getTextWidth(config.footer, normalFont, footerSize);
       page.drawText(config.footer, {
         x: footerPos.x - footerWidth / 2,
@@ -334,21 +344,21 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     // Watermark (if enabled)
     if (config.showWatermark) {
       const watermarkText = sanitizeTextForPDF(config.watermarkText);
-      const watermarkSize = config.titleFontSize * 2;
+      const watermarkSize = scaleFontSize(config.titleFontSize * 2);
       const watermarkWidth = getTextWidth(watermarkText, boldFont, watermarkSize);
       
-              page.drawText(watermarkText, {
-          x: width / 2 - watermarkWidth / 2,
-          y: height / 2 - watermarkSize / 2,
-          size: watermarkSize,
-          font: boldFont,
-          color: rgb(
-            secondaryColor.red * config.watermarkOpacity,
-            secondaryColor.green * config.watermarkOpacity,
-            secondaryColor.blue * config.watermarkOpacity
-          ),
-          rotate: degrees(-45),
-        });
+      page.drawText(watermarkText, {
+        x: width / 2 - watermarkWidth / 2,
+        y: height / 2 - watermarkSize / 2,
+        size: watermarkSize,
+        font: boldFont,
+        color: rgb(
+          secondaryColor.red * config.watermarkOpacity,
+          secondaryColor.green * config.watermarkOpacity,
+          secondaryColor.blue * config.watermarkOpacity
+        ),
+        rotate: degrees(-45),
+      });
     }
 
     // QR Code real (if enabled)
@@ -523,10 +533,11 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     // Generation timestamp
     const currentDate = new Date().toLocaleDateString('pt-BR');
     const timestampText = `Certificado emitido em ${currentDate}`;
+    const timestampSize = scaleFontSize(8);
     page.drawText(timestampText, {
       x: 20,
       y: 20,
-      size: 8,
+      size: timestampSize,
       font: normalFont,
       color: secondaryColor,
     });

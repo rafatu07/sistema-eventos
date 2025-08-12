@@ -295,6 +295,33 @@ export const getRegistration = async (eventId: string, userId: string): Promise<
   return null;
 };
 
+// Get registration by ID (needed for individual certificate deletion)
+export const getRegistrationById = async (registrationId: string): Promise<Registration | null> => {
+  const registrationRef = doc(db, COLLECTIONS.REGISTRATIONS, registrationId);
+  const registrationSnap = await getDoc(registrationRef);
+  
+  if (!registrationSnap.exists()) {
+    return null;
+  }
+  
+  const data = registrationSnap.data();
+  return {
+    id: registrationSnap.id,
+    eventId: data.eventId,
+    userId: data.userId,
+    userEmail: data.userEmail,
+    userName: data.userName,
+    userCPF: data.userCPF,
+    checkedIn: data.checkedIn,
+    checkedOut: data.checkedOut,
+    certificateGenerated: data.certificateGenerated,
+    certificateUrl: data.certificateUrl,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    checkInTime: data.checkInTime?.toDate(),
+    checkOutTime: data.checkOutTime?.toDate(),
+  } as Registration;
+};
+
 export const getEventRegistrations = async (eventId: string): Promise<Registration[]> => {
   const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
   const q = query(registrationsRef, where('eventId', '==', eventId));

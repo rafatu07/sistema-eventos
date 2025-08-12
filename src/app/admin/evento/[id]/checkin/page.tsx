@@ -341,7 +341,7 @@ export default function AdminCheckinPage() {
     }
 
     const confirmDelete = window.confirm(
-      `⚠️ Confirmar exclusão do certificado de ${registration.userName}?\n\nEsta ação não é reversível!`
+      `⚠️ Confirmar exclusão do certificado de ${registration.userName}?\n\nEsta ação não é reversível e removerá o arquivo do Cloudinary!`
     );
 
     if (!confirmDelete) return;
@@ -351,11 +351,23 @@ export default function AdminCheckinPage() {
     try {
       console.log(`🗑️ Excluindo certificado individual para ${registration.userName}`);
 
-      // Atualizar registro removendo certificado
-      await updateRegistration(registration.id, {
-        certificateGenerated: false,
-        certificateUrl: undefined
+      // Usar nova API que deleta do Cloudinary E Firebase
+      const response = await fetch('/api/delete-individual-certificate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          registrationId: registration.id,
+          userId: user?.uid
+        })
       });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao excluir certificado');
+      }
 
       // Atualizar estado local
       const updatedRegistrations = registrations.map(reg =>
@@ -366,12 +378,12 @@ export default function AdminCheckinPage() {
       
       setRegistrations(updatedRegistrations);
 
-      console.log(`✅ Certificado de ${registration.userName} removido com sucesso`);
-      alert(`✅ Certificado de ${registration.userName} removido com sucesso!`);
+      console.log(`✅ ${result.message}`);
+      alert(`✅ ${result.message}`);
 
     } catch (error) {
       console.error('❌ Erro ao excluir certificado individual:', error);
-      alert(`❌ Erro ao excluir certificado de ${registration.userName}. Tente novamente.`);
+      alert(`❌ Erro ao excluir certificado de ${registration.userName}. ${(error as Error).message}`);
     } finally {
       setDeletingIndividualCert(prev => {
         const newSet = new Set(prev);
@@ -846,7 +858,7 @@ export default function AdminCheckinPage() {
                                 {/* Botões de ação do certificado */}
                                 <div className="flex items-center gap-1">
                                   <button
-                                    onClick={() => window.open(registration.certificateUrl, '_blank')}
+                                    onClick={() => window.open(`${registration.certificateUrl}?t=${Date.now()}`, '_blank')}
                                     className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
                                     title="Ver certificado"
                                   >

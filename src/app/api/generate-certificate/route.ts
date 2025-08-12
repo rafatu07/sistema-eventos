@@ -109,8 +109,10 @@ export async function POST(request: NextRequest) {
           pdfSize: pdfBytes.length 
         });
 
+        // FORÇA QUEBRA DE CACHE: Timestamp único para garantir nova geração
+        const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const pdfBuffer = Buffer.from(pdfBytes);
-        const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_PROD_${userId}_${eventId}`);
+        const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_PROD_${userId}_${eventId}_${cacheBreaker}`);
         
         // 🔐 Gerar URL segura (testa acesso público + fallback para URL assinada se necessário)
         try {
@@ -184,7 +186,9 @@ export async function POST(request: NextRequest) {
           imageSize: imageBuffer.length 
         });
 
-        const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_DEV_${userId}_${eventId}`);
+        // FORÇA QUEBRA DE CACHE: Timestamp único para garantir nova geração
+        const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_DEV_${userId}_${eventId}_${cacheBreaker}`);
         certificateUrl = uploadResult.secureUrl;
         generationType = 'image';
         
@@ -206,8 +210,10 @@ export async function POST(request: NextRequest) {
             pdfSize: pdfBytes.length 
           });
 
+          // FORÇA QUEBRA DE CACHE: Timestamp único para garantir nova geração
+          const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const pdfBuffer = Buffer.from(pdfBytes);
-          const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_DEV_PDF_${userId}_${eventId}`);
+          const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_DEV_PDF_${userId}_${eventId}_${cacheBreaker}`);
           
           // Usar URL segura também em desenvolvimento para consistência
           try {
