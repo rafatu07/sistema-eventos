@@ -318,34 +318,63 @@ export const getEventRegistrations = async (eventId: string): Promise<Registrati
 };
 
 export const updateRegistration = async (registrationId: string, data: Partial<Registration>) => {
-  const registrationRef = doc(db, COLLECTIONS.REGISTRATIONS, registrationId);
-  const updateData: DocumentData = {};
-  
-  // Handle regular fields
-  Object.keys(data).forEach(key => {
-    if (key !== 'checkInTime' && key !== 'checkOutTime') {
-      updateData[key] = data[key as keyof Registration];
+  try {
+    console.log(`[firestore] Iniciando updateRegistration para ID: ${registrationId}`);
+    console.log(`[firestore] Dados recebidos:`, JSON.stringify(data, null, 2));
+    
+    const registrationRef = doc(db, COLLECTIONS.REGISTRATIONS, registrationId);
+    const updateData: DocumentData = {};
+    
+    // Handle regular fields
+    Object.keys(data).forEach(key => {
+      if (key !== 'checkInTime' && key !== 'checkOutTime') {
+        updateData[key] = data[key as keyof Registration];
+        console.log(`[firestore] Campo regular ${key}:`, data[key as keyof Registration]);
+      }
+    });
+    
+    // Handle timestamp fields with special logic for undefined values
+    if ('checkInTime' in data) {
+      console.log(`[firestore] Processando checkInTime:`, data.checkInTime);
+      if (data.checkInTime === undefined || data.checkInTime === null) {
+        updateData.checkInTime = deleteField();
+        console.log(`[firestore] checkInTime será removido`);
+      } else {
+        try {
+          updateData.checkInTime = Timestamp.fromDate(data.checkInTime);
+          console.log(`[firestore] checkInTime convertido para Timestamp`);
+        } catch (timestampError) {
+          console.error(`[firestore] Erro ao converter checkInTime para Timestamp:`, timestampError);
+          throw new Error(`Erro ao converter checkInTime: ${timestampError}`);
+        }
+      }
     }
-  });
-  
-  // Handle timestamp fields with special logic for undefined values
-  if ('checkInTime' in data) {
-    if (data.checkInTime === undefined || data.checkInTime === null) {
-      updateData.checkInTime = deleteField();
-    } else {
-      updateData.checkInTime = Timestamp.fromDate(data.checkInTime);
+    
+    if ('checkOutTime' in data) {
+      console.log(`[firestore] Processando checkOutTime:`, data.checkOutTime);
+      if (data.checkOutTime === undefined || data.checkOutTime === null) {
+        updateData.checkOutTime = deleteField();
+        console.log(`[firestore] checkOutTime será removido`);
+      } else {
+        try {
+          updateData.checkOutTime = Timestamp.fromDate(data.checkOutTime);
+          console.log(`[firestore] checkOutTime convertido para Timestamp`);
+        } catch (timestampError) {
+          console.error(`[firestore] Erro ao converter checkOutTime para Timestamp:`, timestampError);
+          throw new Error(`Erro ao converter checkOutTime: ${timestampError}`);
+        }
+      }
     }
+    
+    console.log(`[firestore] Dados finais para updateDoc:`, JSON.stringify(updateData, null, 2));
+    
+    await updateDoc(registrationRef, updateData);
+    console.log(`[firestore] updateDoc executado com sucesso para ID: ${registrationId}`);
+    
+  } catch (error) {
+    console.error(`[firestore] Erro em updateRegistration para ID ${registrationId}:`, error);
+    throw error;
   }
-  
-  if ('checkOutTime' in data) {
-    if (data.checkOutTime === undefined || data.checkOutTime === null) {
-      updateData.checkOutTime = deleteField();
-    } else {
-      updateData.checkOutTime = Timestamp.fromDate(data.checkOutTime);
-    }
-  }
-  
-  await updateDoc(registrationRef, updateData);
 };
 
 // Function to automatically checkout participants when event ends
