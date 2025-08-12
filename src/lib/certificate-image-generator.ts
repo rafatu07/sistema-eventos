@@ -170,11 +170,14 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       drawWatermark(ctx, width, height, config.watermarkText, config.watermarkOpacity, config.secondaryColor);
     }
     
+    // Obter multiplicadores baseados no template
+    const multipliers = getFontMultipliers(config.template);
+    
     // Título - Restaurando tamanhos originais otimizados
     drawText(ctx, config.title, {
       x: (width * config.titlePosition.x) / 100,
       y: (height * config.titlePosition.y) / 100,
-      fontSize: Math.round(config.titleFontSize * 2.0), // 48px para titleFontSize=24
+      fontSize: Math.round(config.titleFontSize * multipliers.title),
       color: config.primaryColor,
       fontWeight: 'bold',
       align: 'center',
@@ -186,7 +189,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       drawText(ctx, config.subtitle, {
         x: (width * config.titlePosition.x) / 100,
         y: (height * config.titlePosition.y) / 100 + config.titleFontSize * 2.5,
-        fontSize: Math.round(config.titleFontSize * 1.2), // ~29px para titleFontSize=24
+        fontSize: Math.round(config.titleFontSize * multipliers.subtitle),
         color: config.secondaryColor,
         fontWeight: 'normal',
         align: 'center',
@@ -195,11 +198,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     }
     
     // Nome do participante - Tamanho otimizado
-    const sanitizedUserName = sanitizeTextForPDF(data.userName);
-    drawText(ctx, sanitizedUserName, {
+    const participantName = data.userName;
+    drawText(ctx, participantName, {
       x: (width * config.namePosition.x) / 100,
       y: (height * config.namePosition.y) / 100,
-      fontSize: Math.round(config.nameFontSize * 2.0), // 36px para nameFontSize=18
+      fontSize: Math.round(config.nameFontSize * multipliers.name),
       color: config.primaryColor,
       fontWeight: 'bold',
       align: 'center',
@@ -225,16 +228,14 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       .replace(/{eventStartTime}/g, formattedStartTime)
       .replace(/{eventEndTime}/g, formattedEndTime);
     
-    const sanitizedBodyText = sanitizeTextForPDF(bodyText);
-    
-    // Desenhar texto multilinha
-    drawMultilineText(ctx, sanitizedBodyText, {
+    // Desenhar texto multilinha (sanitização será decidida internamente)
+    drawMultilineText(ctx, bodyText, {
       x: (width * config.bodyPosition.x) / 100,
       y: (height * config.bodyPosition.y) / 100,
-      fontSize: Math.round(config.bodyFontSize * 2.0), // 24px para bodyFontSize=12
+      fontSize: Math.round(config.bodyFontSize * multipliers.body),
       color: config.secondaryColor,
       maxWidth: width * 0.8,
-      lineHeight: Math.round(config.bodyFontSize * 2.4), // ~29px para bodyFontSize=12
+      lineHeight: Math.round(config.bodyFontSize * multipliers.lineHeight),
       fontFamily: getFontFamily()
     });
     
@@ -243,7 +244,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       drawText(ctx, config.footer, {
         x: (width * config.bodyPosition.x) / 100,
         y: (height * config.bodyPosition.y) / 100 + 120,
-        fontSize: Math.round(config.bodyFontSize * 1.8), // ~22px para bodyFontSize=12
+        fontSize: Math.round(config.bodyFontSize * multipliers.footer),
         color: config.secondaryColor,
         align: 'center',
         fontFamily: getFontFamily()
@@ -380,7 +381,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     drawText(ctx, `Certificado emitido em ${currentDate}`, {
       x: 40,
       y: height - 40,
-      fontSize: 16,
+      fontSize: Math.round(config.bodyFontSize * multipliers.timestamp),
       color: config.secondaryColor,
       align: 'left',
       fontFamily: getFontFamily()
@@ -413,6 +414,41 @@ function getFontFamily(): string {
   
   // Fallback local
   return getSafeFontFamily();
+}
+
+// Multiplicadores de tamanho por template
+function getFontMultipliers(template: string) {
+  const multipliers = {
+    elegant: {
+      title: 4.5,
+      subtitle: 2.4,
+      name: 3.6,
+      body: 3.4,
+      lineHeight: 4.0,
+      footer: 2.8,
+      timestamp: 2.2
+    },
+    modern: {
+      title: 4.2,
+      subtitle: 2.2,
+      name: 3.4,
+      body: 3.2,
+      lineHeight: 3.8,
+      footer: 2.6,
+      timestamp: 2.0
+    },
+    classic: {
+      title: 4.0,
+      subtitle: 2.0,
+      name: 3.2,
+      body: 3.0,
+      lineHeight: 3.6,
+      footer: 2.4,
+      timestamp: 1.8
+    }
+  };
+  
+  return multipliers[template as keyof typeof multipliers] || multipliers.modern;
 }
 
 function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
@@ -739,48 +775,77 @@ async function ensureFontsRegistered(registerFont: (src: string, options: { fami
       return;
     }
 
-    // Fontes confiáveis para desenvolvimento local
-    const fontSources = [
-      RELIABLE_FONT_URLS.notoSans,
-      RELIABLE_FONT_URLS.roboto,
-      RELIABLE_FONT_URLS.inter
-    ];
-
     const tmpDir = process.env.TEMP || '/tmp';
-    let fontLoaded = false;
 
-    // Tentar cada fonte até uma funcionar
-    for (let i = 0; i < fontSources.length; i++) {
-      const source = fontSources[i];
-      const fontName = ['NotoSans', 'Roboto', 'Inter'][i];
-      
-      if (!source || !fontName) continue; // Pular se não tiver source válida
-      
-      try {
-        console.log(`🔄 Tentando carregar ${fontName}...`);
-        
-        const regularPath = path.join(tmpDir, `${fontName}-Regular.woff2`);
-        const boldPath = path.join(tmpDir, `${fontName}-Bold.woff2`);
-        
-        await downloadIfMissing(source.regular, regularPath);
-        await downloadIfMissing(source.bold, boldPath);
+    // 1) Tentar registrar fontes EMBUTIDAS (OpenSans) como TTF a partir de base64
+    try {
+      const regularEmbedded = EMBEDDED_FONTS.find(f => f.family === 'OpenSans' && f.weight === 'normal');
+      const boldEmbedded = EMBEDDED_FONTS.find(f => f.family === 'OpenSans' && f.weight === 'bold');
 
-        // Registrar famílias
+      if (regularEmbedded && boldEmbedded) {
+        const regularPath = path.join(tmpDir, 'OpenSans-Regular.ttf');
+        const boldPath = path.join(tmpDir, 'OpenSans-Bold.ttf');
+
+        await writeEmbeddedFontToPath(regularEmbedded.data, regularPath);
+        await writeEmbeddedFontToPath(boldEmbedded.data, boldPath);
+
+        // Registrar famílias embutidas como ProductionFont
         registerFont(regularPath, { family: 'ProductionFont' });
         registerFont(boldPath, { family: 'ProductionFont' });
 
         fontsRegistered = true;
-        fontLoaded = true;
-        console.log(`✅ ${fontName} registrada com sucesso`);
-        break;
-      } catch (sourceError) {
-        console.warn(`❌ Falha com ${fontName}:`, sourceError);
-        continue;
+        console.log('✅ OpenSans (embutida) registrada com sucesso');
+        return;
       }
+    } catch (embeddedError) {
+      console.warn('❌ Falha ao registrar fontes embutidas:', embeddedError);
     }
 
-    if (!fontLoaded) {
-      throw new Error('Nenhuma fonte pôde ser carregada');
+    // 2) Se não for Windows, tentar baixar e registrar fontes remotas (evitar .woff2 no Windows)
+    if (process.platform !== 'win32') {
+      const fontSources = [
+        RELIABLE_FONT_URLS.notoSans,
+        RELIABLE_FONT_URLS.roboto,
+        RELIABLE_FONT_URLS.inter
+      ];
+
+      let fontLoaded = false;
+
+      // Tentar cada fonte até uma funcionar
+      for (let i = 0; i < fontSources.length; i++) {
+        const source = fontSources[i];
+        const fontName = ['NotoSans', 'Roboto', 'Inter'][i];
+        
+        if (!source || !fontName) continue; // Pular se não tiver source válida
+        
+        try {
+          console.log(`🔄 Tentando carregar ${fontName}...`);
+          
+          const regularPath = path.join(tmpDir, `${fontName}-Regular.woff2`);
+          const boldPath = path.join(tmpDir, `${fontName}-Bold.woff2`);
+          
+          await downloadIfMissing(source.regular, regularPath);
+          await downloadIfMissing(source.bold, boldPath);
+
+          // Registrar famílias (pode falhar se formato não suportado)
+          registerFont(regularPath, { family: 'ProductionFont' });
+          registerFont(boldPath, { family: 'ProductionFont' });
+
+          fontsRegistered = true;
+          fontLoaded = true;
+          console.log(`✅ ${fontName} registrada com sucesso`);
+          break;
+        } catch (sourceError) {
+          console.warn(`❌ Falha com ${fontName}:`, sourceError);
+          continue;
+        }
+      }
+
+      if (!fontLoaded) {
+        throw new Error('Nenhuma fonte pôde ser carregada');
+      }
+    } else {
+      console.log('🪟 Windows detectado - pulando tentativa de registrar WOFF2 (não suportado pelo node-canvas).');
     }
 
   } catch (err) {
@@ -805,6 +870,21 @@ async function downloadIfMissing(url: string, destPath: string) {
   }
   const arrayBuffer = await res.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
+  await fs.writeFile(destPath, buffer);
+}
+
+/**
+ * Grava uma fonte embutida (data URI base64) para um caminho no disco
+ */
+async function writeEmbeddedFontToPath(dataUri: string, destPath: string) {
+  try {
+    await fs.access(destPath);
+    return; // já existe
+  } catch {
+    // criar/atualizar arquivo
+  }
+  const base64 = dataUri.split(',')[1] || '';
+  const buffer = Buffer.from(base64, 'base64');
   await fs.writeFile(destPath, buffer);
 }
 
@@ -866,6 +946,12 @@ function testFontRendering(ctx: CanvasRenderingContext2D) {
   if (!canRenderAccents || isServerless) {
     process.env.FORCE_ASCII_ONLY = 'true';
     console.log(`   ⚠️  ASCII FORÇADO`);
+  }
+  
+  // Se suporta acentos localmente, liberar Unicode e marcar fontes como "registradas"
+  if (canRenderAccents && !isServerless) {
+    process.env.FORCE_ASCII_ONLY = 'false';
+    fontsRegistered = true;
   }
   
   // Salvar fonte testada para usar depois

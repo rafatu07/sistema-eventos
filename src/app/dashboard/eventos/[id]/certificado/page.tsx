@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { CertificateConfigForm } from '@/components/CertificateConfigForm';
 import { CertificatePreview } from '@/components/CertificatePreview';
-import { getCertificateConfig, updateCertificateConfig, getDefaultCertificateConfig } from '@/lib/certificate-config';
+import { useCertificateConfig } from '@/hooks/useCertificateConfig';
 import { getEvent } from '@/lib/firestore';
 import { CertificateConfigData } from '@/lib/schemas';
+import { Event } from '@/types';
 import { CertificateConfig } from '@/types';
 import { useNotifications } from '@/components/NotificationSystem';
 import { ArrowLeft, FileText, Eye, Loader } from 'lucide-react';
@@ -18,49 +19,47 @@ export default function CertificateConfigPage() {
   const params = useParams();
   const eventId = params.id as string;
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const notifications = useNotifications();
   const [activeView, setActiveView] = useState<'form' | 'preview'>('form');
   const [localConfig, setLocalConfig] = useState<CertificateConfig | null>(null);
 
   // Buscar dados do evento
-  const { data: event, isLoading: eventLoading } = useQuery({
+  const { data: event, isLoading: eventLoading } = useQuery<Event | null>({
     queryKey: ['event', eventId],
     queryFn: () => getEvent(eventId),
     enabled: !!eventId,
+    staleTime: 10 * 60 * 1000, // 10 minutos de cache para evento
+    gcTime: 30 * 60 * 1000, // 30 minutos em memória
   });
 
-  // Buscar configuração de certificado
-  const { data: certificateConfig, isLoading: configLoading } = useQuery({
-    queryKey: ['certificate-config', eventId],
-    queryFn: () => getCertificateConfig(eventId),
-    enabled: !!eventId,
-  });
+  // Usar o hook personalizado para configuração com cache otimizado
+  const {
+    config: certificateConfig,
+    currentConfig: defaultConfig,
+    isLoading: configLoading,
+    isSaving,
+    saveConfig,
+    isStale: configIsStale,
+    lastUpdated
+  } = useCertificateConfig(eventId);
 
-  // Mutation para salvar configuração
-  const saveCertificateConfigMutation = useMutation({
-    mutationFn: async (configData: CertificateConfigData) => {
-      await updateCertificateConfig(eventId, configData);
-      return configData;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certificate-config', eventId] });
-      notifications.success('Configuração Salva', 'Configuração do certificado salva com sucesso!');
-    },
-    onError: (error: Error) => {
-      notifications.error('Erro ao Salvar', error.message);
-    },
-  });
-
-  // Configuração atual ou padrão (usa localConfig primeiro para updates em tempo real)
-  const currentConfig = localConfig || certificateConfig || (user?.uid ? getDefaultCertificateConfig(eventId, user.uid) : null);
+  // Configuração atual (usa localConfig primeiro para updates em tempo real)
+  const currentConfig = localConfig || defaultConfig;
 
   if (eventLoading || configLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Carregando configurações do certificado...</p>
+        <div className="text-center space-y-4">
+          <Loader className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+          <div className="space-y-2">
+            <p className="text-gray-700 font-medium">Carregando configurações do certificado...</p>
+            <p className="text-sm text-gray-500">
+              {eventLoading ? 'Buscando dados do evento...' : 'Carregando configurações...'}
+            </p>
+            {configIsStale && (
+              <p className="text-xs text-amber-600">Atualizando dados em cache...</p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -95,16 +94,26 @@ export default function CertificateConfigPage() {
   }
 
   const handleSaveConfig = async (configData: CertificateConfigData) => {
-    // Update local config immediately for real-time preview
-    const updatedConfig: CertificateConfig = {
-      ...configData,
-      id: certificateConfig?.id || 'temp',
-      createdAt: certificateConfig?.createdAt || new Date(),
-      updatedAt: new Date(),
-    };
-    setLocalConfig(updatedConfig);
-    
-    await saveCertificateConfigMutation.mutateAsync(configData);
+    try {
+      // Update local config immediately for real-time preview (optimistic update)
+      const updatedConfig: CertificateConfig = {
+        ...configData,
+        id: certificateConfig?.id || 'temp',
+        createdAt: certificateConfig?.createdAt || new Date(),
+        updatedAt: new Date(),
+      };
+      setLocalConfig(updatedConfig);
+      
+      // Use the cached save function with optimistic updates
+      await saveConfig(configData);
+      
+      // Clear local config after successful save (server state is now updated)
+      setLocalConfig(null);
+    } catch (error) {
+      // Revert local config on error
+      setLocalConfig(null);
+      throw error;
+    }
   };
 
 
@@ -122,18 +131,33 @@ export default function CertificateConfigPage() {
             Voltar ao Evento
           </Link>
           
-          <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center">
                 <FileText className="h-8 w-8 mr-3 text-blue-600" />
                 Configuração do Certificado
+                {isSaving && (
+                  <Loader className="h-6 w-6 ml-2 text-blue-500 animate-spin" />
+                )}
               </h1>
               <p className="mt-2 text-gray-600">
                 Personalize o design e layout do certificado para <strong>{event.name}</strong>
               </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Data: {event.date.toLocaleDateString('pt-BR')} • Local: {event.location}
-              </p>
+              <div className="flex items-center space-x-4 mt-1">
+                <p className="text-sm text-gray-500">
+                  Data: {event.date.toLocaleDateString('pt-BR')} • Local: {event.location}
+                </p>
+                {lastUpdated && (
+                  <p className="text-xs text-gray-400">
+                    Última atualização: {new Date(lastUpdated).toLocaleTimeString('pt-BR')}
+                  </p>
+                )}
+                {configIsStale && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    Atualizando...
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* View Toggle */}

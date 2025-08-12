@@ -3,12 +3,14 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useValidatedForm, FieldError } from '@/hooks/useValidatedForm';
+import { useDebounce } from '@/hooks/useDebounce';
 import { certificateConfigSchema, CertificateConfigData } from '@/lib/schemas';
 import { CertificateConfig } from '@/types';
 import { useNotifications } from '@/components/NotificationSystem';
 import { CERTIFICATE_TEMPLATES, getTemplateConfig } from '@/lib/certificate-templates';
 import { getDefaultCertificateConfig } from '@/lib/certificate-config';
 import { ImageUpload } from '@/components/ImageUpload';
+import { validateImageUrl, getOptimizedPreviewUrl } from '@/lib/image-validation';
 import {
   Palette,
   Type,
@@ -100,7 +102,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
 
 
 
-  // Função para upload de logo
+  // Função para upload de logo com validação aprimorada
   const handleLogoUpload = async (file: File): Promise<string> => {
     console.log('🖼️  UPLOAD: Iniciando upload de logo...', { fileName: file.name, size: file.size });
     
@@ -120,7 +122,20 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     }
 
     console.log('✅ UPLOAD: Upload bem-sucedido:', data.imageUrl);
-    notifications.success('Upload Concluído', 'Logo enviada e salva com sucesso!');
+    
+    // Validar URL após upload
+    console.log('🔍 UPLOAD: Validando URL após upload...');
+    const validation = await validateImageUrl(data.imageUrl, {
+      maxSize: 5 * 1024 * 1024, // 5MB
+      timeout: 5000
+    });
+    
+    if (!validation.isValid) {
+      console.error('❌ UPLOAD: URL inválida após upload:', validation.error);
+      throw new Error(validation.error || 'URL da imagem não é válida após upload');
+    }
+    
+    notifications.success('Upload Concluído', 'Logo enviada, validada e salva com sucesso!');
     
     // 🎯 SALVAMENTO AUTOMÁTICO: Salvar imediatamente após upload
     console.log('💾 AUTO-SAVE: Salvando logo automaticamente...');
@@ -129,7 +144,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     return data.imageUrl;
   };
 
-  const handleLogoChange = (imageUrl: string | undefined) => {
+  const handleLogoChange = async (imageUrl: string | undefined) => {
     console.log('🔄 LOGO_CHANGE: Mudando logoUrl para:', imageUrl);
     console.log('🔍 LOGO_CHANGE: Valor anterior era:', watchedValues.logoUrl);
     
@@ -140,7 +155,28 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
       valorAtualDoForm: watchedValues.logoUrl 
     });
     
-    // Update preview immediately
+    // Validar URL externa se fornecida
+    if (imageUrl && !imageUrl.includes('cloudinary.com')) {
+      console.log('🔍 LOGO_CHANGE: Validando URL externa...');
+      try {
+        const validation = await validateImageUrl(imageUrl, {
+          maxSize: 5 * 1024 * 1024,
+          timeout: 8000
+        });
+        
+        if (!validation.isValid) {
+          notifications.warning('URL Inválida', validation.error || 'A URL da imagem não é válida');
+          return;
+        }
+        
+        notifications.info('URL Validada', 'URL da imagem validada com sucesso!');
+      } catch (error) {
+        console.error('❌ LOGO_CHANGE: Erro na validação:', error);
+        notifications.error('Erro de Validação', 'Não foi possível validar a URL da imagem');
+      }
+    }
+    
+    // Update preview immediately (will be debounced by the effect)
     if (onConfigChange) {
       const updatedConfig: CertificateConfig = {
         ...watchedValues,
@@ -159,25 +195,28 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     console.log('👀 WATCH: logoUrl mudou para:', watchedValues.logoUrl);
   }, [watchedValues.logoUrl]);
 
+  // Debounced values para preview otimizado
+  const [debouncedValues, isDebouncing] = useDebounce(watchedValues, 300);
+  
   // Memoize the previous values to prevent infinite loops
   const prevValuesRef = React.useRef<string>('');
   
-  // Watch for all form changes to update preview in real-time
+  // Watch for debounced form changes to update preview
   React.useEffect(() => {
     if (onConfigChange) {
       // Create a stable string representation of current values
       const currentValuesString = JSON.stringify({
-        primaryColor: watchedValues.primaryColor,
-        secondaryColor: watchedValues.secondaryColor,
-        backgroundColor: watchedValues.backgroundColor,
-        borderColor: watchedValues.borderColor,
-        template: watchedValues.template,
-        orientation: watchedValues.orientation,
-        fontFamily: watchedValues.fontFamily,
-        logoUrl: watchedValues.logoUrl,
-        logoSize: watchedValues.logoSize,
-        showBorder: watchedValues.showBorder,
-        includeQRCode: watchedValues.includeQRCode
+        primaryColor: debouncedValues.primaryColor,
+        secondaryColor: debouncedValues.secondaryColor,
+        backgroundColor: debouncedValues.backgroundColor,
+        borderColor: debouncedValues.borderColor,
+        template: debouncedValues.template,
+        orientation: debouncedValues.orientation,
+        fontFamily: debouncedValues.fontFamily,
+        logoUrl: debouncedValues.logoUrl,
+        logoSize: debouncedValues.logoSize,
+        showBorder: debouncedValues.showBorder,
+        includeQRCode: debouncedValues.includeQRCode
       });
       
       // Only update if values actually changed
@@ -186,32 +225,23 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
         prevValuesRef.current = currentValuesString;
         
         const updatedConfig: CertificateConfig = {
-          ...watchedValues,
+          ...debouncedValues,
           id: config?.id || 'temp',
           createdAt: config?.createdAt || new Date(),
           updatedAt: new Date(),
         } as CertificateConfig;
         
-        console.log('🎨 PREVIEW_UPDATE: Cores mudaram!', {
-          antes: {
-            primaryColor: oldValues.primaryColor,
-            secondaryColor: oldValues.secondaryColor,
-            backgroundColor: oldValues.backgroundColor,
-            borderColor: oldValues.borderColor
-          },
-          agora: {
-            primaryColor: watchedValues.primaryColor,
-            secondaryColor: watchedValues.secondaryColor,
-            backgroundColor: watchedValues.backgroundColor,
-            borderColor: watchedValues.borderColor
-          }
+        console.log('🎨 PREVIEW_UPDATE: Configuração atualizada com debounce', {
+          isDebouncing,
+          primaryColor: debouncedValues.primaryColor,
+          logoUrl: debouncedValues.logoUrl ? debouncedValues.logoUrl.substring(0, 30) + '...' : 'none'
         });
         
         onConfigChange(updatedConfig);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedValues.primaryColor, watchedValues.secondaryColor, watchedValues.backgroundColor, watchedValues.borderColor, watchedValues.template, watchedValues.orientation, watchedValues.fontFamily, watchedValues.logoUrl, watchedValues.logoSize, watchedValues.showBorder, watchedValues.includeQRCode, onConfigChange, config?.id]);
+  }, [debouncedValues, onConfigChange, config?.id, isDebouncing]);
 
   // Watch for changes in form values to mark as unsaved
   React.useEffect(() => {
@@ -279,7 +309,6 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
       onConfigChange(updatedConfig);
     }
     
-    setForceUpdate(prev => prev + 1); // Force re-render
     notifications.success('Resetado', 'Configurações restauradas para os valores padrão');
   };
 
@@ -312,7 +341,6 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
         // Force form to re-validate and trigger watchers
         setTimeout(() => {
           trigger();
-          setForceUpdate(prev => prev + 1); // Force re-render
         }, 100);
         
         // Auto-save template configuration
@@ -876,9 +904,9 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                   </h4>
                   
                   <div className="space-y-6">
-                    {/* Upload de Logo */}
+                    {/* Upload de Logo com validação aprimorada */}
                     <ImageUpload
-                      currentImage={watchedValues.logoUrl}
+                      currentImage={watchedValues.logoUrl ? getOptimizedPreviewUrl(watchedValues.logoUrl) : undefined}
                       onImageChange={handleLogoChange}
                       onImageUpload={handleLogoUpload}
                       label="Logo do Certificado"
@@ -886,6 +914,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                       accept="image/*"
                       className="max-w-md"
                       disabled={isSubmitting}
+                      allowExternalUrl={true}
                     />
 
                     {/* Campo de URL manual (alternativa ao upload) */}
