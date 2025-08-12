@@ -1,6 +1,8 @@
 import { CertificateConfig } from '@/types';
 import { sanitizeTextForPDF } from './text-utils';
 import type { CanvasRenderingContext2D } from 'canvas';
+import fs from 'fs/promises';
+import path from 'path';
 
 /**
  * Valida se uma URL de imagem é acessível
@@ -83,7 +85,9 @@ export interface CertificateImageData {
 export const generateCertificateImage = async (data: CertificateImageData): Promise<Buffer> => {
   try {
     // Importar canvas apenas no servidor
-    const { createCanvas, loadImage } = await import('canvas');
+    const { createCanvas, loadImage, registerFont } = await import('canvas');
+    // Garantir fontes registradas no ambiente de produção
+    await ensureFontsRegistered(registerFont);
     const QRCode = await import('qrcode');
     
     // Usar configuração padrão se não fornecida
@@ -361,14 +365,9 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
 
 // Funções auxiliares
 function getFontFamily(family: string): string {
-  switch (family) {
-    case 'times':
-      return 'Times, serif';
-    case 'courier':
-      return 'Courier, monospace';
-    default:
-      return 'Arial, sans-serif';
-  }
+  // Sempre retornamos a família registrada que sabemos existir no runtime
+  // Ignoramos o nome vindo da config para garantir compatibilidade em produção
+  return 'DejaVuSans';
 }
 
 function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
@@ -380,7 +379,9 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   align?: 'left' | 'center' | 'right';
   fontFamily?: string;
 }) {
-  ctx.font = `${options.fontWeight || 'normal'} ${options.fontSize}px ${options.fontFamily || 'Arial'}`;
+  const weight = (options.fontWeight || 'normal').toLowerCase() === 'bold' ? 'bold' : 'normal';
+  const family = options.fontFamily || 'DejaVuSans';
+  ctx.font = `${weight} ${options.fontSize}px ${family}`;
   ctx.fillStyle = options.color;
   ctx.textAlign = options.align || 'left';
   ctx.textBaseline = 'top';
@@ -396,7 +397,8 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  ctx.font = `${options.fontSize}px ${options.fontFamily || 'Arial'}`;
+  const family = options.fontFamily || 'DejaVuSans';
+  ctx.font = `${options.fontSize}px ${family}`;
   ctx.fillStyle = options.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -430,7 +432,7 @@ function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.translate(width / 2, height / 2);
   ctx.rotate(-Math.PI / 4);
   ctx.globalAlpha = opacity;
-  ctx.font = 'bold 80px Arial';
+  ctx.font = 'bold 80px DejaVuSans';
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -489,7 +491,7 @@ function drawQRPlaceholder(ctx: CanvasRenderingContext2D, options: {
     options.size
   );
   
-  ctx.font = '24px Arial';
+  ctx.font = '24px DejaVuSans';
   ctx.fillStyle = options.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -533,4 +535,50 @@ function getDefaultImageConfig(): CertificateConfig {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+}
+
+// ---- Font registration helpers ----
+let fontsRegistered = false;
+
+async function ensureFontsRegistered(registerFont: (src: string, options: { family: string }) => void) {
+  if (fontsRegistered) return;
+  try {
+    const tmpDir = process.env.TEMP || '/tmp';
+    const regularPath = path.join(tmpDir, 'DejaVuSans.ttf');
+    const boldPath = path.join(tmpDir, 'DejaVuSans-Bold.ttf');
+
+    // URLs estáveis do repositório oficial DejaVu Fonts
+    const regularUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf';
+    const boldUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans-Bold.ttf';
+
+    // Baixar se ainda não existir no sistema de arquivos efêmero
+    await downloadIfMissing(regularUrl, regularPath);
+    await downloadIfMissing(boldUrl, boldPath);
+
+    // Registrar famílias
+    registerFont(regularPath, { family: 'DejaVuSans' });
+    registerFont(boldPath, { family: 'DejaVuSans' });
+
+    fontsRegistered = true;
+    console.log('✅ Fontes DejaVuSans registradas para canvas');
+  } catch (err) {
+    console.warn('⚠️  Não foi possível registrar fontes customizadas. Usando padrões do sistema.', err);
+  }
+}
+
+async function downloadIfMissing(url: string, destPath: string) {
+  try {
+    // Verifica existência
+    await fs.access(destPath);
+    return; // Já existe
+  } catch {
+    // Baixa e salva
+  }
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Falha ao baixar fonte: ${url} (${res.status})`);
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  await fs.writeFile(destPath, buffer);
 }

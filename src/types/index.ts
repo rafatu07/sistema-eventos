@@ -85,7 +85,7 @@ export interface CertificateConfig {
   titleFontSize: number;
   nameFontSize: number;
   bodyFontSize: number;
-  fontFamily: 'helvetica' | 'times' | 'courier';
+  fontFamily: 'helvetica' | 'times' | 'courier' | 'DejaVuSans';
   title: string;
   subtitle?: string;
   bodyText: string;
