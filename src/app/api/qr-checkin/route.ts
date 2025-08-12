@@ -94,7 +94,6 @@ export async function POST(request: Request) {
     try {
       logInfo('Verificando timing do evento...');
       const now = new Date();
-      const eventStart = new Date(event.startTime);
       const eventEnd = new Date(event.endTime);
       
       logInfo(`Horário atual: ${now.toLocaleString('pt-BR')}`);

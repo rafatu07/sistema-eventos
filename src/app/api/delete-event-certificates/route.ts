@@ -196,7 +196,7 @@ function extractPublicIdFromCloudinaryUrl(url: string): string | null {
   try {
     const urlPattern = /\/(?:v\d+\/)?([^\/]+)\.[^\/]+$/;
     const match = url.match(urlPattern);
-    return match ? match[1] : null;
+    return match && match[1] ? match[1] : null;
   } catch (error) {
     console.error('Erro ao extrair public_id da URL:', error);
     return null;

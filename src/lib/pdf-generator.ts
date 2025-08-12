@@ -40,14 +40,18 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       throw new Error('Unable to load certificate configuration');
     }
 
-    // Create PDF document with explicit metadata
-    const pdfDoc = await PDFDocument.create({
-      producer: 'Sistema de Eventos - Certificados',
-      title: 'Certificado de Participação',
-      subject: `Certificado para ${data.userName}`,
-      keywords: ['certificado', 'participação', 'evento'],
-      language: 'pt-BR',
-    });
+    // Create PDF document
+    const pdfDoc = await PDFDocument.create();
+
+    // Set PDF metadata (if methods are available)
+    try {
+      if (pdfDoc.setTitle) pdfDoc.setTitle('Certificado de Participação');
+      if (pdfDoc.setSubject) pdfDoc.setSubject(`Certificado para ${data.userName}`);
+      if (pdfDoc.setProducer) pdfDoc.setProducer('Sistema de Eventos');
+      if (pdfDoc.setLanguage) pdfDoc.setLanguage('pt-BR');
+    } catch (metadataError) {
+      console.log('Alguns metadados não puderam ser definidos:', metadataError);
+    }
 
     // Determine page size based on orientation
     const isLandscape = config.orientation === 'landscape';
