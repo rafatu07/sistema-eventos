@@ -3,6 +3,12 @@ import { sanitizeTextForPDF } from './text-utils';
 import type { CanvasRenderingContext2D } from 'canvas';
 import fs from 'fs/promises';
 import path from 'path';
+import { 
+  RELIABLE_FONT_URLS, 
+  EMBEDDED_FONTS, 
+  getSafeFontFamily, 
+  isServerlessEnvironment 
+} from './embedded-fonts';
 
 /**
  * Valida se uma URL de imagem é acessível
@@ -88,6 +94,10 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     const { createCanvas, loadImage, registerFont } = await import('canvas');
     // Garantir fontes registradas no ambiente de produção
     await ensureFontsRegistered(registerFont);
+    
+    // Teste inicial de renderização de fonte
+    console.log('🧪 Testando renderização de fonte...');
+    testFontRendering(createCanvas(100, 50).getContext('2d'));
     const QRCode = await import('qrcode');
     
     // Usar configuração padrão se não fornecida
@@ -100,9 +110,21 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       qrCodeText: config.qrCodeText?.substring(0, 30) + '...'
     });
     
-    // Definir dimensões da imagem (alta resolução para qualidade)
-    const width = config.orientation === 'landscape' ? 1200 : 800;
-    const height = config.orientation === 'landscape' ? 800 : 1200;
+    // Definir dimensões da imagem (alta resolução para qualidade)  
+    const isServerless = isServerlessEnvironment();
+    
+    // Em produção, usar dimensões maiores para melhor legibilidade
+    const baseWidth = config.orientation === 'landscape' ? 1400 : 1000;
+    const baseHeight = config.orientation === 'landscape' ? 1000 : 1400;
+    
+    // Garantir tamanho mínimo para legibilidade
+    const minWidth = 1200;
+    const minHeight = 800;
+    
+    const width = Math.max(baseWidth, minWidth);
+    const height = Math.max(baseHeight, minHeight);
+    
+    console.log(`📐 Certificado: ${width}x${height} (Serverless: ${isServerless})`);
     
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
@@ -365,14 +387,23 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
 
 // Funções auxiliares
 function getFontFamily(): string {
-  // Se fontes customizadas foram registradas, usar DejaVuSans
-  if (fontsRegistered) {
-    return 'DejaVuSans';
+  // Se já testamos uma fonte específica, usar ela
+  if (process.env.TESTED_FONT) {
+    return process.env.TESTED_FONT;
   }
   
-  // Fallback para fontes do sistema com melhor suporte a acentos
-  // Arial é mais confiável que Sans em ambientes serverless
-  return 'Arial, sans-serif';
+  // Se fontes customizadas foram registradas, usar fonte registrada
+  if (fontsRegistered) {
+    return 'ProductionFont';
+  }
+  
+  // Em ambientes serverless, usar fontes ultra-seguras
+  if (isServerlessEnvironment()) {
+    return 'sans-serif'; // Mais básico possível
+  }
+  
+  // Fallback local
+  return getSafeFontFamily();
 }
 
 function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
@@ -387,18 +418,74 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   const weight = (options.fontWeight || 'normal').toLowerCase() === 'bold' ? 'bold' : 'normal';
   const family = options.fontFamily || getFontFamily();
   
-  // Se forçar ASCII ou fontes não foram registradas, sanitizar texto
-  const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
-    ? sanitizeTextForPDF(text)
-    : text;
+  // SEMPRE usar ASCII em produção para máxima compatibilidade
+  const isServerless = isServerlessEnvironment();
+  const shouldUseASCII = isServerless || process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered;
   
-  ctx.font = `${weight} ${options.fontSize}px ${family}`;
-  ctx.fillStyle = options.color;
-  ctx.textAlign = options.align || 'left';
-  ctx.textBaseline = 'top';
+  // Sanitizar texto de forma mais agressiva
+  let finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
   
-  console.log(`🖍️  Desenhando texto: "${finalText}" com fonte: ${family} (${weight})`);
-  ctx.fillText(finalText, options.x, options.y);
+  // Em serverless, forçar encoding ainda mais seguro
+  if (isServerless) {
+    finalText = finalText
+      .normalize('NFD')  // Decompor caracteres
+      .replace(/[\u0300-\u036f]/g, '') // Remover diacríticos
+      .replace(/[^\x00-\x7F]/g, '') // Manter apenas ASCII básico
+      .replace(/[^\w\s\-\.\,\!\?\(\)]/g, ' ') // Manter apenas caracteres ultra-seguros
+      .replace(/\s+/g, ' ')  // Normalizar espaços
+      .trim();
+  }
+  
+  // Estratégias de fonte em ordem de preferência
+  const fontStrategies = isServerless ? [
+    'sans-serif',                    // Mais básico possível
+    'Arial',                         // Fallback comum
+    'monospace'                      // Última opção
+  ] : [
+    family,                          // Fonte preferida
+    'Arial',                         // Fallback comum
+    'sans-serif'                     // Básico
+  ];
+  
+  let drawn = false;
+  
+  for (const fontFamily of fontStrategies) {
+    try {
+      const fontString = `${weight} ${options.fontSize}px ${fontFamily}`;
+      ctx.font = fontString;
+      ctx.fillStyle = options.color;
+      ctx.textAlign = options.align || 'left';
+      ctx.textBaseline = 'top';
+      
+      console.log(`🖍️  [${isServerless ? 'SERVERLESS' : 'LOCAL'}] Tentando: "${finalText}"`);
+      console.log(`    📝 Fonte: ${fontString}`);
+      console.log(`    🔤 ASCII: ${shouldUseASCII}`);
+      
+      // Testar se a fonte funciona medindo texto
+      const metrics = ctx.measureText(finalText);
+      if (metrics.width > 0) {
+        ctx.fillText(finalText, options.x, options.y);
+        console.log(`    ✅ Sucesso com: ${fontFamily}`);
+        drawn = true;
+        break;
+      }
+      
+    } catch (drawError) {
+      console.warn(`    ❌ Falha com ${fontFamily}:`, drawError);
+      continue;
+    }
+  }
+  
+  // Se nada funcionou, desenhar caractere por caractere
+  if (!drawn) {
+    console.error('🆘 FALLBACK EXTREMO: desenhando caractere por caractere');
+    ctx.font = `${weight} ${options.fontSize}px monospace`;
+    ctx.fillStyle = options.color;
+    
+    // Converter para apenas letras e números
+    const safeText = finalText.replace(/[^a-zA-Z0-9\s]/g, '');
+    ctx.fillText(safeText, options.x, options.y);
+  }
 }
 
 function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options: {
@@ -410,14 +497,47 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  const family = options.fontFamily || getFontFamily();
+  // Usar a mesma estratégia robusta do drawText
+  const isServerless = isServerlessEnvironment();
+  const shouldUseASCII = isServerless || process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered;
   
-  // Se forçar ASCII ou fontes não foram registradas, sanitizar texto
-  const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
-    ? sanitizeTextForPDF(text)
-    : text;
+  // Sanitizar texto de forma mais agressiva
+  let finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
   
-  ctx.font = `${options.fontSize}px ${family}`;
+  if (isServerless) {
+    finalText = finalText
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\x00-\x7F]/g, '')
+      .replace(/[^\w\s\-\.\,\!\?\(\)]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  
+  const fontStrategies = isServerless ? ['sans-serif', 'Arial', 'monospace'] : [
+    options.fontFamily || getFontFamily(),
+    'Arial',
+    'sans-serif'
+  ];
+  
+  let successfulFont = 'monospace'; // Fallback padrão
+  
+  // Encontrar uma fonte que funcione
+  for (const fontFamily of fontStrategies) {
+    try {
+      const fontString = `${options.fontSize}px ${fontFamily}`;
+      ctx.font = fontString;
+      const testMetrics = ctx.measureText('test');
+      if (testMetrics.width > 0) {
+        successfulFont = fontFamily;
+        break;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+  
+  ctx.font = `${options.fontSize}px ${successfulFont}`;
   ctx.fillStyle = options.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -441,27 +561,48 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   
   const startY = options.y - (lines.length * options.lineHeight) / 2;
   
+  console.log(`🖍️  [${isServerless ? 'SERVERLESS' : 'LOCAL'}] Desenhando ${lines.length} linhas`);
+  console.log(`    📝 Fonte final: ${successfulFont}, ASCII: ${shouldUseASCII}`);
+  
   lines.forEach((line, index) => {
-    console.log(`🖍️  Desenhando linha ${index + 1}: "${line}" com fonte: ${family}`);
-    ctx.fillText(line, options.x, startY + index * options.lineHeight);
+    try {
+      // Em caso de falha extrema, usar apenas letras e números
+      const safeLine = isServerless ? line.replace(/[^a-zA-Z0-9\s]/g, '') : line;
+      ctx.fillText(safeLine, options.x, startY + index * options.lineHeight);
+    } catch (drawError) {
+      console.error(`❌ Erro linha ${index + 1}, usando fallback extremo:`, drawError);
+      ctx.font = `${options.fontSize}px monospace`;
+      const ultraSafeLine = line.replace(/[^a-zA-Z0-9\s]/g, '');
+      ctx.fillText(ultraSafeLine, options.x, startY + index * options.lineHeight);
+    }
   });
 }
 
 function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number, text: string, opacity: number, color: string) {
   const family = getFontFamily();
-  const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
-    ? sanitizeTextForPDF(text)
-    : text;
+  const shouldUseASCII = isServerlessEnvironment() || 
+                        process.env.FORCE_ASCII_ONLY === 'true' || 
+                        !fontsRegistered;
+  
+  const finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
 
   ctx.save();
   ctx.translate(width / 2, height / 2);
   ctx.rotate(-Math.PI / 4);
   ctx.globalAlpha = opacity;
-  ctx.font = `bold 80px ${family}`;
-  ctx.fillStyle = color;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(finalText, 0, 0);
+  
+  try {
+    ctx.font = `bold 80px ${family}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(finalText, 0, 0);
+  } catch (error) {
+    console.error('❌ Erro ao desenhar watermark:', error);
+    ctx.font = 'bold 80px sans-serif';
+    ctx.fillText(sanitizeTextForPDF(text), 0, 0);
+  }
+  
   ctx.restore();
 }
 
@@ -518,12 +659,19 @@ function drawQRPlaceholder(ctx: CanvasRenderingContext2D, options: {
     options.size
   );
   
-  ctx.font = `24px ${family}`;
-  ctx.fillStyle = options.color;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('QR', options.x, options.y - 15);
-  ctx.fillText('CODE', options.x, options.y + 15);
+  try {
+    ctx.font = `24px ${family}`;
+    ctx.fillStyle = options.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('QR', options.x, options.y - 15);
+    ctx.fillText('CODE', options.x, options.y + 15);
+  } catch (error) {
+    console.error('❌ Erro ao desenhar QR placeholder:', error);
+    ctx.font = '24px sans-serif';
+    ctx.fillText('QR', options.x, options.y - 15);
+    ctx.fillText('CODE', options.x, options.y + 15);
+  }
 }
 
 function getDefaultImageConfig(): CertificateConfig {
@@ -571,60 +719,66 @@ async function ensureFontsRegistered(registerFont: (src: string, options: { fami
   if (fontsRegistered) return;
   
   console.log('🔤 Iniciando registro de fontes para produção...');
+  console.log('🌍 Ambiente serverless:', isServerlessEnvironment());
   
   try {
-    // Múltiplas URLs como fallback
+    // Em ambientes serverless, pular fontes customizadas e usar fontes do sistema
+    if (isServerlessEnvironment()) {
+      console.log('🏭 Ambiente serverless detectado - usando fontes do sistema');
+      process.env.FORCE_ASCII_ONLY = 'true';
+      fontsRegistered = false; // Força uso de fontes do sistema
+      return;
+    }
+
+    // Fontes confiáveis para desenvolvimento local
     const fontSources = [
-      {
-        regular: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
-        bold: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf'
-      },
-      {
-        regular: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
-        bold: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Bold.ttf'
-      },
-      {
-        regular: 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsiH0B4gaVIUwaEQbjA.woff2',
-        bold: 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsiH0B4gaVIUwaEQbjA.woff2'
-      }
+      RELIABLE_FONT_URLS.notoSans,
+      RELIABLE_FONT_URLS.roboto,
+      RELIABLE_FONT_URLS.inter
     ];
 
     const tmpDir = process.env.TEMP || '/tmp';
-    const regularPath = path.join(tmpDir, 'DejaVuSans.ttf');
-    const boldPath = path.join(tmpDir, 'DejaVuSans-Bold.ttf');
-
     let fontLoaded = false;
 
     // Tentar cada fonte até uma funcionar
-    for (const source of fontSources) {
+    for (let i = 0; i < fontSources.length; i++) {
+      const source = fontSources[i];
+      const fontName = ['NotoSans', 'Roboto', 'Inter'][i];
+      
+      if (!source || !fontName) continue; // Pular se não tiver source válida
+      
       try {
-        console.log('🔄 Tentando carregar fontes de:', source.regular.substring(0, 50) + '...');
+        console.log(`🔄 Tentando carregar ${fontName}...`);
+        
+        const regularPath = path.join(tmpDir, `${fontName}-Regular.woff2`);
+        const boldPath = path.join(tmpDir, `${fontName}-Bold.woff2`);
         
         await downloadIfMissing(source.regular, regularPath);
         await downloadIfMissing(source.bold, boldPath);
 
         // Registrar famílias
-        registerFont(regularPath, { family: 'DejaVuSans' });
-        registerFont(boldPath, { family: 'DejaVuSans' });
+        registerFont(regularPath, { family: 'ProductionFont' });
+        registerFont(boldPath, { family: 'ProductionFont' });
 
         fontsRegistered = true;
         fontLoaded = true;
-        console.log('✅ Fontes DejaVuSans registradas com sucesso');
+        console.log(`✅ ${fontName} registrada com sucesso`);
         break;
       } catch (sourceError) {
-        console.warn('❌ Falha com fonte de:', source.regular.substring(0, 30), sourceError);
+        console.warn(`❌ Falha com ${fontName}:`, sourceError);
         continue;
       }
     }
 
     if (!fontLoaded) {
-      throw new Error('Nenhuma fonte pôde ser carregada de todas as fontes tentadas');
+      throw new Error('Nenhuma fonte pôde ser carregada');
     }
 
   } catch (err) {
-    console.warn('⚠️  Falha total no carregamento de fontes. Usando estratégia de fallback ASCII.', err);
-    // Definir flag para usar apenas ASCII
+    console.warn('⚠️  Falha total no carregamento de fontes. Usando sistema de fallback.', err);
+    // Em produção serverless, sempre usar ASCII + fontes do sistema
     process.env.FORCE_ASCII_ONLY = 'true';
+    fontsRegistered = false;
   }
 }
 
@@ -643,4 +797,68 @@ async function downloadIfMissing(url: string, destPath: string) {
   const arrayBuffer = await res.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   await fs.writeFile(destPath, buffer);
+}
+
+/**
+ * Testa se a renderização de fonte está funcionando corretamente
+ */
+function testFontRendering(ctx: CanvasRenderingContext2D) {
+  const isServerless = isServerlessEnvironment();
+  const testTexts = [
+    'Certificado',           // Básico
+    'Açãí Çâés',            // Com acentos
+    'Test123',              // Alfanumérico
+    'ABCDEFG'               // Maiúsculas
+  ];
+  
+  // Testar múltiplas fontes
+  const fontsToTest = isServerless ? 
+    ['sans-serif', 'Arial', 'monospace'] : 
+    [getFontFamily(), 'Arial', 'sans-serif'];
+  
+  let workingFont = 'monospace'; // Fallback padrão
+  let canRenderAccents = false;
+  
+  for (const font of fontsToTest) {
+    try {
+      ctx.font = `16px ${font}`;
+      ctx.fillStyle = 'black';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      
+      // Testar métricas de texto
+      const metrics = ctx.measureText('Test');
+      if (metrics.width > 0) {
+        workingFont = font;
+        
+        // Testar se consegue renderizar acentos
+        try {
+          ctx.fillText('Açãí', 0, 0);
+          canRenderAccents = true;
+          console.log(`✅ Fonte OK: ${font} (acentos: ✓)`);
+          break;
+        } catch (accentError) {
+          console.log(`⚠️  Fonte ${font} funciona mas sem acentos`);
+          break; // Usar esta fonte mas forçar ASCII
+        }
+      }
+    } catch (error) {
+      console.warn(`❌ Fonte ${font} falhou:`, error);
+      continue;
+    }
+  }
+  
+  console.log(`🧪 RESULTADO DO TESTE:`);
+  console.log(`   📝 Fonte selecionada: ${workingFont}`);
+  console.log(`   🌍 Ambiente: ${isServerless ? 'SERVERLESS' : 'LOCAL'}`);
+  console.log(`   🔤 Suporte acentos: ${canRenderAccents ? 'SIM' : 'NÃO'}`);
+  
+  // Se não suporta acentos ou está em produção, forçar ASCII
+  if (!canRenderAccents || isServerless) {
+    process.env.FORCE_ASCII_ONLY = 'true';
+    console.log(`   ⚠️  ASCII FORÇADO`);
+  }
+  
+  // Salvar fonte testada para usar depois
+  process.env.TESTED_FONT = workingFont;
 }
