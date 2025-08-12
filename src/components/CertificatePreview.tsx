@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { CertificateConfigData } from '@/lib/schemas';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -94,10 +95,11 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
               height: `${config.logoSize}px`,
             }}
           >
-            <img
+            <Image
               src={config.logoUrl}
               alt="Logo"
-              className="w-full h-full object-contain"
+              fill
+              className="object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}

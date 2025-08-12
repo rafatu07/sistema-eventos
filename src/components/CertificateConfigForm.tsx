@@ -47,7 +47,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   const { user } = useAuth();
   const notifications = useNotifications();
   const [activeTab, setActiveTab] = React.useState<'template' | 'colors' | 'fonts' | 'layout' | 'advanced'>('template');
-  const [forceUpdate, setForceUpdate] = React.useState(0);
+  const [, setForceUpdate] = React.useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
   const form = useValidatedForm<CertificateConfigData>({

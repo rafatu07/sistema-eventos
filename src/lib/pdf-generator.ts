@@ -227,7 +227,7 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     // Handle multiline text
     const maxWidth = width * 0.8;
     const words = sanitizedBodyText.split(' ');
-    let lines: string[] = [];
+    const lines: string[] = [];
     let currentLine = '';
 
     for (const word of words) {
