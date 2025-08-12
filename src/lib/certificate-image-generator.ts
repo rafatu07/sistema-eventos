@@ -92,12 +92,29 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
   try {
     // Importar canvas apenas no servidor
     const { createCanvas, loadImage, registerFont } = await import('canvas');
-    // Garantir fontes registradas no ambiente de produção
-    await ensureFontsRegistered(registerFont);
+    // ⚡ NOVA ESTRATÉGIA: Em produção, NUNCA tentar registrar fontes customizadas
+    const isServerlessEnv = isServerlessEnvironment();
     
-    // Teste inicial de renderização de fonte
-    console.log('🧪 Testando renderização de fonte...');
-    testFontRendering(createCanvas(100, 50).getContext('2d'));
+    if (!isServerlessEnv) {
+      // Apenas em desenvolvimento local
+      try {
+        await ensureFontsRegistered(registerFont);
+        console.log('🧪 Testando renderização de fonte localmente...');
+        testFontRendering(createCanvas(100, 50).getContext('2d'));
+      } catch (err) {
+        console.warn('⚠️  Erro no carregamento de fontes locais (usando fallback):', err);
+      }
+    } else {
+      // Produção: configuração ultra-simples
+      console.log('🏭 PRODUÇÃO DETECTADA - usando estratégia ultra-simples');
+      console.log('⚡ Pulando registro de fontes customizadas');
+      console.log('🔤 Forçando fonts do sistema + ASCII');
+      
+      // Forçar configurações seguras para produção
+      process.env.FORCE_ASCII_ONLY = 'true';
+      process.env.TESTED_FONT = 'Arial, sans-serif'; // Força fonte ultra-confiável
+      fontsRegistered = false; // Garantir que não tenta usar fonts registradas
+    }
     const QRCode = await import('qrcode');
     
     // Usar configuração padrão se não fornecida
@@ -111,20 +128,12 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     });
     
     // Definir dimensões da imagem (alta resolução para qualidade)  
-    const isServerless = isServerlessEnvironment();
     
-    // Em produção, usar dimensões maiores para melhor legibilidade
-    const baseWidth = config.orientation === 'landscape' ? 1400 : 1000;
-    const baseHeight = config.orientation === 'landscape' ? 1000 : 1400;
+    // Usar dimensões padronizadas (voltando ao tamanho original)
+    const width = config.orientation === 'landscape' ? 1200 : 800;
+    const height = config.orientation === 'landscape' ? 800 : 1200;
     
-    // Garantir tamanho mínimo para legibilidade
-    const minWidth = 1200;
-    const minHeight = 800;
-    
-    const width = Math.max(baseWidth, minWidth);
-    const height = Math.max(baseHeight, minHeight);
-    
-    console.log(`📐 Certificado: ${width}x${height} (Serverless: ${isServerless})`);
+    console.log(`📐 Certificado: ${width}x${height} (Serverless: ${isServerlessEnv})`);
     
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
@@ -161,11 +170,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       drawWatermark(ctx, width, height, config.watermarkText, config.watermarkOpacity, config.secondaryColor);
     }
     
-    // Título
+    // Título - Restaurando tamanhos originais otimizados
     drawText(ctx, config.title, {
       x: (width * config.titlePosition.x) / 100,
       y: (height * config.titlePosition.y) / 100,
-      fontSize: config.titleFontSize * 2, // Dobrar para alta resolução
+      fontSize: Math.round(config.titleFontSize * 2.0), // 48px para titleFontSize=24
       color: config.primaryColor,
       fontWeight: 'bold',
       align: 'center',
@@ -177,7 +186,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       drawText(ctx, config.subtitle, {
         x: (width * config.titlePosition.x) / 100,
         y: (height * config.titlePosition.y) / 100 + config.titleFontSize * 2.5,
-        fontSize: config.titleFontSize * 1.2,
+        fontSize: Math.round(config.titleFontSize * 1.2), // ~29px para titleFontSize=24
         color: config.secondaryColor,
         fontWeight: 'normal',
         align: 'center',
@@ -185,12 +194,12 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       });
     }
     
-    // Nome do participante
+    // Nome do participante - Tamanho otimizado
     const sanitizedUserName = sanitizeTextForPDF(data.userName);
     drawText(ctx, sanitizedUserName, {
       x: (width * config.namePosition.x) / 100,
       y: (height * config.namePosition.y) / 100,
-      fontSize: config.nameFontSize * 2,
+      fontSize: Math.round(config.nameFontSize * 2.0), // 36px para nameFontSize=18
       color: config.primaryColor,
       fontWeight: 'bold',
       align: 'center',
@@ -222,10 +231,10 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     drawMultilineText(ctx, sanitizedBodyText, {
       x: (width * config.bodyPosition.x) / 100,
       y: (height * config.bodyPosition.y) / 100,
-      fontSize: config.bodyFontSize * 2,
+      fontSize: Math.round(config.bodyFontSize * 2.0), // 24px para bodyFontSize=12
       color: config.secondaryColor,
       maxWidth: width * 0.8,
-      lineHeight: config.bodyFontSize * 2.4,
+      lineHeight: Math.round(config.bodyFontSize * 2.4), // ~29px para bodyFontSize=12
       fontFamily: getFontFamily()
     });
     
@@ -234,7 +243,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       drawText(ctx, config.footer, {
         x: (width * config.bodyPosition.x) / 100,
         y: (height * config.bodyPosition.y) / 100 + 120,
-        fontSize: config.bodyFontSize * 1.8,
+        fontSize: Math.round(config.bodyFontSize * 1.8), // ~22px para bodyFontSize=12
         color: config.secondaryColor,
         align: 'center',
         fontFamily: getFontFamily()

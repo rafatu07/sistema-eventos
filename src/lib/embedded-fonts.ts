@@ -76,34 +76,51 @@ export const SAFE_FONT_FAMILIES = {
  * Detecta se está em ambiente serverless/produção
  */
 export function isServerlessEnvironment(): boolean {
-  const indicators = {
-    vercel: !!process.env.VERCEL,
-    vercelUrl: !!process.env.VERCEL_URL,
-    netlify: !!process.env.NETLIFY,
-    awsLambda: !!process.env.AWS_LAMBDA_FUNCTION_NAME,
-    nodeEnv: process.env.NODE_ENV === 'production',
-    // Vercel específico
-    vercelEnv: !!process.env.VERCEL_ENV,
-    // Outros indicadores
-    platform: process.platform === 'linux' && !process.env.HOME?.includes('user'),
-    // Memory limits típicos de serverless
-    lowMemory: process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE || process.env.MEMORY_SIZE,
-    // Runtime indicators
-    runtime: process.versions.node && !process.env.PWD?.includes('node_modules')
-  };
+  // Indicadores mais agressivos para Vercel
+  const vercelIndicators = [
+    process.env.VERCEL === '1',
+    process.env.VERCEL_ENV,
+    process.env.VERCEL_URL,
+    process.env.VERCEL_REGION,
+    // URL específicas do Vercel
+    process.env.NEXTAUTH_URL?.includes('.vercel.app'),
+    process.env.NEXT_PUBLIC_SITE_URL?.includes('.vercel.app'),
+    // Headers típicos do Vercel
+    process.env.NOW_REGION, // Vercel antigo
+  ];
 
-  const isServerless = !!(
-    indicators.vercel ||
-    indicators.vercelUrl ||
-    indicators.vercelEnv ||
-    indicators.netlify ||
-    indicators.awsLambda ||
-    (indicators.nodeEnv && indicators.platform)
+  const otherServerlessIndicators = [
+    process.env.NETLIFY === 'true',
+    process.env.AWS_LAMBDA_FUNCTION_NAME,
+    process.env.AWS_EXECUTION_ENV?.includes('AWS_Lambda'),
+  ];
+
+  // Se NODE_ENV é production E temos qualquer indicador Vercel
+  const isProduction = process.env.NODE_ENV === 'production';
+  const hasVercelIndicator = vercelIndicators.some(Boolean);
+  const hasOtherServerless = otherServerlessIndicators.some(Boolean);
+
+  // Opção para forçar detecção (para testes)
+  const forceServerless = process.env.FORCE_SERVERLESS_DETECTION === 'true';
+
+  const isServerless = forceServerless || hasVercelIndicator || hasOtherServerless || (
+    isProduction && (
+      process.platform === 'linux' ||
+      !process.env.PWD?.includes('node_modules') ||
+      !process.env.USER
+    )
   );
 
-  console.log('🔍 Detecção de ambiente:', {
-    ...indicators,
-    result: isServerless ? 'SERVERLESS' : 'LOCAL'
+  console.log('🔍 Detecção ROBUSTA de ambiente:', {
+    'NODE_ENV': process.env.NODE_ENV,
+    'VERCEL': process.env.VERCEL,
+    'VERCEL_URL': process.env.VERCEL_URL ? 'SET' : 'NOT_SET',
+    'NEXTAUTH_URL': process.env.NEXTAUTH_URL ? 'SET' : 'NOT_SET',
+    'FORCE_SERVERLESS': forceServerless,
+    'platform': process.platform,
+    'hasVercelIndicator': hasVercelIndicator,
+    'isProduction': isProduction,
+    'RESULTADO': isServerless ? '🏭 SERVERLESS' : '💻 LOCAL'
   });
 
   return isServerless;
