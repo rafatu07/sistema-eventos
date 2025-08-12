@@ -54,6 +54,7 @@ export function useAsyncErrorHandler<T extends (...args: unknown[]) => Promise<u
         setLoading(false);
       }
     }) as T,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [asyncFunction, throwError, ...dependencies]
   );
 

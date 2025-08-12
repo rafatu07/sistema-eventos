@@ -40,7 +40,8 @@ export function useClientOnly<T>(fn: () => T, deps: React.DependencyList): T | n
     if (isClient) {
       setValue(fn());
     }
-  }, [isClient, ...deps]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClient, fn, ...deps]);
 
   return value;
 }

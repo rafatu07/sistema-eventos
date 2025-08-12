@@ -1,5 +1,6 @@
 import { CertificateConfig } from '@/types';
 import { sanitizeTextForPDF } from './text-utils';
+import type { CanvasRenderingContext2D } from 'canvas';
 
 /**
  * Valida se uma URL de imagem é acessível
@@ -82,7 +83,7 @@ export interface CertificateImageData {
 export const generateCertificateImage = async (data: CertificateImageData): Promise<Buffer> => {
   try {
     // Importar canvas apenas no servidor
-    const { createCanvas, loadImage, registerFont } = await import('canvas');
+    const { createCanvas, loadImage } = await import('canvas');
     const QRCode = await import('qrcode');
     
     // Usar configuração padrão se não fornecida
@@ -370,7 +371,7 @@ function getFontFamily(family: string): string {
   }
 }
 
-function drawText(ctx: any, text: string, options: {
+function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   x: number;
   y: number;
   fontSize: number;
@@ -386,7 +387,7 @@ function drawText(ctx: any, text: string, options: {
   ctx.fillText(text, options.x, options.y);
 }
 
-function drawMultilineText(ctx: any, text: string, options: {
+function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options: {
   x: number;
   y: number;
   fontSize: number;
@@ -424,7 +425,7 @@ function drawMultilineText(ctx: any, text: string, options: {
   });
 }
 
-function drawWatermark(ctx: any, width: number, height: number, text: string, opacity: number, color: string) {
+function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number, text: string, opacity: number, color: string) {
   ctx.save();
   ctx.translate(width / 2, height / 2);
   ctx.rotate(-Math.PI / 4);
@@ -437,7 +438,7 @@ function drawWatermark(ctx: any, width: number, height: number, text: string, op
   ctx.restore();
 }
 
-function drawCornerDecorations(ctx: any, width: number, height: number, color: string) {
+function drawCornerDecorations(ctx: CanvasRenderingContext2D, width: number, height: number, color: string) {
   const cornerSize = 60;
   const cornerOffset = 40;
   
@@ -473,7 +474,7 @@ function drawCornerDecorations(ctx: any, width: number, height: number, color: s
   ctx.stroke();
 }
 
-function drawQRPlaceholder(ctx: any, options: {
+function drawQRPlaceholder(ctx: CanvasRenderingContext2D, options: {
   x: number;
   y: number;
   size: number;

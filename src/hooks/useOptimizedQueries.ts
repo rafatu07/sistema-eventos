@@ -121,7 +121,8 @@ export function useBackgroundSync() {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncEvents]);
 
   return { syncEvents };
 }
