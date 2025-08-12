@@ -147,7 +147,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       color: config.primaryColor,
       fontWeight: 'bold',
       align: 'center',
-      fontFamily: getFontFamily(config.fontFamily)
+      fontFamily: getFontFamily()
     });
     
     // Subtítulo se presente
@@ -159,7 +159,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         color: config.secondaryColor,
         fontWeight: 'normal',
         align: 'center',
-        fontFamily: getFontFamily(config.fontFamily)
+        fontFamily: getFontFamily()
       });
     }
     
@@ -172,7 +172,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       color: config.primaryColor,
       fontWeight: 'bold',
       align: 'center',
-      fontFamily: getFontFamily(config.fontFamily)
+      fontFamily: getFontFamily()
     });
     
     // Texto do corpo com substituição de variáveis
@@ -204,7 +204,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       color: config.secondaryColor,
       maxWidth: width * 0.8,
       lineHeight: config.bodyFontSize * 2.4,
-      fontFamily: getFontFamily(config.fontFamily)
+      fontFamily: getFontFamily()
     });
     
     // Footer se presente
@@ -215,7 +215,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         fontSize: config.bodyFontSize * 1.8,
         color: config.secondaryColor,
         align: 'center',
-        fontFamily: getFontFamily(config.fontFamily)
+        fontFamily: getFontFamily()
       });
     }
     
@@ -352,7 +352,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       fontSize: 16,
       color: config.secondaryColor,
       align: 'left',
-      fontFamily: getFontFamily(config.fontFamily)
+      fontFamily: getFontFamily()
     });
     
     return canvas.toBuffer();
@@ -364,7 +364,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
 };
 
 // Funções auxiliares
-function getFontFamily(_family: string): string {
+function getFontFamily(): string {
   // Se fontes customizadas foram registradas, usar DejaVuSans
   if (fontsRegistered) {
     return 'DejaVuSans';
@@ -385,7 +385,7 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   fontFamily?: string;
 }) {
   const weight = (options.fontWeight || 'normal').toLowerCase() === 'bold' ? 'bold' : 'normal';
-  const family = options.fontFamily || getFontFamily('');
+  const family = options.fontFamily || getFontFamily();
   
   // Se forçar ASCII ou fontes não foram registradas, sanitizar texto
   const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
@@ -410,7 +410,7 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  const family = options.fontFamily || getFontFamily('');
+  const family = options.fontFamily || getFontFamily();
   
   // Se forçar ASCII ou fontes não foram registradas, sanitizar texto
   const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
@@ -448,7 +448,7 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
 }
 
 function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number, text: string, opacity: number, color: string) {
-  const family = getFontFamily('');
+  const family = getFontFamily();
   const finalText = (process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered) 
     ? sanitizeTextForPDF(text)
     : text;
@@ -507,7 +507,7 @@ function drawQRPlaceholder(ctx: CanvasRenderingContext2D, options: {
   size: number;
   color: string;
 }) {
-  const family = getFontFamily('');
+  const family = getFontFamily();
   
   ctx.strokeStyle = options.color;
   ctx.lineWidth = 4;

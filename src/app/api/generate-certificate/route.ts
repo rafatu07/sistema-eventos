@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     };
 
     let certificateUrl: string;
-    let generationType: 'image' | 'pdf' = 'image';
+    let generationType: 'image' | 'pdf' | 'svg-fallback' = 'image';
 
     try {
       // Tentar gerar como imagem PNG primeiro (mais confiável para web)
@@ -219,7 +219,11 @@ export async function POST(request: NextRequest) {
       success: true,
       certificateUrl,
       certificateType: generationType,
-      message: `Certificado gerado com sucesso como ${generationType === 'image' ? 'imagem PNG' : 'PDF'}!`,
+      message: `Certificado gerado com sucesso como ${
+        generationType === 'image' ? 'imagem PNG' : 
+        generationType === 'pdf' ? 'PDF' : 
+        'SVG de fallback'
+      }!`,
     }, {
       headers: createRateLimitHeaders(rateLimitResult)
     });
