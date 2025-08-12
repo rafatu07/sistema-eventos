@@ -101,13 +101,13 @@ export function usePrefetchEvents() {
 export function useBackgroundSync() {
   const queryClient = useQueryClient();
 
-  const syncEvents = () => {
+  const syncEvents = React.useCallback(() => {
     // Refetch silencioso em background
     queryClient.refetchQueries({
       queryKey: ['events'],
       type: 'active',
     });
-  };
+  }, [queryClient]);
 
   // Configurar sync automático
   React.useEffect(() => {
@@ -121,7 +121,6 @@ export function useBackgroundSync() {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncEvents]);
 
   return { syncEvents };

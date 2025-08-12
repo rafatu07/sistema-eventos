@@ -402,7 +402,7 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   ctx.textBaseline = 'top';
   
   const words = text.split(' ');
-  let lines: string[] = [];
+  const lines: string[] = [];
   let currentLine = '';
   
   for (const word of words) {
