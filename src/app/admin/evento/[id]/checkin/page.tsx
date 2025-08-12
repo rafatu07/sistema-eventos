@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-// import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
@@ -41,6 +41,7 @@ import { downloadQRCodePDF } from '@/lib/qr-pdf-generator';
 export default function AdminCheckinPage() {
   const params = useParams();
   const eventId = params.id as string;
+  const { user } = useAuth();
   
   const [event, setEvent] = useState<Event | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);

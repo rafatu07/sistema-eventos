@@ -50,7 +50,6 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   const { user } = useAuth();
   const notifications = useNotifications();
   const [activeTab, setActiveTab] = React.useState<'template' | 'colors' | 'fonts' | 'layout' | 'advanced'>('template');
-  const [, setForceUpdate] = React.useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
   const form = useValidatedForm<CertificateConfigData>({
@@ -221,7 +220,6 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
       
       // Only update if values actually changed
       if (currentValuesString !== prevValuesRef.current) {
-        const oldValues = prevValuesRef.current ? JSON.parse(prevValuesRef.current) : {};
         prevValuesRef.current = currentValuesString;
         
         const updatedConfig: CertificateConfig = {

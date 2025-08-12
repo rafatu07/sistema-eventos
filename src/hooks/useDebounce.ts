@@ -33,16 +33,16 @@ export function useDebounce<T>(value: T, delay: number): [T, boolean] {
  * Hook para debounce de callbacks
  * Útil para evitar chamadas excessivas de funções
  */
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
-  callback: T,
+export function useDebouncedCallback<TArgs extends unknown[], TReturn>(
+  callback: (...args: TArgs) => TReturn,
   delay: number
-): [T, boolean] {
+): [(...args: TArgs) => void, boolean] {
   const [isPending, setIsPending] = useState<boolean>(false);
 
   const debouncedCallback = useState(() => {
     let timeoutId: NodeJS.Timeout;
     
-    return ((...args: Parameters<T>) => {
+    return ((...args: TArgs) => {
       setIsPending(true);
       clearTimeout(timeoutId);
       
@@ -50,7 +50,7 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
         callback(...args);
         setIsPending(false);
       }, delay);
-    }) as T;
+    });
   })[0];
 
   return [debouncedCallback, isPending];

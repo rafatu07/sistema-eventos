@@ -176,12 +176,6 @@ export const useCertificateConfig = (eventId: string) => {
  * Hook para gerenciar múltiplas configurações (útil para dashboards)
  */
 export const useCertificateConfigs = (eventIds: string[]) => {
-  const queries = eventIds.map(eventId => ({
-    queryKey: ['certificate-config', eventId],
-    queryFn: () => getCertificateConfig(eventId),
-    staleTime: 5 * 60 * 1000,
-    cacheTime: 30 * 60 * 1000,
-  }));
 
   const results = useQuery<Record<string, CertificateConfig | null>>({
     queryKey: ['certificate-configs', eventIds.sort().join(',')],

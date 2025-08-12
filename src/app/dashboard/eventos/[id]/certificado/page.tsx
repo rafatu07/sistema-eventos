@@ -12,14 +12,13 @@ import { getEvent } from '@/lib/firestore';
 import { CertificateConfigData } from '@/lib/schemas';
 import { Event } from '@/types';
 import { CertificateConfig } from '@/types';
-import { useNotifications } from '@/components/NotificationSystem';
+
 import { ArrowLeft, FileText, Eye, Loader } from 'lucide-react';
 
 export default function CertificateConfigPage() {
   const params = useParams();
   const eventId = params.id as string;
   const { user } = useAuth();
-  const notifications = useNotifications();
   const [activeView, setActiveView] = useState<'form' | 'preview'>('form');
   const [localConfig, setLocalConfig] = useState<CertificateConfig | null>(null);
 

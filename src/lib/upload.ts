@@ -179,7 +179,7 @@ export const getSecurePDFUrl = async (publicId: string, originalUrl: string): Pr
   console.log('🔐 Gerando URL assinada como fallback...');
   try {
     return generateSignedUrl(publicId, 'raw');
-  } catch (rawError) {
+  } catch {
     console.warn('❌ URL assinada RAW falhou, tentando IMAGE...');
     return generateSignedUrl(publicId, 'image');
   }

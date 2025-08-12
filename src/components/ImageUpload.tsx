@@ -153,46 +153,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       fileInputRef.current.value = '';
     }
   };
-  
-  // Função para validar URL externa
-  const handleValidateExternalUrl = async (url: string) => {
-    if (!url.trim()) {
-      setUrlValidation({ isValidating: false, isValid: true });
-      return;
-    }
-    
-    setUrlValidation({ isValidating: true, isValid: false });
-    
-    try {
-      const validation = await validateImageUrl(url, {
-        maxSize: maxSize * 1024 * 1024,
-        timeout: 8000
-      });
-      
-      setUrlValidation({
-        isValidating: false,
-        isValid: validation.isValid,
-        message: validation.error || (validation.isValid ? 'URL válida!' : undefined)
-      });
-      
-      if (validation.isValid) {
-        setPreviewUrl(url);
-        onImageChange(url);
-        setError(null);
-      } else {
-        setError(validation.error || 'URL da imagem não é válida');
-      }
-      
-    } catch (validationError) {
-      console.error('Erro na validação da URL:', validationError);
-      setUrlValidation({
-        isValidating: false,
-        isValid: false,
-        message: 'Erro ao validar URL'
-      });
-      setError('Erro ao validar URL da imagem');
-    }
-  };
+
 
   const handleClickUpload = () => {
     if (!disabled) {

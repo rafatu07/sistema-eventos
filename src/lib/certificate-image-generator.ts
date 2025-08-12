@@ -588,7 +588,7 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
         successfulFont = fontFamily;
         break;
       }
-    } catch (error) {
+    } catch {
       continue;
     }
   }
@@ -904,12 +904,6 @@ async function writeEmbeddedFontToPath(dataUri: string, destPath: string) {
  */
 function testFontRendering(ctx: CanvasRenderingContext2D) {
   const isServerless = isServerlessEnvironment();
-  const testTexts = [
-    'Certificado',           // Básico
-    'Açãí Çâés',            // Com acentos
-    'Test123',              // Alfanumérico
-    'ABCDEFG'               // Maiúsculas
-  ];
   
   // Testar múltiplas fontes
   const fontsToTest = isServerless ? 
@@ -937,7 +931,7 @@ function testFontRendering(ctx: CanvasRenderingContext2D) {
           canRenderAccents = true;
           console.log(`✅ Fonte OK: ${font} (acentos: ✓)`);
           break;
-        } catch (accentError) {
+        } catch {
           console.log(`⚠️  Fonte ${font} funciona mas sem acentos`);
           break; // Usar esta fonte mas forçar ASCII
         }
