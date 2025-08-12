@@ -41,37 +41,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar se o check-in está aberto (30 minutos antes do início)
+    // Verificar timing do evento
     const now = new Date();
     const eventStart = new Date(event.startTime);
-    const checkInOpenTime = new Date(eventStart.getTime() - 30 * 60 * 1000); // 30 minutos antes
-
-    if (now < checkInOpenTime) {
-      const openTimeStr = checkInOpenTime.toLocaleString('pt-BR');
-      logInfo(`QR Check-in: tentativa prematura para evento ${eventId}. Abre em ${openTimeStr}`);
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: `Check-in estará disponível a partir de ${openTimeStr}`,
-          eventName: event.name 
-        },
-        { status: 400 }
-      );
-    }
-
-    // Verificar se o evento já terminou
     const eventEnd = new Date(event.endTime);
+
+    // Não permitir check-in APÓS o evento terminar
     if (now > eventEnd) {
       logInfo(`QR Check-in: tentativa após fim do evento ${eventId}`);
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Este evento já terminou',
+          error: 'Este evento já terminou, check-in não é mais permitido',
           eventName: event.name 
         },
         { status: 400 }
       );
     }
+
+    // Permitir check-in a qualquer momento ANTES do evento começar
+    // Não há restrição temporal mínima - pode fazer check-in a qualquer momento antes do início
 
     // Verificar se já fez check-in
     if (registration.checkedIn) {

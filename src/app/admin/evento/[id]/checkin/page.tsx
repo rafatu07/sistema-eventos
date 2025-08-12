@@ -548,7 +548,7 @@ export default function AdminCheckinPage() {
                               <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold mr-3 mt-0.5">
                                 3
                               </div>
-                              <p>O check-in ficará disponível 30 minutos antes do horário de início do evento</p>
+                              <p>O check-in estará disponível a qualquer momento antes do horário de início do evento</p>
                             </div>
                             <div className="flex items-start">
                               <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold mr-3 mt-0.5">

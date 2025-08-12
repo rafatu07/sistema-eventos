@@ -640,7 +640,7 @@ export default function EventDetailsPage() {
                                   <ul className="mt-2 space-y-1 list-disc list-inside">
                                     <li>Mostre este QR Code para os participantes escanearem</li>
                                     <li>Os participantes precisam estar logados para fazer check-in</li>
-                                    <li>Check-in ficará disponível 30 minutos antes do evento</li>
+                                    <li>Check-in estará disponível a qualquer momento antes do evento começar</li>
                                     <li>O link também pode ser compartilhado diretamente</li>
                                   </ul>
                                 </div>

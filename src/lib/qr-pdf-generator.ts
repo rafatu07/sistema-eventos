@@ -165,7 +165,7 @@ export const generateQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
       color: rgb(0.4, 0.4, 0.4),
     });
 
-    page.drawText('• Check-in ficará disponível 30 minutos antes do início', {
+    page.drawText('• Check-in ficará disponível a qualquer momento antes do início', {
       x: margin,
       y: height - 765,
       size: 11,
