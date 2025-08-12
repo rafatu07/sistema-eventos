@@ -351,43 +351,155 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
         });
     }
 
-    // QR Code placeholder (if enabled)
-    if (config.includeQRCode && config.qrCodeText) {
-      const qrPos = getPosition(config.qrCodePosition);
-      const qrSize = 60;
+    // QR Code real (if enabled)
+    if (config.includeQRCode) {
+      // Se não há texto específico, usar URL base para validação
+      const qrText = config.qrCodeText || `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sistema-eventos.vercel.app'}/validate/${data.eventId}/${encodeURIComponent(data.userName)}`;
       
-      // Draw QR Code placeholder (rectangle with text)
-      page.drawRectangle({
-        x: qrPos.x - qrSize / 2,
-        y: qrPos.y - qrSize / 2,
-        width: qrSize,
-        height: qrSize,
-        borderColor: secondaryColor,
-        borderWidth: 2,
-      });
-      
-      page.drawText('QR', {
-        x: qrPos.x - 10,
-        y: qrPos.y + 5,
-        size: 12,
-        font: normalFont,
-        color: secondaryColor,
-      });
-      
-      page.drawText('CODE', {
-        x: qrPos.x - 15,
-        y: qrPos.y - 10,
-        size: 10,
-        font: normalFont,
-        color: secondaryColor,
-      });
+      if (qrText) {
+      try {
+        console.log('📱 Gerando QR Code real para PDF:', qrText);
+        
+        // Importar QRCode dinamicamente
+        const QRCode = await import('qrcode');
+        
+        // Gerar QR Code como data URL
+        const qrDataURL = await QRCode.toDataURL(qrText, {
+          width: 200,
+          margin: 1,
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          }
+        });
+        
+        // Converter data URL para bytes
+        const base64Data = qrDataURL.split(',')[1];
+        if (!base64Data) {
+          throw new Error('QR Code data URL inválida');
+        }
+        
+        const qrCodeBytes = Uint8Array.from(
+          atob(base64Data),
+          (c) => c.charCodeAt(0)
+        );
+        
+        // Embedar QR Code no PDF
+        const qrCodeImage = await pdfDoc.embedPng(qrCodeBytes);
+        const qrPos = getPosition(config.qrCodePosition);
+        const qrSize = 60;
+        
+        page.drawImage(qrCodeImage, {
+          x: qrPos.x - qrSize / 2,
+          y: qrPos.y - qrSize / 2,
+          width: qrSize,
+          height: qrSize,
+        });
+        
+        console.log('✅ QR Code real gerado e desenhado no PDF');
+        
+      } catch (error) {
+        console.warn('❌ Falha ao gerar QR Code, usando placeholder:', error);
+        
+        // Fallback para placeholder se QR Code falhar
+        const qrPos = getPosition(config.qrCodePosition);
+        const qrSize = 60;
+        
+        page.drawRectangle({
+          x: qrPos.x - qrSize / 2,
+          y: qrPos.y - qrSize / 2,
+          width: qrSize,
+          height: qrSize,
+          borderColor: secondaryColor,
+          borderWidth: 2,
+        });
+        
+        page.drawText('QR', {
+          x: qrPos.x - 10,
+          y: qrPos.y + 5,
+          size: 12,
+          font: normalFont,
+          color: secondaryColor,
+        });
+        
+        page.drawText('CODE', {
+          x: qrPos.x - 15,
+          y: qrPos.y - 10,
+          size: 10,
+          font: normalFont,
+          color: secondaryColor,
+        });
+      }
+      } else {
+        console.log('⚠️ QR Code habilitado mas sem texto para gerar');
+      }
     }
 
     // Logo (if provided)
     if (config.logoUrl) {
       try {
-        // In a real implementation, you would fetch and embed the logo image
-        // For now, we'll add a placeholder
+        console.log('🖼️ Carregando logo real para PDF:', config.logoUrl);
+        
+        // Carregar logo real com configurações específicas para produção
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+        
+        const logoResponse = await fetch(config.logoUrl, {
+          headers: {
+            'User-Agent': 'Certificate-Generator/1.0',
+            'Accept': 'image/*',
+            'Cache-Control': 'no-cache',
+            ...(isProduction && {
+              'Access-Control-Allow-Origin': '*',
+              'Sec-Fetch-Mode': 'cors',
+            }),
+          },
+          mode: 'cors',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!logoResponse.ok) {
+          throw new Error(`HTTP ${logoResponse.status}: ${logoResponse.statusText}`);
+        }
+        
+        const logoArrayBuffer = await logoResponse.arrayBuffer();
+        const logoBytes = new Uint8Array(logoArrayBuffer);
+        
+        let logoImage;
+        const contentType = logoResponse.headers.get('content-type');
+        
+        if (contentType?.includes('png')) {
+          logoImage = await pdfDoc.embedPng(logoBytes);
+        } else if (contentType?.includes('jpeg') || contentType?.includes('jpg')) {
+          logoImage = await pdfDoc.embedJpg(logoBytes);
+        } else {
+          // Tentar PNG primeiro, depois JPG
+          try {
+            logoImage = await pdfDoc.embedPng(logoBytes);
+          } catch {
+            logoImage = await pdfDoc.embedJpg(logoBytes);
+          }
+        }
+        
+        const logoPos = getPosition(config.logoPosition);
+        const logoScale = config.logoSize / 100; // Ajustar escala baseado no tamanho configurado
+        
+        page.drawImage(logoImage, {
+          x: logoPos.x - (logoImage.width * logoScale) / 2,
+          y: logoPos.y - (logoImage.height * logoScale) / 2,
+          width: logoImage.width * logoScale,
+          height: logoImage.height * logoScale,
+        });
+        
+        console.log('✅ Logo real carregada e desenhada no PDF');
+        
+      } catch (error) {
+        console.warn('❌ Falha ao carregar logo, usando placeholder:', error);
+        
+        // Fallback para placeholder se logo falhar
         const logoPos = getPosition(config.logoPosition);
         page.drawRectangle({
           x: logoPos.x - config.logoSize / 2,
@@ -397,8 +509,14 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
           borderColor: secondaryColor,
           borderWidth: 1,
         });
-      } catch (error) {
-        console.warn('Failed to load logo:', error);
+        
+        page.drawText('LOGO', {
+          x: logoPos.x - 12,
+          y: logoPos.y - 5,
+          size: 10,
+          font: normalFont,
+          color: secondaryColor,
+        });
       }
     }
 
