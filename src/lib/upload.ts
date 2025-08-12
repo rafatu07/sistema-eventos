@@ -15,12 +15,14 @@ export const uploadPDFToCloudinary = async (
     const result = await cloudinary.uploader.upload(
       `data:application/pdf;base64,${pdfBuffer.toString('base64')}`,
       {
-        resource_type: 'raw',
+        // Usar image/upload para PDFs evita 401 em algumas contas e mantém CDN pública
+        resource_type: 'image',
         folder: folder,
         public_id: fileName,
         format: 'pdf',
         access_mode: 'public',
         type: 'upload',
+        overwrite: true,
       }
     );
 
