@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     // Preparar dados completos para geração
     const fullCertificateData = {
       ...certificateData,
-      config: certificateConfig // Incluir configurações personalizadas
+      config: certificateConfig || undefined // Converter null para undefined
     };
 
     let certificateUrl: string;

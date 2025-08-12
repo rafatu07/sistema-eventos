@@ -154,7 +154,7 @@ export function useFieldValidation<TFormData extends FieldValues>(
         } else {
           // Validação simples do campo individual
           try {
-            const zodObject = schema as z.ZodObject<Record<string, ZodTypeAny>>;
+            const zodObject = schema as z.ZodObject<Record<string, z.ZodTypeAny>>;
             if (zodObject.shape && zodObject.shape[fieldName as string]) {
               const fieldSchema = zodObject.shape[fieldName as string];
               if (fieldSchema) {

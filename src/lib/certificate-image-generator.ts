@@ -8,7 +8,7 @@ import type { CanvasRenderingContext2D } from 'canvas';
 async function validateImageUrl(url: string): Promise<boolean> {
   try {
     const response = await fetch(url, { method: 'HEAD' });
-    return response.ok && response.headers.get('content-type')?.startsWith('image/');
+    return response.ok && (response.headers.get('content-type')?.startsWith('image/') || false);
   } catch {
     return false;
   }
@@ -351,7 +351,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       fontFamily: getFontFamily(config.fontFamily)
     });
     
-    return canvas.toBuffer('image/png', { compressionLevel: 6, quality: 0.95 });
+    return canvas.toBuffer();
     
   } catch (error) {
     console.error('Erro ao gerar certificado como imagem:', error);
