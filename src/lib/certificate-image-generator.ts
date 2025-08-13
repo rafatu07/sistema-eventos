@@ -484,56 +484,101 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
   }
   
-  // Sanitizar texto de forma mais agressiva
-  let finalText = _renderConfig.shouldUseASCII ? sanitizeTextForPDF(text) : text;
+  // 🔍 DEBUG: Texto de entrada
+  console.log('🎨 drawText entrada:', {
+    textOriginal: `"${text}"`,
+    textLength: text.length,
+    primeirosChars: text.substring(0, 10),
+    charCodes: text.substring(0, 5).split('').map(c => c.charCodeAt(0)),
+    isServerless: _renderConfig.isServerless,
+    shouldUseASCII: _renderConfig.shouldUseASCII
+  });
   
-  // Normalização para produção
-  if (_renderConfig.shouldUseASCII) {
-    finalText = finalText
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\x00-\x7F]/g, '')
-      .replace(/\s+/g, ' ')
+  // Sanitizar texto FORÇANDO ASCII sempre em produção
+  let finalText = text;
+  
+  if (_renderConfig.isServerless || _renderConfig.shouldUseASCII) {
+    finalText = text
+      .normalize('NFD')                         // Decompor caracteres acentuados
+      .replace(/[\u0300-\u036f]/g, '')          // Remover diacríticos
+      .replace(/[^\x00-\x7F]/g, '?')            // Substituir não-ASCII por ?
+      .replace(/[^\w\s\-\.\,\!\?\(\)]/g, ' ')   // Manter apenas seguros
+      .replace(/\s+/g, ' ')                     // Normalizar espaços
       .trim();
+    
+    console.log('🧹 Texto normalizado:', {
+      original: `"${text}"`,
+      normalizado: `"${finalText}"`,
+      comprimento: finalText.length,
+      isOnlyASCII: finalText.split('').every(c => c.charCodeAt(0) <= 127)
+    });
   }
   
   let drawn = false;
   
-  // ⚡ RENDERIZAÇÃO OTIMIZADA - menos logs
+  // 🎯 RENDERIZAÇÃO COM DEBUG COMPLETO
   for (const fontFamily of _renderConfig.fontStrategies) {
     try {
       const weight = options.fontWeight || 'normal';
       const fontString = `${weight} ${options.fontSize}px ${fontFamily}`;
+      
+      console.log(`🔤 Tentativa fonte: ${fontString}`);
+      
       ctx.font = fontString;
       ctx.fillStyle = options.color;
       ctx.textAlign = options.align || 'left';
       ctx.textBaseline = 'top';
       
       const metrics = ctx.measureText(finalText);
+      console.log(`📏 Métricas: width=${metrics.width}, height=${options.fontSize}`);
+      
       if (metrics.width > 0) {
         ctx.fillText(finalText, options.x, options.y);
+        console.log(`✅ SUCESSO renderização: "${finalText}" com ${fontFamily}`);
         drawn = true;
         break;
       }
       
-    } catch {
-      // Silencioso - apenas continua para próxima fonte
+    } catch (fontError) {
+      console.error(`❌ Erro fonte ${fontFamily}:`, fontError);
       continue;
     }
   }
   
-  // Fallback simples
+  // 🆘 FALLBACK ULTRA-ROBUSTO
   if (!drawn) {
-    try {
-      ctx.font = `normal ${options.fontSize}px Arial`;
-      ctx.fillStyle = options.color;
-      ctx.textAlign = options.align || 'left';
-      ctx.textBaseline = 'top';
-      
-      const safeText = finalText.replace(/[^a-zA-Z0-9\s\.\,\!\?\-]/g, '');
-      ctx.fillText(safeText, options.x, options.y);
-    } catch (error) {
-      console.error('❌ Fallback falhado:', error);
+    console.error('🆘 TODAS as fontes falharam - usando fallback extremo');
+    
+    const ultraSafeFonts = ['Arial', 'sans-serif', 'monospace', 'serif'];
+    
+    for (const fallbackFont of ultraSafeFonts) {
+      try {
+        ctx.font = `normal ${options.fontSize}px ${fallbackFont}`;
+        ctx.fillStyle = options.color;
+        ctx.textAlign = options.align || 'left';
+        ctx.textBaseline = 'top';
+        
+        // Texto ultra-seguro: apenas ASCII básico
+        const ultraSafeText = finalText
+          .replace(/[^a-zA-Z0-9\s\.\,\!\?\-\(\)]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim() || 'TEXTO';
+        
+        console.log(`🆘 Tentativa fallback: ${fallbackFont} -> "${ultraSafeText}"`);
+        
+        ctx.fillText(ultraSafeText, options.x, options.y);
+        console.log(`✅ FALLBACK funcionou com ${fallbackFont}`);
+        drawn = true;
+        break;
+        
+      } catch (fallbackError) {
+        console.error(`❌ Fallback ${fallbackFont} falhou:`, fallbackError);
+        continue;
+      }
+    }
+    
+    if (!drawn) {
+      console.error('💀 FALHA TOTAL: nem o fallback extremo funcionou');
     }
   }
 }

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateCertificatePDF } from '@/lib/pdf-generator';
-import { generateCertificateImage } from '@/lib/certificate-image-generator';
-import { uploadPDFToCloudinary, uploadImageToCloudinary } from '@/lib/upload';
+import { uploadImageToCloudinary } from '@/lib/upload';
 import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
@@ -144,60 +142,17 @@ export async function POST(request: NextRequest) {
       console.log('🎯 PASSO 3: URL será salva no Firebase (próximo)');
       
     } catch (htmlError) {
-      console.error('❌ FALHA na geração HTML:', htmlError);
+      console.error('❌ FALHA CRÍTICA na geração HTML/Puppeteer:', htmlError);
       
-      // FALLBACK 1: Canvas tradicional (com correções de layout)
-      console.warn('🆘 FALLBACK 1: Tentando Canvas tradicional...');
+      logError('Falha na geração de certificado HTML/Puppeteer', { 
+        userId, 
+        eventId, 
+        error: (htmlError as Error).message,
+        stack: (htmlError as Error).stack
+      });
       
-      try {
-        const imageBuffer = await generateCertificateImage(fullCertificateData);
-        
-        logInfo('⚠️  PNG Canvas de emergência gerado', { 
-          userId, 
-          eventId, 
-          imageSize: imageBuffer.length,
-          warning: 'Usando Canvas - pode ter pequenas diferenças do preview'
-        });
-
-        const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_CANVAS_${userId}_${eventId}_${cacheBreaker}`);
-        certificateUrl = uploadResult.secureUrl;
-        generationType = 'image';
-        
-        logInfo('✅ FALLBACK Canvas salvo no Cloudinary', { 
-          userId, 
-          eventId, 
-          publicId: uploadResult.publicId,
-          certificateUrl: certificateUrl.substring(0, 50) + '...'
-        });
-        
-      } catch (canvasError) {
-        console.error('❌ FALLBACK Canvas também falhou:', canvasError);
-        
-        // FALLBACK 2: PDF tradicional (última opção)
-        console.warn('🆘 FALLBACK 2: Tentando PDF tradicional...');
-        
-        try {
-          const pdfBytes = await generateCertificatePDF(fullCertificateData);
-          
-          logInfo('⚠️  PDF de emergência gerado', { 
-            userId, 
-            eventId, 
-            pdfSize: pdfBytes.length,
-            warning: 'Sistema antigo - fontes menores que configurado'
-          });
-
-          const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const pdfBuffer = Buffer.from(pdfBytes);
-          const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_PDF_${userId}_${eventId}_${cacheBreaker}`);
-          certificateUrl = uploadResult.secureUrl;
-          generationType = 'pdf';
-          
-        } catch (pdfError) {
-          console.error('💀 FALHA TOTAL - HTML, Canvas E PDF falharam:', { htmlError, canvasError, pdfError });
-          throw new Error(`FALHA TOTAL: HTML(${(htmlError as Error).message}) + Canvas(${(canvasError as Error).message}) + PDF(${(pdfError as Error).message})`);
-        }
-      }
+      // 🚫 SEM FALLBACKS CORROMPIDOS - melhor falhar limpo que gerar lixo
+      throw new Error(`Falha na geração do certificado: ${(htmlError as Error).message}`);
     }
 
     // Update registration to mark certificate as generated

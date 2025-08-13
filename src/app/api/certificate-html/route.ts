@@ -24,7 +24,19 @@ export async function POST(request: NextRequest) {
     // Configuração otimizada para LOCAL + VERCEL
     const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
     
-    const browser = await puppeteer.launch({
+    console.log('🔍 DEBUG Ambiente:', {
+      isProduction,
+      VERCEL: process.env.VERCEL,
+      NODE_ENV: process.env.NODE_ENV,
+      platform: process.platform
+    });
+    
+    // Configuração específica do Chromium para Vercel
+    if (isProduction) {
+      console.log('⚙️ Configurando Chromium para produção...');
+    }
+    
+    const launchConfig = {
       headless: true,
       executablePath: isProduction ? await chromium.executablePath() : undefined,
       args: isProduction ? [
@@ -32,14 +44,28 @@ export async function POST(request: NextRequest) {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--disable-web-security',
+        '--disable-features=site-per-process',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--font-render-hinting=none',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--virtual-time-budget=30000'
       ] : [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-      ]
-    });
+      ],
+      timeout: 30000
+    };
     
-    console.log(`🚀 Puppeteer iniciado (${isProduction ? 'PRODUÇÃO' : 'LOCAL'})`);
+    console.log('🚀 Configuração Puppeteer:', JSON.stringify(launchConfig, null, 2));
+    
+    const browser = await puppeteer.launch(launchConfig);
+    
+    console.log(`✅ Puppeteer iniciado com sucesso (${isProduction ? 'PRODUÇÃO' : 'LOCAL'})`);
 
     const page = await browser.newPage();
     
