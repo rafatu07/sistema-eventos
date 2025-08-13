@@ -1,5 +1,4 @@
 import { CertificateConfig } from '@/types';
-import { sanitizeTextForPDF } from './text-utils';
 import type { CanvasRenderingContext2D } from 'canvas';
 import fs from 'fs/promises';
 import path from 'path';

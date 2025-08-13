@@ -71,14 +71,33 @@ export async function POST(request: NextRequest) {
       eventId: eventId,
     };
 
-    // TEMPORARIAMENTE COMENTADO - pode estar causando o erro
-    console.log('⚠️ Pulando busca de configurações (debug mode)');
-    const _certificateConfig = null; // Forçar null
+    // ✅ BUSCAR CONFIGURAÇÕES PERSONALIZADAS DO EVENTO
+    console.log('🔍 Buscando configurações personalizadas para evento:', eventId);
+    let certificateConfig = null;
     
-    // Preparar dados completos para geração (sem config por enquanto)
+    try {
+      // Importar getCertificateConfig dinamicamente 
+      const { getCertificateConfig } = await import('@/lib/certificate-config');
+      certificateConfig = await getCertificateConfig(eventId);
+      
+      if (certificateConfig) {
+        console.log('✅ Configuração personalizada encontrada:', {
+          template: certificateConfig.template,
+          colors: { primary: certificateConfig.primaryColor, secondary: certificateConfig.secondaryColor },
+          hasLogo: !!certificateConfig.logoUrl,
+          hasQR: certificateConfig.includeQRCode
+        });
+      } else {
+        console.log('💡 Nenhuma configuração personalizada, usando padrão');
+      }
+    } catch (configError) {
+      console.warn('⚠️ Erro ao buscar configurações, usando padrão:', configError);
+    }
+    
+    // Preparar dados completos para geração (COM configuração personalizada)
     const fullCertificateData = {
       ...certificateData,
-      config: undefined // Sem configuração personalizada por enquanto
+      config: certificateConfig || undefined // ✅ Usar configuração personalizada se disponível
     };
 
     let generationType: 'image' | 'pdf' | 'svg-fallback' = 'pdf';

@@ -135,10 +135,6 @@ interface PNGUploadData {
   registrationId: string;
   eventId: string;
   userId: string;
-  userName?: string;
-  eventName?: string;
-  _userName?: string;  // Para compatibilidade com variáveis não utilizadas
-  _eventName?: string; // Para compatibilidade com variáveis não utilizadas
 }
 
 // 📤 MODO 2: Receber PNG do cliente e finalizar processo
@@ -149,9 +145,7 @@ async function uploadCertificatePNG(request: NextRequest, body: Record<string, u
     imageDataURL, 
     registrationId, 
     eventId, 
-    userId,
-    _userName,
-    _eventName 
+    userId
   } = data;
 
   if (!imageDataURL || !registrationId || !eventId || !userId) {

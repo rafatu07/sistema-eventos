@@ -22,6 +22,7 @@ interface Html2CanvasOptions {
 export interface CertificateGenerationResult {
   success: boolean;
   certificateUrl?: string;
+  certificateType?: string;
   error?: string;
 }
 
@@ -75,13 +76,64 @@ async function loadHtml2Canvas(): Promise<void> {
   }
 }
 
-// 🎨 Função principal para gerar certificado
+// 🎨 Função principal para gerar certificado (SERVER-SIDE OPTIMIZED)
 export async function generateCertificate(data: CertificateData): Promise<CertificateGenerationResult> {
   try {
-    console.log('🎯 Iniciando geração de certificado client-side...');
+    console.log('🎯 Iniciando geração de certificado server-side otimizada...');
+    
+    // ✅ PRIORIDADE: API server-side corrigida (mais confiável)
+    console.log('🖥️ Tentando API server-side otimizada...');
+    const response = await fetch('/api/generate-certificate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        registrationId: data.registrationId,
+        eventId: data.eventId,
+        userId: data.userId,
+        userName: data.userName,
+        eventName: data.eventName,
+        eventDate: data.eventDate,
+        eventStartTime: data.eventStartTime,
+        eventEndTime: data.eventEndTime
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('🎉 Certificado gerado com sucesso via server-side!');
+        return {
+          success: true,
+          certificateUrl: result.certificateUrl,
+          certificateType: result.certificateType || 'png'
+        };
+      }
+    }
+
+    // Se chegou aqui, server-side falhou
+    const errorText = await response.text().catch(() => 'Erro desconhecido');
+    console.warn('⚠️ API server-side falhou:', errorText);
+    console.log('🔄 Tentando fallback client-side...');
+
+    // FALLBACK: Método client-side (apenas se necessário)
+    return await generateCertificateClientSide(data);
+
+  } catch (error) {
+    console.error('💀 Erro na tentativa server-side:', error);
+    console.log('🔄 Fallback para client-side por erro...');
+    
+    // FALLBACK: Método client-side
+    return await generateCertificateClientSide(data);
+  }
+}
+
+// 🔄 Fallback client-side (método original, mas otimizado)
+async function generateCertificateClientSide(data: CertificateData): Promise<CertificateGenerationResult> {
+  try {
+    console.log('⚠️ FALLBACK: Usando método client-side...');
     
     // PASSO 1: Solicitar HTML ao servidor
-    console.log('📄 PASSO 1: Solicitando HTML...');
     const htmlResponse = await fetch('/api/certificate-new', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -101,81 +153,39 @@ export async function generateCertificate(data: CertificateData): Promise<Certif
       throw new Error(htmlData.error || 'Falha na geração HTML');
     }
 
-    console.log('✅ HTML recebido do servidor');
-
     // PASSO 2: Carregar html2canvas
-    console.log('📚 PASSO 2: Carregando html2canvas...');
     await loadHtml2Canvas();
-    console.log('✅ html2canvas carregado');
 
-    // PASSO 3: Criar elemento HTML corretamente e renderizar no documento
-    console.log('🏗️ PASSO 3: Criando elemento HTML...');
-    
-    // Criar um iframe para isolar o ambiente de renderização
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.left = '-9999px';
-    iframe.style.top = '-9999px';
-    iframe.style.width = '1200px';
-    iframe.style.height = '800px';
-    iframe.style.border = 'none';
-    document.body.appendChild(iframe);
-    
-    // Garantir que o iframe está pronto
-    await new Promise<void>(resolve => {
-      iframe.onload = () => resolve();
-      if (iframe.contentDocument) resolve();
-    });
-    
-    // Obter o documento do iframe
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) throw new Error('Não foi possível acessar o documento do iframe');
-    
-    // Escrever o HTML completo no iframe (incluindo DOCTYPE e estrutura completa)
-    iframeDoc.open();
-    iframeDoc.write(htmlData.html);
-    iframeDoc.close();
-    
-    // Aguardar que o DOM esteja pronto
-    await new Promise<void>(resolve => {
-      if (iframeDoc.readyState === 'complete') resolve();
-      else iframeDoc.addEventListener('DOMContentLoaded', () => resolve());
-    });
-    
-    // Aguardar carregar fontes e imagens
-    const certificate = iframeDoc.querySelector('.certificate-container');
-    if (!certificate) throw new Error('Container do certificado não encontrado');
-    
-    // Forçar carregamento completo das fontes (tempo extra)
-    console.log('⏱️ Aguardando carregamento completo...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await waitForImages(iframeDoc.body);
-    console.log('✅ Elemento preparado');
-    
-    // PASSO 4: Converter para PNG com configurações otimizadas
-    console.log('🖼️ PASSO 4: Convertendo para PNG...');
-    const canvas = await window.html2canvas(iframeDoc.body, {
+    // PASSO 3: Renderização simplificada para maior compatibilidade
+    const container = document.createElement('div');
+    container.innerHTML = htmlData.html;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.width = '1200px';
+    container.style.height = '800px';
+    document.body.appendChild(container);
+
+    // Aguardar recursos
+    await waitForImages(container);
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // PASSO 4: Converter para PNG com configurações compatíveis
+    // @ts-ignore - html2canvas typing
+    const canvas = await window.html2canvas(container, {
       width: 1200,
       height: 800,
-      scale: 2, // Para melhor qualidade
+      scale: 1.5, // Reduzido para melhor performance
       useCORS: true,
-      allowTaint: true, // Permitir conteúdo tainted para melhor compatibilidade
       backgroundColor: htmlData.config?.backgroundColor || '#ffffff',
-      logging: true, // Mostrar logs para debug
-      foreignObjectRendering: false, // Desativar foreignObject para maior compatibilidade
-      removeContainer: false // Não remover o container para evitar problemas
+      logging: false, // Reduzir logs no fallback
+      allowTaint: true
     });
 
-    // Remover iframe temporário
-    document.body.removeChild(iframe);
-    console.log('✅ PNG gerado com sucesso com', canvas.width, 'x', canvas.height);
+    document.body.removeChild(container);
 
-    // PASSO 5: Converter canvas para data URL
-    const imageDataURL = canvas.toDataURL('image/png', 1.0);
-    console.log('📊 PNG size:', Math.round(imageDataURL.length / 1024), 'KB');
-
-    // PASSO 6: Enviar PNG para o servidor
-    console.log('📤 PASSO 6: Enviando PNG para servidor...');
+    // PASSO 5: Converter e enviar
+    const imageDataURL = canvas.toDataURL('image/png', 0.9); // Qualidade ligeiramente reduzida
+    
     const uploadResponse = await fetch('/api/certificate-new', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -191,16 +201,16 @@ export async function generateCertificate(data: CertificateData): Promise<Certif
     });
 
     if (!uploadResponse.ok) {
-      throw new Error(`Falha no upload: ${uploadResponse.status}`);
+      throw new Error(`Falha no upload fallback: ${uploadResponse.status}`);
     }
 
     const uploadData = await uploadResponse.json();
     
     if (!uploadData.success) {
-      throw new Error(uploadData.error || 'Falha no upload');
+      throw new Error(uploadData.error || 'Falha no upload fallback');
     }
-
-    console.log('🎉 Certificado gerado com sucesso!');
+    
+    console.log('✅ Fallback client-side concluído!');
     
     return {
       success: true,
@@ -208,11 +218,11 @@ export async function generateCertificate(data: CertificateData): Promise<Certif
     };
 
   } catch (error) {
-    console.error('💀 Erro na geração de certificado:', error);
+    console.error('💀 Fallback client-side também falhou:', error);
     
     return {
       success: false,
-      error: (error as Error).message
+      error: `Todos os métodos falharam: ${(error as Error).message}`
     };
   }
 }
