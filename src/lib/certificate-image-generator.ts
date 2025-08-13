@@ -99,8 +99,44 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     
     // Importar canvas apenas no servidor
     const { createCanvas, loadImage, registerFont } = await import('canvas');
-    // ⚡ NOVA ESTRATÉGIA: Em produção, NUNCA tentar registrar fontes customizadas
+    
+    // 🚨 CORREÇÃO CRÍTICA: Inicializar Canvas para ambiente serverless
     const isServerlessEnv = isServerlessEnvironment();
+    
+    if (isServerlessEnv) {
+      // 🔧 Tentar configurar Canvas para usar fontes do sistema adequadamente
+      try {
+        const testCanvas = createCanvas(100, 50);
+        const testCtx = testCanvas.getContext('2d');
+        
+        // Testar fontes disponíveis em ordem de preferência
+        const fontsToTest = ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Helvetica'];
+        let workingFont = 'sans-serif';
+        
+        for (const font of fontsToTest) {
+          try {
+            testCtx.font = `16px "${font}"`;
+            const metrics = testCtx.measureText('Test');
+            if (metrics.width > 0) {
+              workingFont = font;
+              console.log(`🎯 FONTE CONFIRMADA para Vercel: "${workingFont}"`);
+              process.env.VERCEL_SAFE_FONT = workingFont;
+              break;
+            }
+          } catch (fontErr) {
+            console.warn(`⚠️  Fonte "${font}" não disponível no Vercel`);
+            continue;
+          }
+        }
+        
+        if (workingFont === 'sans-serif') {
+          console.warn('🚨 AVISO: Nenhuma fonte específica funcionou, usando sans-serif');
+        }
+        
+      } catch (canvasError) {
+        console.error('❌ Erro ao configurar Canvas para Vercel:', canvasError);
+      }
+    }
     
     console.log('🏠 AMBIENTE FINAL:', {
       isServerlessEnv,
@@ -518,12 +554,22 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     const isServerless = isServerlessEnvironment();
     const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerless;
     
-    // Estratégias de fonte simples e confiáveis
-    const fontStrategies = [
-      family,                          // Fonte preferida
+    // 🚨 CORREÇÃO CRÍTICA: Estratégias específicas para Vercel
+    const vercelSafeFont = process.env.VERCEL_SAFE_FONT || 'Arial';
+    const fontStrategies = isServerless ? [
+      `"${vercelSafeFont}"`,           // Fonte testada e confirmada para Vercel
+      'Arial',                         // Primeira opção para Vercel
+      'DejaVu Sans',                   // Fonte comum no Linux
+      'Liberation Sans',               // Fonte livre comum
+      'Helvetica',                     // Fallback macOS/universal
+      'sans-serif'                     // Universal (último recurso)
+    ] : [
+      family,                          // Fonte preferida (desenvolvimento)
       'Arial',                         // Fallback confiável
       'sans-serif'                     // Universal
     ];
+    
+    console.log('🔤 Estratégias de fonte para', isServerless ? 'SERVERLESS' : 'LOCAL', ':', fontStrategies);
 
     _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
     
@@ -645,15 +691,19 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  const fontFamily = options.fontFamily || getFontFamily();
-  const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerlessEnvironment();
+  // 🚨 CORREÇÃO: Usar fonte testada e confirmada para Vercel
+  const isServerless = isServerlessEnvironment();
+  const vercelSafeFont = process.env.VERCEL_SAFE_FONT || 'Arial';
+  const fontFamily = isServerless ? `"${vercelSafeFont}"` : (options.fontFamily || getFontFamily());
+  const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerless;
   
   // ✅ CORREÇÃO: Preservar texto com acentos em produção
   const finalText = shouldUseASCII ? text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim() : text;
   
   console.log('🔤 drawMultilineText - preservando acentos:', {
     shouldUseASCII,
-    isServerless: isServerlessEnvironment(),
+    isServerless,
+    fontFamily: `"${fontFamily}"`,
     textPreview: `"${text.substring(0, 20)}"`
   });
   
