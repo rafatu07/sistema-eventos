@@ -91,16 +91,16 @@ export async function POST(request: NextRequest) {
     // 🚀 NOVO FLUXO UNIFICADO: SEMPRE PNG PRIMEIRO (sugestão do usuário implementada)
     console.log('🖼️  Implementando fluxo unificado: PNG com multipliers extremos');
 
-    // 🎭 NOVA ESTRATÉGIA: Playwright primeiro, depois Puppeteer, depois Canvas
-    console.log('🎯 PASSO 1: Tentando PLAYWRIGHT (mais estável)');
+    // 🚀 NOVA ESTRATÉGIA VERCEL-OPTIMIZED: Fallback inteligente
+    console.log('🎯 PASSO 1: Tentando método otimizado para Vercel');
     
     let imageBuffer: Buffer | null = null;
     let generationMethod = '';
     
-    // TENTATIVA 1: Playwright (mais estável que Puppeteer)
+    // TENTATIVA 1: Cloudinary Transformations (mais confiável para Vercel)
     try {
-      console.log('🎭 Tentando Playwright...');
-      const playwrightResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-playwright`, {
+      console.log('☁️ Tentando Cloudinary Transformations...');
+      const cloudinaryResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-cloudinary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,28 +113,28 @@ export async function POST(request: NextRequest) {
         })
       });
 
-      if (playwrightResponse.ok) {
-        imageBuffer = Buffer.from(await playwrightResponse.arrayBuffer());
-        generationMethod = 'PLAYWRIGHT';
-        console.log('🎉 PLAYWRIGHT funcionou!');
+      if (cloudinaryResponse.ok) {
+        imageBuffer = Buffer.from(await cloudinaryResponse.arrayBuffer());
+        generationMethod = 'CLOUDINARY';
+        console.log('🎉 Cloudinary Transformations funcionou!');
         
-        logInfo('🎭 PNG gerado via PLAYWRIGHT com sucesso', { 
+        logInfo('☁️ PNG gerado via Cloudinary Transformations', { 
           userId, 
           eventId, 
           imageSize: imageBuffer.length,
-          method: 'Playwright - alternativa robusta'
+          method: 'Cloudinary - 100% compatível com Vercel'
         });
       } else {
-        throw new Error(`Playwright falhou: ${playwrightResponse.status}`);
+        throw new Error(`Cloudinary falhou: ${cloudinaryResponse.status}`);
       }
       
-    } catch (playwrightError) {
-      console.warn('⚠️ Playwright falhou, tentando Puppeteer...', playwrightError);
+    } catch (cloudinaryError) {
+      console.warn('⚠️ Cloudinary falhou, tentando Playwright...', cloudinaryError);
       
-      // TENTATIVA 2: Puppeteer (original)
+      // TENTATIVA 2: Playwright (apenas como fallback)
       try {
-        console.log('🤖 Tentando Puppeteer...');
-        const htmlResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-html`, {
+        console.log('🎭 Tentando Playwright...');
+        const playwrightResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-playwright`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -147,24 +147,24 @@ export async function POST(request: NextRequest) {
           })
         });
 
-        if (htmlResponse.ok) {
-          imageBuffer = Buffer.from(await htmlResponse.arrayBuffer());
-          generationMethod = 'PUPPETEER';
-          console.log('🎉 PUPPETEER funcionou!');
+        if (playwrightResponse.ok) {
+          imageBuffer = Buffer.from(await playwrightResponse.arrayBuffer());
+          generationMethod = 'PLAYWRIGHT_FALLBACK';
+          console.log('🎉 Playwright fallback funcionou!');
           
-          logInfo('🤖 PNG gerado via PUPPETEER', { 
+          logInfo('🎭 PNG gerado via Playwright (fallback)', { 
             userId, 
             eventId, 
             imageSize: imageBuffer.length,
-            method: 'Puppeteer - método original'
+            method: 'Playwright - fallback apenas'
           });
         } else {
-          throw new Error(`Puppeteer falhou: ${htmlResponse.status}`);
+          throw new Error(`Playwright falhou: ${playwrightResponse.status}`);
         }
         
-      } catch (puppeteerError) {
-        console.warn('⚠️ Puppeteer também falhou:', puppeteerError);
-        throw new Error(`Playwright E Puppeteer falharam: ${(playwrightError as Error).message} | ${(puppeteerError as Error).message}`);
+      } catch (playwrightError) {
+        console.warn('⚠️ Playwright também falhou:', playwrightError);
+        throw new Error(`Cloudinary E Playwright falharam: ${(cloudinaryError as Error).message} | ${(playwrightError as Error).message}`);
       }
     }
     
