@@ -94,7 +94,7 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
     });
 
     // Gerar HTML do certificado
-    const certificateHTML = generateCertificateHTML(certificateConfig, {
+    const certificateHTML = await generateCertificateHTML(certificateConfig, {
       participantName: data.userName,
       eventName: data.eventName,
       eventDate: data.eventDate,
@@ -169,13 +169,13 @@ interface SimpleCertificateConfig {
 /**
  * Gera HTML do certificado baseado no componente CertificatePreview
  */
-const generateCertificateHTML = (config: SimpleCertificateConfig, data: {
+const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
   participantName: string;
   eventName: string;
   eventDate: Date;
   eventStartTime?: Date;
   eventEndTime?: Date;
-}): string => {
+}): Promise<string> => {
   const formatPosition = (position: { x: number; y: number }) => 
     `left: ${position.x}%; top: ${position.y}%; transform: translate(-50%, -50%);`;
 
@@ -362,7 +362,7 @@ const generateCertificateHTML = (config: SimpleCertificateConfig, data: {
         ${config.logoUrl ? `<img src="${config.logoUrl}" alt="Logo" class="logo" />` : ''}
         
         <!-- QR Code -->
-        ${config.includeQRCode ? `<div class="qr-code">QR<br/>CODE</div>` : ''}
+        ${config.includeQRCode ? await generateQRCodeHTML(config.qrCodeText, config.secondaryColor) : ''}
         
         <!-- Decorações do template -->
         ${config.template === 'elegant' ? `
@@ -375,6 +375,33 @@ const generateCertificateHTML = (config: SimpleCertificateConfig, data: {
     </body>
     </html>
   `;
+};
+
+/**
+ * Gera HTML do QR Code usando API externa (compatível com Puppeteer)
+ */
+const generateQRCodeHTML = async (qrText: string, color: string): Promise<string> => {
+  try {
+    // Se não há texto específico, usar validação genérica  
+    const finalQrText = qrText || 'Validação digital de autenticidade';
+    
+    // Usar API pública de QR code que funciona bem em produção
+    const qrSize = 60;
+    const colorHex = color.replace('#', '');
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(finalQrText)}&format=png&color=${colorHex}&bgcolor=ffffff&margin=1`;
+    
+    console.log('🔗 Gerando QR Code via API:', {
+      text: finalQrText,
+      url: qrApiUrl.substring(0, 100) + '...'
+    });
+    
+    return `<img src="${qrApiUrl}" alt="QR Code" class="qr-code" style="width: 60px; height: 60px; border: 2px solid ${color};" crossorigin="anonymous" />`;
+    
+  } catch (error) {
+    console.error('❌ Erro ao gerar QR Code HTML:', error);
+    // Fallback para placeholder
+    return `<div class="qr-code" style="border: 2px solid ${color}; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: ${color};">QR<br/>CODE</div>`;
+  }
 };
 
 /**
@@ -424,6 +451,19 @@ const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
     await page.setContent(html, {
       waitUntil: ['networkidle0', 'domcontentloaded']
     });
+
+    // 🔄 Aguardar carregamento de imagens externas (QR code, logos)
+    await page.evaluate(() => {
+      return Promise.all(
+        Array.from(document.images, img => 
+          img.complete || new Promise(resolve => {
+            img.onload = img.onerror = resolve;
+          })
+        )
+      );
+    });
+
+    console.log('✅ Todas as imagens carregadas');
 
     console.log('🖨️ Gerando PDF...');
     const pdfData = await page.pdf({
