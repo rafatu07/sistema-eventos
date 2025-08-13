@@ -4,7 +4,7 @@ import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
 import { logError, logInfo, logAudit, AuditAction } from '@/lib/logger';
-import { getCertificateDownloadUrl, logUrlConfig } from '@/lib/url-detector';
+
 // import { getCertificateConfig } from '@/lib/certificate-config'; // Temporariamente comentado
 
 // Configurações da API para Vercel (sem vercel.json)
@@ -206,25 +206,21 @@ export async function POST(request: NextRequest) {
       strategy: USE_DYNAMIC_API ? '🌐 API DINÂMICO (FORÇADO)' : 'CLOUDINARY STORAGE'
     });
     
-    let certificateUrl: string;
+    let certificateUrl: string | undefined;
     
     if (USE_DYNAMIC_API) {
-      // 🌐 ESTRATÉGIA DINÂMICA: URL da API sem storage (detecção automática)
-      logUrlConfig(); // Debug da configuração
-      certificateUrl = getCertificateDownloadUrl(registrationId);
+      // ✅ ESTRATÉGIA SIMPLIFICADA: Sempre gerar fresh, não salvar URLs
+      console.log('✅ Certificado disponível via API dinâmica - sempre fresh');
       
-      console.log('✅ URL dinâmica gerada:', {
-        strategy: 'API Dinâmico',
-        url: certificateUrl,
-        benefits: 'Sem storage, sempre atualizado'
-      });
-      
-      logInfo('✅ Certificado configurado como dinâmico', {
+      logInfo('✅ Certificado configurado para geração dinâmica', {
         userId,
         eventId,
         registrationId,
-        strategy: 'API dinâmico - sem storage'
+        strategy: 'Fresh generation sempre'
       });
+      
+      // Não precisamos de URL salva, sempre geramos fresh
+      certificateUrl = undefined;
       
     } else {
       // 📁 ESTRATÉGIA TRADICIONAL: Cloudinary storage
@@ -260,14 +256,14 @@ export async function POST(request: NextRequest) {
     // Update registration to mark certificate as generated
     await updateRegistration(registrationId, {
       certificateGenerated: true,
-      certificateUrl: certificateUrl,
+      certificateUrl: certificateUrl, // null para dinâmico, URL real para storage
     });
 
     // Log de auditoria
     logAudit(AuditAction.CERTIFICATE_GENERATE, userId, true, {
       eventId,
       registrationId,
-      certificateUrl,
+      certificateUrl: certificateUrl ?? `Dynamic API: /api/certificate/download?registrationId=${registrationId}`,
       generationType
     });
 

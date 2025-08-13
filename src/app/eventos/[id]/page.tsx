@@ -771,35 +771,19 @@ export default function EventDetailsPage() {
                             </div>
                           )}
 
-                          {registration.certificateGenerated && registration.certificateUrl && (
+                          {registration.certificateGenerated && (
                             <div className="pt-4">
-                              <a
-                                href={`${registration.certificateUrl}?t=${Date.now()}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                onClick={() => window.open(`/api/certificate/download?registrationId=${registration.id}`, '_blank')}
                                 className="btn-primary"
                               >
                                 <FileDown className="h-4 w-4 mr-2" />
                                 Baixar Certificado
-                              </a>
-                            </div>
-                          )}
-
-                          {registration.certificateGenerated && !registration.certificateUrl && (
-                            <div className="pt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                              <p className="text-yellow-800 text-sm">
-                                ⚠️ Certificado foi gerado mas a URL não está disponível. Tente gerar novamente.
-                              </p>
-                              <button
-                                onClick={generateCertificate}
-                                disabled={actionLoading}
-                                className="btn-outline mt-2 text-sm"
-                              >
-                                <Award className="h-4 w-4 mr-2" />
-                                {actionLoading ? 'Gerando...' : 'Gerar Novamente'}
                               </button>
                             </div>
                           )}
+
+
 
                           {/* Info for non-admin users */}
                           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">

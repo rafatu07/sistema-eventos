@@ -859,7 +859,7 @@ export default function AdminCheckinPage() {
                                 {/* Botões de ação do certificado */}
                                 <div className="flex items-center gap-1">
                                   <button
-                                    onClick={() => window.open(`${registration.certificateUrl}?t=${Date.now()}`, '_blank')}
+                                    onClick={() => window.open(`/api/certificate/download?registrationId=${registration.id}`, '_blank')}
                                     className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
                                     title="Ver certificado"
                                   >

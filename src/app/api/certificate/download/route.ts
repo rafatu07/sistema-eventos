@@ -38,7 +38,21 @@ export async function GET(request: NextRequest) {
 
     // 🔍 Extrair registrationId da URL
     const { searchParams } = new URL(request.url);
-    const registrationId = searchParams.get('registrationId');
+    let registrationId = searchParams.get('registrationId');
+
+    // 🧹 Limpar e validar registrationId
+    if (registrationId) {
+      // Remove qualquer parâmetro extra anexado
+      const cleanedId = registrationId.split('?')[0]?.split('&')[0]?.trim();
+      if (cleanedId) {
+        registrationId = cleanedId;
+        console.log('🔍 Processando registrationId:', { 
+          original: searchParams.get('registrationId'), 
+          cleaned: registrationId,
+          length: registrationId.length
+        });
+      }
+    }
 
     if (!registrationId) {
       return NextResponse.json(
