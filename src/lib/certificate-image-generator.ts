@@ -236,7 +236,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     
     // Título - EXATAMENTE como no preview
     console.log('🎯 RENDERIZANDO TÍTULO:', {
-      texto: `"${config.title}"`,
+      texto: config.title,  // ✅ SEM aspas extras adicionadas nos logs
       tamanho: fontSizes.title,
       cor: config.primaryColor
     });
@@ -272,7 +272,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     // Nome do participante - EXATAMENTE como no preview
     const participantName = data.userName;
     console.log('🎯 RENDERIZANDO NOME:', {
-      texto: `"${participantName}"`,
+      texto: participantName,  // ✅ SEM aspas extras adicionadas nos logs
       tamanho: fontSizes.name,
       cor: config.primaryColor
     });
@@ -308,8 +308,8 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     
     // Texto do corpo - EXATAMENTE como no preview
     console.log('🎯 RENDERIZANDO CORPO:', {
-      textoOriginal: `"${config.bodyText}"`,
-      textoFormatado: `"${bodyText}"`,
+      textoOriginal: config.bodyText,  // ✅ SEM aspas extras adicionadas nos logs
+      textoFormatado: bodyText,  // ✅ SEM aspas extras adicionadas nos logs
       tamanho: fontSizes.body,
       cor: config.secondaryColor
     });
@@ -556,7 +556,7 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   // 🚨 LOG DETALHADO DO TEXTO DE ENTRADA
   const hasAccents = /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(text);
   console.log('📝 drawText - ENTRADA:', {
-    texto: `"${text}"`,
+    texto: text,  // ✅ SEM aspas extras adicionadas nos logs
     tamanho: options.fontSize,
     fontWeight: options.fontWeight || 'normal',
     hasAcentos: hasAccents,
@@ -602,15 +602,15 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   if (_renderConfig.isServerless) {
     // Normalizar para forma canônica e garantir UTF-8 válido
     finalText = finalText.normalize('NFC');
-    console.log('🔧 NORMALIZAÇÃO UTF-8 SERVERLESS:', {
-      antes: `"${text.replace(/^["']|["']$/g, '')}"`,
-      depois: `"${finalText}"`,
-      normalized: true
-    });
+      console.log('🔧 NORMALIZAÇÃO UTF-8 SERVERLESS:', {
+    antes: text.replace(/^["']|["']$/g, ''),  // ✅ SEM aspas extras adicionadas nos logs
+    depois: finalText,  // ✅ SEM aspas extras adicionadas nos logs
+    normalized: true
+  });
   } else {
     console.log('🔧 LIMPEZA DE TEXTO LOCAL:', {
-      original: `"${text}"`,
-      semAspas: `"${finalText}"`,
+      original: text,  // ✅ SEM aspas extras adicionadas nos logs
+      semAspas: finalText,  // ✅ SEM aspas extras adicionadas nos logs
       removeuAspas: text !== finalText
     });
   }
@@ -626,14 +626,14 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       .trim();
     
     console.log('✅ TEXTO PRESERVADO:', {
-      original: `"${text.substring(0, 30)}"`,
-      preservado: `"${finalText.substring(0, 30)}"`,
+      original: text.substring(0, 30),  // ✅ SEM aspas extras adicionadas nos logs
+      preservado: finalText.substring(0, 30),  // ✅ SEM aspas extras adicionadas nos logs
       manteuAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText),
       forcedASCII: _renderConfig.shouldUseASCII
     });
   } else {
     console.log('✅ TEXTO INTACTO (produção):', {
-      texto: `"${text.substring(0, 30)}"`,
+      texto: finalText.substring(0, 30),  // ✅ SEM aspas extras adicionadas nos logs
       ambiente: _renderConfig.isServerless ? 'SERVERLESS' : 'LOCAL',
       preservandoAcentos: true
     });
@@ -661,8 +661,8 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
         ctx.fillText(finalText, options.x, options.y);
         const finalHasAccents = /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText);
         console.log(`✅ SUCESSO renderização:`, {
-          textoOriginal: `"${text}"`,
-          textoFinal: `"${finalText}"`,
+          textoOriginal: text,  // ✅ SEM aspas extras adicionadas nos logs
+          textoFinal: finalText,  // ✅ SEM aspas extras adicionadas nos logs
           fonte: fontFamily,
           posição: { x: options.x, y: options.y },
           preservouAcentos: finalHasAccents,
@@ -745,7 +745,7 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
     shouldUseASCII,
     isServerless,
     fontFamily: fontFamily,
-    textPreview: `"${text.substring(0, 20)}"`
+    textPreview: text.substring(0, 20)  // ✅ SEM aspas extras adicionadas nos logs
   });
   
   ctx.font = `${options.fontSize}px ${fontFamily}`;

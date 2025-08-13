@@ -95,9 +95,10 @@ export async function POST(request: NextRequest) {
     }
     
     // 🚨 LOGS CRÍTICOS PARA DEBUG DE PRODUÇÃO
+    // 🚨 PROBLEMA IDENTIFICADO: As aspas estão sendo ADICIONADAS aqui nos logs!
     console.log('🎯 DADOS DO CERTIFICADO COMPLETOS:', {
-      userName: `"${certificateData.userName}"`,
-      eventName: `"${certificateData.eventName}"`,
+      userName: certificateData.userName,  // ✅ SEM aspas extras nos logs
+      eventName: certificateData.eventName,  // ✅ SEM aspas extras nos logs
       hasConfig: !!certificateConfig,
       template: certificateConfig?.template,
       environment: process.env.NODE_ENV,
