@@ -454,8 +454,14 @@ function getFontSizes(config: CertificateConfig) {
   };
 }
 
-// 🚀 CACHE para configuração de renderização - RESETADO para aplicar novos multipliers
+// 🚀 CACHE para configuração de renderização - FORÇAR RESET para aplicar correções críticas
 let _renderConfig: { isServerless: boolean; shouldUseASCII: boolean; fontStrategies: string[] } | null = null;
+
+// 🚨 RESET FORÇADO do cache para garantir que as correções sejam aplicadas
+export function resetRenderConfig() {
+  _renderConfig = null;
+  console.log('🔄 Cache de renderização resetado - correções serão aplicadas');
+}
 
 function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   x: number;
@@ -468,7 +474,7 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
 }) {
   const family = options.fontFamily || getFontFamily();
   
-  // 🎯 Cache da configuração de renderização
+  // 🎯 Cache da configuração de renderização (resetar para aplicar correções)
   if (!_renderConfig) {
     const isServerless = isServerlessEnvironment();
     const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerless;
@@ -481,12 +487,21 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     ];
 
     _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
+    
+    console.log('🎯 CONFIGURAÇÃO DE RENDERIZAÇÃO:', {
+      isServerless,
+      shouldUseASCII,
+      forcedASCII: process.env.FORCE_ASCII_ONLY,
+      message: shouldUseASCII ? '⚠️  ASCII será forçado' : '✅ Acentos preservados'
+    });
   }
   
   // ✅ CORREÇÃO: Manter caracteres portugueses em produção
   let finalText = text;
   
-  if (_renderConfig.isServerless || _renderConfig.shouldUseASCII) {
+  // 🚨 CORREÇÃO CRÍTICA: Usar AND (&&) em vez de OR (||)
+  // Só processar texto se REALMENTE precisar forçar ASCII
+  if (_renderConfig.shouldUseASCII) {
     // MODO CONSERVATIVO: Apenas remover caracteres realmente problemáticos
     finalText = text
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove apenas caracteres de controle
@@ -497,7 +512,14 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     console.log('✅ TEXTO PRESERVADO:', {
       original: `"${text.substring(0, 30)}"`,
       preservado: `"${finalText.substring(0, 30)}"`,
-      manteuAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)
+      manteuAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText),
+      forcedASCII: _renderConfig.shouldUseASCII
+    });
+  } else {
+    console.log('✅ TEXTO INTACTO (produção):', {
+      texto: `"${text.substring(0, 30)}"`,
+      ambiente: _renderConfig.isServerless ? 'SERVERLESS' : 'LOCAL',
+      preservandoAcentos: true
     });
   }
   
@@ -582,8 +604,14 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   const fontFamily = options.fontFamily || getFontFamily();
   const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerlessEnvironment();
   
-  // Preservar texto com acentos em produção
+  // ✅ CORREÇÃO: Preservar texto com acentos em produção
   const finalText = shouldUseASCII ? text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim() : text;
+  
+  console.log('🔤 drawMultilineText - preservando acentos:', {
+    shouldUseASCII,
+    isServerless: isServerlessEnvironment(),
+    textPreview: `"${text.substring(0, 20)}"`
+  });
   
   ctx.font = `${options.fontSize}px ${fontFamily}`;
   ctx.fillStyle = options.color;
