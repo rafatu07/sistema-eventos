@@ -67,6 +67,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 🕒 DEBUG: Verificar dados de data/hora do evento
+    console.log('🕒 Dados de data/hora do evento:', {
+      eventId: registration.eventId,
+      eventName: event.name,
+      date: event.date,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      dateType: typeof event.date,
+      startTimeType: typeof event.startTime,
+      endTimeType: typeof event.endTime,
+      dateValid: event.date instanceof Date,
+      startTimeValid: event.startTime instanceof Date,
+      endTimeValid: event.endTime instanceof Date
+    });
+
     // 🎨 Buscar configurações do certificado
     const certificateConfig = await getCertificateConfig(registration.eventId);
     

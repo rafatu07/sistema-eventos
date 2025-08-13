@@ -109,13 +109,40 @@ export const getEvent = async (eventId: string): Promise<Event | null> => {
   
   if (eventSnap.exists()) {
     const data = eventSnap.data();
+    // 🕒 FALLBACK: Eventos antigos podem não ter startTime/endTime
+    const eventDate = data.date.toDate();
+    let startTime = eventDate;
+    let endTime = eventDate;
+
+    if (data.startTime && data.endTime) {
+      // ✅ Evento tem horários salvos
+      startTime = data.startTime.toDate();
+      endTime = data.endTime.toDate();
+    } else {
+      // ⚠️ Evento antigo sem horários - usar horários padrão baseados na data
+      const dateOnly = new Date(eventDate);
+      dateOnly.setHours(13, 0, 0, 0); // Início padrão: 13:00
+      startTime = dateOnly;
+      
+      const endTimeDefault = new Date(eventDate);
+      endTimeDefault.setHours(17, 0, 0, 0); // Fim padrão: 17:00
+      endTime = endTimeDefault;
+
+      console.log('⚠️ Evento sem startTime/endTime - usando horários padrão:', {
+        eventId: eventSnap.id,
+        eventName: data.name,
+        defaultStartTime: startTime,
+        defaultEndTime: endTime
+      });
+    }
+
     return {
       id: eventSnap.id,
       name: data.name,
       description: data.description,
-      date: data.date.toDate(),
-      startTime: data.startTime.toDate(),
-      endTime: data.endTime.toDate(),
+      date: eventDate,
+      startTime,
+      endTime,
       location: data.location,
       createdBy: data.createdBy,
       createdAt: data.createdAt?.toDate() || new Date(),
