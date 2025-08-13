@@ -798,25 +798,24 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     });
   }
   
-  // 🚨 CORREÇÃO CRÍTICA: Usar AND (&&) em vez de OR (||)
-  // Só processar texto se REALMENTE precisar forçar ASCII
+  // 🚨 LIMPEZA ADICIONAL APENAS SE NECESSÁRIO (sem sobrescrever conversão ASCII)
   if (_renderConfig.shouldUseASCII) {
-    // MODO CONSERVATIVO: Apenas remover caracteres realmente problemáticos
-    finalText = text
+    // ✅ USAR finalText JÁ CONVERTIDO, não o texto original
+    finalText = finalText
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove apenas caracteres de controle
       .replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '') // Remove emojis
       .replace(/\s+/g, ' ')                       // Normalizar espaços
       .trim();
     
-    console.log('✅ TEXTO PRESERVADO:', {
-      original: text.substring(0, 30),  // ✅ SEM aspas extras adicionadas nos logs
-      preservado: finalText.substring(0, 30),  // ✅ SEM aspas extras adicionadas nos logs
-      manteuAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText),
+    console.log('✅ TEXTO ASCII FINALIZADO:', {
+      original: text.substring(0, 30),
+      processado: finalText.substring(0, 30),
+      manteuConversaoASCII: !(/[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)),
       forcedASCII: _renderConfig.shouldUseASCII
     });
   } else {
     console.log('✅ TEXTO INTACTO (produção):', {
-      texto: finalText.substring(0, 30),  // ✅ SEM aspas extras adicionadas nos logs
+      texto: finalText.substring(0, 30),
       ambiente: _renderConfig.isServerless ? 'SERVERLESS' : 'LOCAL',
       preservandoAcentos: true
     });
