@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { userName, eventName, eventDate, eventStartTime, eventEndTime, config } = body;
+    const { userName, eventName, eventDate, config } = body;
 
     console.log('📦 Dados recebidos:', {
       userName: userName?.substring(0, 20),
@@ -107,7 +107,8 @@ function buildCloudinaryCertificate(data: CertificateData): string {
 }
 
 // 🎯 Versão simplificada usando template pré-definido
-function buildSimpleCloudinaryCertificate(data: CertificateData): string {
+// Função de fallback caso a principal falhe
+function _buildSimpleCloudinaryCertificate(data: CertificateData): string {
   // Usar um template simples mais confiável
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   

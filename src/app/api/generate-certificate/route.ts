@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // TEMPORARIAMENTE COMENTADO - pode estar causando o erro
     console.log('⚠️ Pulando busca de configurações (debug mode)');
-    const certificateConfig = null; // Forçar null
+    const _certificateConfig = null; // Forçar null
     
     // Preparar dados completos para geração (sem config por enquanto)
     const fullCertificateData = {

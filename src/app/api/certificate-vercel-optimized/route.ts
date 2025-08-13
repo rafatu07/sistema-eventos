@@ -293,7 +293,7 @@ async function convertHtmlToImage(html: string): Promise<Buffer | null> {
 }
 
 // 🎨 Fallback simples usando conceitos de Canvas (texto puro)
-async function generateSimpleCertificateCanvas(html: string): Promise<Buffer> {
+async function generateSimpleCertificateCanvas(_html: string): Promise<Buffer> {
   // Fallback muito simples - gera uma imagem básica em formato PNG
   // usando apenas tecnologias web padrão
   
@@ -303,10 +303,12 @@ async function generateSimpleCertificateCanvas(html: string): Promise<Buffer> {
   // 3. Cloudinary Transformations
   
   // Por enquanto, retornamos um placeholder que pode ser melhorado
+  /* 
   const placeholderImage = Buffer.from([
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
     // ... resto do PNG mínimo seria muito complexo para implementar aqui
   ]);
+  */
   
   // TODO: Implementar geração real de imagem ou usar serviço externo
   throw new Error('Canvas fallback não implementado - use HTML/CSS API');

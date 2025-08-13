@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CertificateConfig } from '@/types';
+// import { CertificateConfig } from '@/types'; // Não usado
 
 // 🚨 SOLUÇÃO DE EMERGÊNCIA - GARANTIDA PARA FUNCIONAR NA VERCEL
 // Esta API é ultra-simples e não depende de nenhuma biblioteca externa
@@ -163,9 +163,10 @@ function escapeXml(unsafe: string): string {
 async function convertSVGToPNG(svgString: string): Promise<Buffer | null> {
   try {
     // OPÇÃO 1: API gratuita online (quickchart.io)
-    const quickchartUrl = 'https://quickchart.io/chart';
+    // const quickchartUrl = 'https://quickchart.io/chart'; // Não usado
     
     // Configuração básica para conversão
+    /* 
     const config = {
       chart: {
         type: 'line',
@@ -188,6 +189,7 @@ async function convertSVGToPNG(svgString: string): Promise<Buffer | null> {
       height: 800,
       format: 'png'
     };
+    */
 
     // Se não conseguir converter, retornar null para usar SVG
     console.log('⚠️ Conversão PNG não implementada, usando SVG');
