@@ -111,6 +111,18 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         const testCanvas = createCanvas(200, 60);
         const testCtx = testCanvas.getContext('2d');
         
+        // 🔍 DETECTAR ERRO FONTCONFIG dinamicamente
+        let hasFontconfigError = false;
+        const originalConsoleError = console.error;
+        console.error = (...args) => {
+          const message = args.join(' ');
+          if (message.includes('Fontconfig error') || message.includes('Cannot load default config')) {
+            hasFontconfigError = true;
+            console.log('🚨 FONTCONFIG ERROR DETECTADO - Ativando validação rigorosa');
+          }
+          originalConsoleError.apply(console, args);
+        };
+        
         // Testar fontes com caracteres especiais
         const fontsToTest = ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Helvetica', 'Ubuntu', 'Roboto'];
         let workingFont = null;
@@ -128,36 +140,72 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
             const testText = 'Ação éêç ãõ';
             testCtx.fillText(testText, 10, 10);
             
-            // 🔍 VALIDAÇÃO VISUAL: Verificar pixels renderizados
+            // 🔍 VALIDAÇÃO VISUAL: Verificar pixels renderizados E padrões
             const imageData = testCtx.getImageData(10, 10, 180, 40);
             const pixels = imageData.data;
             
-            // Contar pixels não-brancos (texto realmente renderizado)
+            // Contar pixels não-brancos E analisar padrões
             let drawnPixels = 0;
+            let solidBlackPixels = 0; // Pixels completamente pretos (suspeito de TOFU)
+            let totalNonWhitePixels = 0;
+            
             for (let i = 0; i < pixels.length; i += 4) {
               const r = pixels[i] || 0, g = pixels[i + 1] || 0, b = pixels[i + 2] || 0;
-              if (r < 250 || g < 250 || b < 250) { // Não é quase branco
+              if (r < 250 || g < 250 || b < 250) {
+                totalNonWhitePixels++;
                 drawnPixels++;
+                
+                // Detectar pixels completamente pretos (TOFU geralmente é preto sólido)
+                if (r === 0 && g === 0 && b === 0) {
+                  solidBlackPixels++;
+                }
               }
             }
             
+            // Calcular proporção de pixels pretos sólidos
+            const blackPixelRatio = totalNonWhitePixels > 0 ? (solidBlackPixels / totalNonWhitePixels) : 0;
+            
             console.log(`🔍 TESTE FONTE "${font}": ${drawnPixels} pixels desenhados`);
             
-            // Se renderizou pixels suficientes, a fonte REALMENTE funciona
-            if (drawnPixels > 100) {
+            // 🔍 VALIDAÇÃO AVANÇADA: Múltiplos critérios para detectar TOFU vs texto real
+            console.log(`🔍 ANÁLISE DETALHADA "${font}":`, {
+              totalPixels: drawnPixels,
+              solidBlackPixels,
+              blackPixelRatio: Math.round(blackPixelRatio * 100) + '%',
+              fontconfigError: hasFontconfigError
+            });
+            
+            // Múltiplos critérios para detectar TOFU (quadrados vazios)
+            const isSuspiciouslyManyPixels = drawnPixels > 5000;
+            const isMostlyBlackPixels = blackPixelRatio > 0.8; // +80% pixels pretos sólidos = suspeito
+            const hasReasonablePixelCount = drawnPixels > 200 && drawnPixels < 3000;
+            
+            if (hasFontconfigError && (isSuspiciouslyManyPixels || isMostlyBlackPixels)) {
+              console.log(`🚨 TOFU DETECTADO: "${font}" - Fontconfig error + padrão suspeito`);
+              console.log(`❌ REJEITANDO: ${drawnPixels} pixels, ${Math.round(blackPixelRatio * 100)}% pretos sólidos`);
+            } else if (hasReasonablePixelCount && blackPixelRatio < 0.7) {
+              // Faixa realista + pixels variados (não só preto sólido) = texto real
               workingFont = font;
-              console.log(`✅ FONTE FUNCIONAL CONFIRMADA: "${font}" (${drawnPixels} pixels válidos)`);
+              console.log(`✅ FONTE REALMENTE FUNCIONAL: "${font}"`);
+              console.log(`📊 VALIDAÇÃO: ${drawnPixels} pixels, ${Math.round(blackPixelRatio * 100)}% pretos (variação saudável)`);
               break;
             } else {
-              console.log(`❌ FONTE "${font}" NÃO RENDERIZA (apenas ${drawnPixels} pixels)`);
+              console.log(`❌ FONTE "${font}" REJEITADA:`, {
+                reason: hasReasonablePixelCount ? 'Pixels muito uniformes (TOFU)' : 'Contagem de pixels suspeita',
+                pixels: drawnPixels,
+                blackRatio: Math.round(blackPixelRatio * 100) + '%'
+              });
             }
           } catch (fontErr) {
             console.warn(`❌ Erro testando fonte "${font}":`, fontErr);
           }
         }
         
+        // Restaurar console.error original
+        console.error = originalConsoleError;
+        
         if (!workingFont) {
-          console.error('🚨 CRÍTICO: NENHUMA FONTE RENDERIZA NO VERCEL');
+          console.error('🚨 CRÍTICO: NENHUMA FONTE RENDERIZA CORRETAMENTE NO VERCEL');
           console.log('🔄 ATIVANDO FALLBACK ASCII AUTOMÁTICO');
           workingFont = 'Arial'; // Usar Arial como base
           fallbackASCII = true;
@@ -165,10 +213,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         }
         
         process.env.VERCEL_SAFE_FONT = workingFont;
-        console.log(`🎯 RESULTADO FINAL: Fonte="${workingFont}", ASCII=${fallbackASCII ? 'SIM' : 'NÃO'}`);
+        console.log(`🎯 RESULTADO FINAL CORRIGIDO: Fonte="${workingFont}", ASCII=${fallbackASCII ? 'SIM' : 'NÃO'}, FontconfigError=${hasFontconfigError ? 'SIM' : 'NÃO'}`);
         
         if (fallbackASCII) {
           console.log('🔧 MODO ASCII: Acentos serão convertidos automaticamente');
+          console.log('📝 RESULTADO ESPERADO: "Excelência" → "Excelencia", "Participação" → "Participacao"');
         }
         
       } catch (canvasError) {
