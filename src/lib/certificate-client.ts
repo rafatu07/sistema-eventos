@@ -3,8 +3,20 @@
 
 declare global {
   interface Window {
-    html2canvas: any;
+    html2canvas: (element: HTMLElement, options?: Html2CanvasOptions) => Promise<HTMLCanvasElement>;
   }
+}
+
+interface Html2CanvasOptions {
+  width?: number;
+  height?: number;
+  scale?: number;
+  useCORS?: boolean;
+  allowTaint?: boolean;
+  backgroundColor?: string;
+  logging?: boolean;
+  foreignObjectRendering?: boolean;
+  removeContainer?: boolean;
 }
 
 export interface CertificateGenerationResult {

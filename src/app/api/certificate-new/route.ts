@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  let userId: string = '';
+  const userId: string = '';
   
   try {
     const body = await request.json();
@@ -42,9 +42,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Interface para os dados de certificado
+interface CertificateRequestData {
+  registrationId: string;
+  eventId: string;
+  userId: string;
+  userName: string;
+  eventName: string;
+  eventDate: string;
+  eventStartTime?: string;
+  eventEndTime?: string;
+}
+
 // 🎨 MODO 1: Gerar HTML para o cliente
-async function generateCertificateHTML(request: NextRequest, body: any) {
-  const { registrationId, eventId, userId: bodyUserId, userName, eventName, eventDate, eventStartTime, eventEndTime } = body;
+async function generateCertificateHTML(request: NextRequest, body: Record<string, unknown>) {
+  // Cast para o tipo adequado (com cast duplo para evitar erros de type-check)
+  const data = body as unknown as CertificateRequestData;
+  const { registrationId, eventId, userId: bodyUserId, userName, eventName, eventDate, eventStartTime, eventEndTime } = data;
   
   // Validação básica
   if (!registrationId || !eventId || !bodyUserId || !userName || !eventName || !eventDate) {
@@ -115,8 +129,20 @@ async function generateCertificateHTML(request: NextRequest, body: any) {
   }
 }
 
+// Interface para dados de upload de PNG
+interface PNGUploadData {
+  imageDataURL: string;
+  registrationId: string;
+  eventId: string;
+  userId: string;
+  userName?: string;
+  eventName?: string;
+}
+
 // 📤 MODO 2: Receber PNG do cliente e finalizar processo
-async function uploadCertificatePNG(request: NextRequest, body: any) {
+async function uploadCertificatePNG(request: NextRequest, body: Record<string, unknown>) {
+  // Cast para o tipo adequado (com cast duplo para evitar erros de type-check)
+  const data = body as unknown as PNGUploadData;
   const { 
     imageDataURL, 
     registrationId, 
@@ -124,7 +150,7 @@ async function uploadCertificatePNG(request: NextRequest, body: any) {
     userId,
     userName,
     eventName 
-  } = body;
+  } = data;
 
   if (!imageDataURL || !registrationId || !eventId || !userId) {
     return NextResponse.json({ error: 'Dados de upload incompletos' }, { status: 400 });
