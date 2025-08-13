@@ -144,11 +144,9 @@ export async function POST(request: NextRequest) {
     } catch (htmlError) {
       console.error('❌ FALHA CRÍTICA na geração HTML/Puppeteer:', htmlError);
       
-      logError('Falha na geração de certificado HTML/Puppeteer', { 
-        userId, 
-        eventId, 
-        error: (htmlError as Error).message,
-        stack: (htmlError as Error).stack
+      logError('Falha na geração de certificado HTML/Puppeteer', htmlError as Error, { 
+        userId: userId, 
+        eventId: eventId
       });
       
       // 🚫 SEM FALLBACKS CORROMPIDOS - melhor falhar limpo que gerar lixo
