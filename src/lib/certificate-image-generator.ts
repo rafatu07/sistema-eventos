@@ -104,34 +104,71 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     const isServerlessEnv = isServerlessEnvironment();
     
     if (isServerlessEnv) {
-      // 🔧 Tentar configurar Canvas para usar fontes do sistema adequadamente
+      // 🚨 TESTE RIGOROSO DE FONTES: Validação com renderização REAL
       try {
-        const testCanvas = createCanvas(100, 50);
+        console.log('🔍 TESTE RIGOROSO: Validando fontes com RENDERIZAÇÃO VISUAL...');
+        
+        const testCanvas = createCanvas(200, 60);
         const testCtx = testCanvas.getContext('2d');
         
-        // Testar fontes disponíveis em ordem de preferência
-        const fontsToTest = ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Helvetica'];
-        let workingFont = 'sans-serif';
+        // Testar fontes com caracteres especiais
+        const fontsToTest = ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Helvetica', 'Ubuntu', 'Roboto'];
+        let workingFont = null;
+        let fallbackASCII = false;
         
         for (const font of fontsToTest) {
           try {
-            testCtx.font = `16px "${font}"`;
-            const metrics = testCtx.measureText('Test');
-            if (metrics.width > 0) {
+            // Limpar canvas de teste
+            testCtx.clearRect(0, 0, 200, 60);
+            testCtx.font = `24px "${font}"`;
+            testCtx.fillStyle = '#000000';
+            testCtx.textBaseline = 'top';
+            
+            // Testar texto com acentos REAIS
+            const testText = 'Ação éêç ãõ';
+            testCtx.fillText(testText, 10, 10);
+            
+            // 🔍 VALIDAÇÃO VISUAL: Verificar pixels renderizados
+            const imageData = testCtx.getImageData(10, 10, 180, 40);
+            const pixels = imageData.data;
+            
+            // Contar pixels não-brancos (texto realmente renderizado)
+            let drawnPixels = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+              const r = pixels[i] || 0, g = pixels[i + 1] || 0, b = pixels[i + 2] || 0;
+              if (r < 250 || g < 250 || b < 250) { // Não é quase branco
+                drawnPixels++;
+              }
+            }
+            
+            console.log(`🔍 TESTE FONTE "${font}": ${drawnPixels} pixels desenhados`);
+            
+            // Se renderizou pixels suficientes, a fonte REALMENTE funciona
+            if (drawnPixels > 100) {
               workingFont = font;
-              console.log(`🎯 FONTE CONFIRMADA para Vercel: "${workingFont}"`);
-              // ✅ CORREÇÃO: Salvar fonte SEM aspas para evitar ""Arial""
-              process.env.VERCEL_SAFE_FONT = workingFont;
+              console.log(`✅ FONTE FUNCIONAL CONFIRMADA: "${font}" (${drawnPixels} pixels válidos)`);
               break;
+            } else {
+              console.log(`❌ FONTE "${font}" NÃO RENDERIZA (apenas ${drawnPixels} pixels)`);
             }
           } catch (fontErr) {
-            console.warn(`⚠️  Fonte "${font}" não disponível no Vercel`);
-            continue;
+            console.warn(`❌ Erro testando fonte "${font}":`, fontErr);
           }
         }
         
-        if (workingFont === 'sans-serif') {
-          console.warn('🚨 AVISO: Nenhuma fonte específica funcionou, usando sans-serif');
+        if (!workingFont) {
+          console.error('🚨 CRÍTICO: NENHUMA FONTE RENDERIZA NO VERCEL');
+          console.log('🔄 ATIVANDO FALLBACK ASCII AUTOMÁTICO');
+          workingFont = 'Arial'; // Usar Arial como base
+          fallbackASCII = true;
+          process.env.VERCEL_FORCE_ASCII = 'true'; // Forçar ASCII
+        }
+        
+        process.env.VERCEL_SAFE_FONT = workingFont;
+        console.log(`🎯 RESULTADO FINAL: Fonte="${workingFont}", ASCII=${fallbackASCII ? 'SIM' : 'NÃO'}`);
+        
+        if (fallbackASCII) {
+          console.log('🔧 MODO ASCII: Acentos serão convertidos automaticamente');
         }
         
       } catch (canvasError) {
@@ -608,59 +645,99 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     
     console.log('🔤 Estratégias de fonte para', isServerless ? 'SERVERLESS' : 'LOCAL', ':', fontStrategies);
 
-    _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
+    // 🚨 VERIFICAR FALLBACK ASCII AUTOMÁTICO (ativado pelo teste de fontes)
+    const vercelForceASCII = process.env.VERCEL_FORCE_ASCII === 'true';
+    const finalShouldUseASCII = shouldUseASCII || vercelForceASCII;
+    
+    _renderConfig = { isServerless, shouldUseASCII: finalShouldUseASCII, fontStrategies };
     
     console.log('🎯 CONFIGURAÇÃO DE RENDERIZAÇÃO:', {
       isServerless,
-      shouldUseASCII,
+      shouldUseASCII: finalShouldUseASCII,
       forcedASCII: process.env.FORCE_ASCII_ONLY,
-      message: shouldUseASCII ? '⚠️  ASCII será forçado' : '✅ Acentos preservados'
+      vercelForceASCII,
+      message: finalShouldUseASCII ? '⚠️  ASCII será forçado' : '✅ Acentos preservados'
     });
   }
   
   // 🚨 CORREÇÃO: Remover aspas desnecessárias do texto (pode estar causando problemas)
   let finalText = text.replace(/^["']|["']$/g, ''); // Remove aspas do início e fim
   
-  // ✅ NORMALIZAÇÃO ADICIONAL PARA VERCEL
+  // ✅ PROCESSAMENTO BASEADO NO MODO (ASCII FORÇADO vs NORMALIZAÇÃO)
   if (_renderConfig.isServerless) {
-    // 🚨 NORMALIZAÇÃO AGRESSIVA PARA VERCEL: múltiplas tentativas
-    const originalText = finalText;
     
-    // Tentativa 1: Normalização canônica
-    finalText = finalText.normalize('NFC');
-    
-    // Tentativa 2: Se ainda tem acentos problemáticos, decomposer e recompor
-    if (/[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)) {
-      console.log('🔧 VERCEL: Aplicando normalização avançada para acentos');
+    // 🚨 MODO FALLBACK ASCII: Se teste de fontes falhou
+    if (_renderConfig.shouldUseASCII) {
+      console.log('🔧 MODO ASCII FORÇADO: Convertendo acentos para caracteres básicos');
       
-      // Decomposição seguida de recomposição
-      finalText = finalText.normalize('NFD').normalize('NFC');
+      const accentToASCII = {
+        'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a', 'å': 'a', 'æ': 'ae',
+        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+        'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+        'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o',
+        'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+        'ç': 'c', 'ñ': 'n', 'ß': 'ss',
+        // Maiúsculas
+        'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A', 'Å': 'A', 'Æ': 'AE',
+        'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+        'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+        'Ó': 'O', 'Ò': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O', 'Ø': 'O',
+        'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+        'Ç': 'C', 'Ñ': 'N'
+      };
       
-      // Se ainda problemático, usar mapeamento manual
+      const originalText = finalText;
+      finalText = finalText.split('').map(char => 
+        accentToASCII[char as keyof typeof accentToASCII] || char
+      ).join('');
+      
+      console.log('🔧 CONVERSÃO ASCII AUTOMÁTICA:', {
+        antes: originalText,
+        depois: finalText,
+        converteu: originalText !== finalText,
+        reason: 'Fontes não renderizam no Vercel'
+      });
+      
+    } else {
+      // 🔧 MODO NORMAL: Normalização avançada UTF-8
+      const originalText = finalText;
+      
+      // Tentativa 1: Normalização canônica
+      finalText = finalText.normalize('NFC');
+      
+      // Tentativa 2: Se ainda tem acentos problemáticos, decomposer e recompor
       if (/[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)) {
-        const accentMap = {
-          'à': 'à', 'á': 'á', 'â': 'â', 'ã': 'ã', 'ä': 'ä',
-          'è': 'è', 'é': 'é', 'ê': 'ê', 'ë': 'ë',
-          'ì': 'ì', 'í': 'í', 'î': 'î', 'ï': 'ï',
-          'ò': 'ò', 'ó': 'ó', 'ô': 'ô', 'õ': 'õ', 'ö': 'ö',
-          'ù': 'ù', 'ú': 'ú', 'û': 'û', 'ü': 'ü',
-          'ç': 'ç', 'ñ': 'ñ',
-          // Maiúsculas
-          'À': 'À', 'Á': 'Á', 'Â': 'Â', 'Ã': 'Ã', 'Ä': 'Ä',
-          'È': 'È', 'É': 'É', 'Ê': 'Ê', 'Ë': 'Ë',
-          'Ç': 'Ç', 'Ñ': 'Ñ'
-        };
+        console.log('🔧 VERCEL: Aplicando normalização avançada para acentos');
         
-        finalText = finalText.split('').map(char => accentMap[char as keyof typeof accentMap] || char).join('');
+        // Decomposição seguida de recomposição
+        finalText = finalText.normalize('NFD').normalize('NFC');
+        
+        // Se ainda problemático, usar mapeamento manual
+        if (/[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)) {
+          const accentMap = {
+            'à': 'à', 'á': 'á', 'â': 'â', 'ã': 'ã', 'ä': 'ä',
+            'è': 'è', 'é': 'é', 'ê': 'ê', 'ë': 'ë',
+            'ì': 'ì', 'í': 'í', 'î': 'î', 'ï': 'ï',
+            'ò': 'ò', 'ó': 'ó', 'ô': 'ô', 'õ': 'õ', 'ö': 'ö',
+            'ù': 'ù', 'ú': 'ú', 'û': 'û', 'ü': 'ü',
+            'ç': 'ç', 'ñ': 'ñ',
+            // Maiúsculas
+            'À': 'À', 'Á': 'Á', 'Â': 'Â', 'Ã': 'Ã', 'Ä': 'Ä',
+            'È': 'È', 'É': 'É', 'Ê': 'Ê', 'Ë': 'Ë',
+            'Ç': 'Ç', 'Ñ': 'Ñ'
+          };
+          
+          finalText = finalText.split('').map(char => accentMap[char as keyof typeof accentMap] || char).join('');
+        }
       }
+      
+      console.log('🔧 NORMALIZAÇÃO UTF-8 SERVERLESS:', {
+        antes: text.replace(/^["']|["']$/g, ''),
+        depois: finalText,
+        mudou: originalText !== finalText,
+        normalized: true
+      });
     }
-    
-    console.log('🔧 NORMALIZAÇÃO UTF-8 SERVERLESS:', {
-      antes: text.replace(/^["']|["']$/g, ''),
-      depois: finalText,
-      mudou: originalText !== finalText,
-      normalized: true
-    });
   } else {
     console.log('🔧 LIMPEZA DE TEXTO LOCAL:', {
       original: text,  // ✅ SEM aspas extras adicionadas nos logs
@@ -1125,3 +1202,4 @@ function testFontRendering(ctx: CanvasRenderingContext2D) {
   // Salvar fonte testada para usar depois
   process.env.TESTED_FONT = workingFont;
 }
+
