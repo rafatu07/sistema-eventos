@@ -117,7 +117,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
+            value: 'strict-origin-when-cross-origin',
           },
         ],
       },
@@ -170,7 +170,7 @@ const nextConfig: NextConfig = {
   },
 
   // === OUTPUT ===
-  output: 'standalone', // Para Docker/deployment
+  // output: 'standalone', // Removido para otimização Vercel
   
   // === ENVIRONMENT VARIABLES ===
   env: {
