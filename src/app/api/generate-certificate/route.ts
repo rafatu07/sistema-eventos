@@ -219,10 +219,10 @@ export async function POST(request: NextRequest) {
         strategy: 'Fresh generation sempre'
       });
       
-      // ✅ CORREÇÃO: Definir URL dinâmica para que frontend funcione no primeiro clique
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-                     'http://localhost:3000';
+      // ✅ CORREÇÃO: Usar detector inteligente de URL para produção
+      const { getBaseUrl, logUrlConfig } = await import('@/lib/url-detector');
+      logUrlConfig(); // Log debug da configuração
+      const baseUrl = getBaseUrl();
       certificateUrl = `${baseUrl}/api/certificate/download?registrationId=${registrationId}`;
       console.log('🔗 URL dinâmica gerada:', certificateUrl);
       console.log('🌍 Base URL detectada:', baseUrl);

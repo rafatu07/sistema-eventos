@@ -24,7 +24,8 @@ export const getBaseUrl = (): string => {
     if (process.env.VERCEL_ENV === 'production') {
       // Para produção, usar o domínio conhecido fixo
       const productionUrl = 'https://sistema-eventos-nu.vercel.app';
-      console.log('🌐 Produção detectada - usando URL fixa:', productionUrl);
+      console.log('🏭 PRODUÇÃO detectada - usando URL fixa:', productionUrl);
+      console.log('🚫 Ignorando VERCEL_URL temporária:', vercelUrl);
       return productionUrl;
     }
     

@@ -221,7 +221,7 @@ export default function EventDetailsPage() {
         
         // ✅ CORREÇÃO: Gerar URL dinâmica se não fornecida
         const finalCertificateUrl = result.certificateUrl || 
-          `/api/certificate/download?registrationId=${registration.id}`;
+          `${window.location.origin}/api/certificate/download?registrationId=${registration.id}`;
         
         // Reload registration data from database to ensure consistency
         try {
