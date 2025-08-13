@@ -581,7 +581,35 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         });
         
         if (pngBuffer && pngBuffer.length > 0) {
-          console.log('✅ VERCEL: PNG otimizado gerado -', pngBuffer.length, 'bytes');
+          console.log(`✅ VERCEL: PNG otimizado gerado - ${pngBuffer.length} bytes`);
+          
+          // 🚨 TESTE CRÍTICO: Verificar integridade do PNG
+          console.log('🔍 VERIFICANDO INTEGRIDADE DO PNG...');
+          
+          // Verificar assinatura PNG
+          const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+          const hasValidSignature = pngBuffer.subarray(0, 8).equals(pngSignature);
+          console.log(`🔍 PNG Signature válida: ${hasValidSignature}`);
+          
+          // Verificar tamanho
+          if (pngBuffer.length < 5000) {
+            console.error(`🚨 PNG suspeito - muito pequeno: ${pngBuffer.length} bytes`);
+          } else {
+            console.log(`✅ PNG tem tamanho adequado: ${pngBuffer.length} bytes`);
+          }
+          
+          if (!hasValidSignature) {
+            console.error('🚨 PNG corrompido - tentando versão alternativa');
+            
+            // Tentar codificação alternativa
+            const alternativeBuffer = canvas.toBuffer('image/png', { 
+              compressionLevel: 0,  // Sem compressão
+              filters: 1           // Filtro diferente
+            });
+            console.log(`🔄 PNG ALTERNATIVO gerado - ${alternativeBuffer.length} bytes`);
+            return alternativeBuffer;
+          }
+          
           return pngBuffer;
         }
       } catch (pngError) {
@@ -922,9 +950,41 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
                   console.log('✅ PLACEHOLDER: Retângulo desenhado como texto');
                 }
               } else {
-                // Arial funciona para ASCII
+                // Arial funciona para ASCII - MAS vamos usar método SUPER ROBUSTO
+                console.log('✅ ASCII RENDERIZADO: Arial funcionou - APLICANDO MÉTODO ROBUSTO');
+                
+                // Método 1: Tentar renderização normal primeiro
                 ctx.fillText(finalText, options.x, options.y);
-                console.log('✅ ASCII RENDERIZADO: Arial funcionou');
+                
+                // Método 2: FORÇAR com strokeText também (contorno)
+                ctx.strokeStyle = options.color;
+                ctx.lineWidth = 0.5;
+                ctx.strokeText(finalText, options.x, options.y);
+                
+                // Método 3: GARANTIA - Desenhar retângulos pequenos sobre cada caractere
+                console.log('🔧 APLICANDO GARANTIA VISUAL: Reforçando cada caractere');
+                const charWidth = options.fontSize * 0.6;
+                const chars = finalText.split('');
+                
+                for (let i = 0; i < chars.length; i++) {
+                  const char = chars[i];
+                  if (!char) continue; // Skip se for undefined
+                  
+                  const charX = options.x + (i * charWidth);
+                  const charY = options.y;
+                  
+                  // Desenhar cada caractere individualmente com fillText + stroke
+                  ctx.fillStyle = options.color;
+                  ctx.strokeStyle = options.color;
+                  ctx.lineWidth = 0.8;
+                  
+                  // Triple rendering para garantia
+                  ctx.fillText(char, charX, charY);
+                  ctx.strokeText(char, charX, charY);
+                  ctx.fillText(char, charX + 0.1, charY); // Micro offset para densidade
+                }
+                
+                console.log('✅ MÉTODO ROBUSTO APLICADO: Triple rendering + stroke por caractere');
               }
             } catch (testError) {
               console.warn('⚠️  Erro no teste de fonte, usando renderização normal:', testError);
