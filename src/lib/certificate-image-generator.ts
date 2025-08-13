@@ -467,7 +467,6 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   align?: 'left' | 'center' | 'right';
   fontFamily?: string;
 }) {
-  const weight = (options.fontWeight || 'normal').toLowerCase() === 'bold' ? 'bold' : 'normal';
   const family = options.fontFamily || getFontFamily();
   
   // 🎯 Cache da configuração de renderização
@@ -552,7 +551,7 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   const shouldUseASCII = isServerlessEnvironment() || !fontsRegistered;
   
   // Sanitizar texto se necessário
-  let finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
+  const finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
   
   ctx.font = `${options.fontSize}px ${fontFamily}`;
   ctx.fillStyle = options.color;
