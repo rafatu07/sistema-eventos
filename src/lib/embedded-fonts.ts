@@ -81,6 +81,7 @@ let _cachedEnvironmentResult: boolean | null = null;
 export function isServerlessEnvironment(): boolean {
   // ✅ Se já detectamos antes, retorna o cache
   if (_cachedEnvironmentResult !== null) {
+    console.log('🔄 CACHE AMBIENTE:', _cachedEnvironmentResult ? 'SERVERLESS' : 'LOCAL');
     return _cachedEnvironmentResult;
   }
 
@@ -122,18 +123,28 @@ export function isServerlessEnvironment(): boolean {
   // 🎯 CACHE o resultado para evitar repetições
   _cachedEnvironmentResult = isServerless;
 
-  // 📝 Log apenas na PRIMEIRA detecção
+  // 🚨 LOGS CRÍTICOS PARA DEBUG DE PRODUÇÃO
   console.log('🔍 Detecção de ambiente (primeira vez):', {
     'NODE_ENV': process.env.NODE_ENV,
     'VERCEL': process.env.VERCEL,
+    'VERCEL_ENV': process.env.VERCEL_ENV,
     'VERCEL_URL': process.env.VERCEL_URL ? 'SET' : 'NOT_SET',
+    'VERCEL_REGION': process.env.VERCEL_REGION,
     'NEXTAUTH_URL': process.env.NEXTAUTH_URL ? 'SET' : 'NOT_SET',
     'FORCE_SERVERLESS': forceServerless,
+    'FORCE_ASCII_ONLY': process.env.FORCE_ASCII_ONLY,
     'platform': process.platform,
     'hasVercelIndicator': hasVercelIndicator,
     'isProduction': isProduction,
-    'RESULTADO': isServerless ? '🏭 SERVERLESS' : '💻 LOCAL'
+    'RESULTADO_FINAL': isServerless ? '🏭 SERVERLESS' : '💻 LOCAL'
   });
+  
+  // 🚨 LOG ADICIONAL SE DETECTADO COMO SERVERLESS
+  if (isServerless) {
+    console.log('🏭 AMBIENTE SERVERLESS CONFIRMADO - Verificando configuração ASCII');
+    console.log('⚙️ FORCE_ASCII_ONLY atual:', process.env.FORCE_ASCII_ONLY);
+    console.log('🎯 Deve usar ASCII?', process.env.FORCE_ASCII_ONLY === 'true' && isServerless);
+  }
 
   return isServerless;
 }

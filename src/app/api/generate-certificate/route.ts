@@ -94,6 +94,16 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Erro ao buscar configurações, usando padrão:', configError);
     }
     
+    // 🚨 LOGS CRÍTICOS PARA DEBUG DE PRODUÇÃO
+    console.log('🎯 DADOS DO CERTIFICADO COMPLETOS:', {
+      userName: `"${certificateData.userName}"`,
+      eventName: `"${certificateData.eventName}"`,
+      hasConfig: !!certificateConfig,
+      template: certificateConfig?.template,
+      environment: process.env.NODE_ENV,
+      forceASCII: process.env.FORCE_ASCII_ONLY
+    });
+
     // Preparar dados completos para geração (COM configuração personalizada)
     const fullCertificateData = {
       ...certificateData,

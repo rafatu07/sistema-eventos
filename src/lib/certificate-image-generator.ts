@@ -87,10 +87,25 @@ export interface CertificateImageData {
  */
 export const generateCertificateImage = async (data: CertificateImageData): Promise<Buffer> => {
   try {
+    // 🚨 LOGS DE DEBUG CRÍTICOS PARA PRODUÇÃO
+    console.log('🚀 INÍCIO - generateCertificateImage');
+    console.log('🌍 AMBIENTE DETECTADO:', {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      VERCEL_ENV: process.env.VERCEL_ENV,
+      FORCE_ASCII_ONLY: process.env.FORCE_ASCII_ONLY,
+      platform: process.platform
+    });
+    
     // Importar canvas apenas no servidor
     const { createCanvas, loadImage, registerFont } = await import('canvas');
     // ⚡ NOVA ESTRATÉGIA: Em produção, NUNCA tentar registrar fontes customizadas
     const isServerlessEnv = isServerlessEnvironment();
+    
+    console.log('🏠 AMBIENTE FINAL:', {
+      isServerlessEnv,
+      shouldForceASCII: process.env.FORCE_ASCII_ONLY === 'true'
+    });
     
     if (!isServerlessEnv) {
       // Apenas em desenvolvimento local
@@ -172,6 +187,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     });
     
     // Título - EXATAMENTE como no preview
+    console.log('🎯 RENDERIZANDO TÍTULO:', {
+      texto: `"${config.title}"`,
+      tamanho: fontSizes.title,
+      cor: config.primaryColor
+    });
     const titlePos = formatPosition(config.titlePosition, width, height);
     drawText(ctx, config.title, {
       x: titlePos.x,
@@ -203,6 +223,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     
     // Nome do participante - EXATAMENTE como no preview
     const participantName = data.userName;
+    console.log('🎯 RENDERIZANDO NOME:', {
+      texto: `"${participantName}"`,
+      tamanho: fontSizes.name,
+      cor: config.primaryColor
+    });
     const namePos = formatPosition(config.namePosition, width, height);
     drawText(ctx, participantName, {
       x: namePos.x,
@@ -234,6 +259,12 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       .replace(/{eventEndTime}/g, formattedEndTime);
     
     // Texto do corpo - EXATAMENTE como no preview
+    console.log('🎯 RENDERIZANDO CORPO:', {
+      textoOriginal: `"${config.bodyText}"`,
+      textoFormatado: `"${bodyText}"`,
+      tamanho: fontSizes.body,
+      cor: config.secondaryColor
+    });
     const bodyPos = formatPosition(config.bodyPosition, width, height);
     drawMultilineText(ctx, bodyText, {
       x: bodyPos.x,
@@ -474,6 +505,14 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
 }) {
   const family = options.fontFamily || getFontFamily();
   
+  // 🚨 LOG DETALHADO DO TEXTO DE ENTRADA
+  console.log('📝 drawText - ENTRADA:', {
+    texto: `"${text}"`,
+    tamanho: options.fontSize,
+    fontWeight: options.fontWeight || 'normal',
+    hasAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(text)
+  });
+  
   // 🎯 Cache da configuração de renderização (resetar para aplicar correções)
   if (!_renderConfig) {
     const isServerless = isServerlessEnvironment();
@@ -543,7 +582,12 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       
       if (metrics.width > 0) {
         ctx.fillText(finalText, options.x, options.y);
-        console.log(`✅ SUCESSO renderização: "${finalText}" com ${fontFamily}`);
+        console.log(`✅ SUCESSO renderização:`, {
+          textoFinal: `"${finalText}"`,
+          fonte: fontFamily,
+          posição: { x: options.x, y: options.y },
+          preservouAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)
+        });
         drawn = true;
         break;
       }
