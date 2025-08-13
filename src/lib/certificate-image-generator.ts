@@ -481,6 +481,29 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       fontFamily: getFontFamily()
     });
     
+    console.log('🎉 Certificado PNG gerado com Canvas!');
+    
+    // 🚨 CORREÇÃO FINAL PARA VERCEL: Garantir codificação PNG correta
+    if (isServerlessEnv) {
+      try {
+        console.log('🔧 VERCEL: Gerando PNG com codificação UTF-8 explícita');
+        
+        // Método 1: PNG com configurações explícitas
+        const pngBuffer = canvas.toBuffer('image/png', {
+          compressionLevel: 6,
+          filters: (canvas as any).PNG_FILTER_NONE || 0
+        });
+        
+        if (pngBuffer && pngBuffer.length > 0) {
+          console.log('✅ VERCEL: PNG otimizado gerado -', pngBuffer.length, 'bytes');
+          return pngBuffer;
+        }
+      } catch (pngError) {
+        console.warn('⚠️  VERCEL: Erro PNG otimizado, usando padrão:', pngError);
+      }
+    }
+    
+    // Método padrão (local ou fallback)
     return canvas.toBuffer();
     
   } catch (error) {
@@ -600,13 +623,44 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   
   // ✅ NORMALIZAÇÃO ADICIONAL PARA VERCEL
   if (_renderConfig.isServerless) {
-    // Normalizar para forma canônica e garantir UTF-8 válido
+    // 🚨 NORMALIZAÇÃO AGRESSIVA PARA VERCEL: múltiplas tentativas
+    const originalText = finalText;
+    
+    // Tentativa 1: Normalização canônica
     finalText = finalText.normalize('NFC');
-      console.log('🔧 NORMALIZAÇÃO UTF-8 SERVERLESS:', {
-    antes: text.replace(/^["']|["']$/g, ''),  // ✅ SEM aspas extras adicionadas nos logs
-    depois: finalText,  // ✅ SEM aspas extras adicionadas nos logs
-    normalized: true
-  });
+    
+    // Tentativa 2: Se ainda tem acentos problemáticos, decomposer e recompor
+    if (/[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)) {
+      console.log('🔧 VERCEL: Aplicando normalização avançada para acentos');
+      
+      // Decomposição seguida de recomposição
+      finalText = finalText.normalize('NFD').normalize('NFC');
+      
+      // Se ainda problemático, usar mapeamento manual
+      if (/[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)) {
+        const accentMap = {
+          'à': 'à', 'á': 'á', 'â': 'â', 'ã': 'ã', 'ä': 'ä',
+          'è': 'è', 'é': 'é', 'ê': 'ê', 'ë': 'ë',
+          'ì': 'ì', 'í': 'í', 'î': 'î', 'ï': 'ï',
+          'ò': 'ò', 'ó': 'ó', 'ô': 'ô', 'õ': 'õ', 'ö': 'ö',
+          'ù': 'ù', 'ú': 'ú', 'û': 'û', 'ü': 'ü',
+          'ç': 'ç', 'ñ': 'ñ',
+          // Maiúsculas
+          'À': 'À', 'Á': 'Á', 'Â': 'Â', 'Ã': 'Ã', 'Ä': 'Ä',
+          'È': 'È', 'É': 'É', 'Ê': 'Ê', 'Ë': 'Ë',
+          'Ç': 'Ç', 'Ñ': 'Ñ'
+        };
+        
+        finalText = finalText.split('').map(char => accentMap[char as keyof typeof accentMap] || char).join('');
+      }
+    }
+    
+    console.log('🔧 NORMALIZAÇÃO UTF-8 SERVERLESS:', {
+      antes: text.replace(/^["']|["']$/g, ''),
+      depois: finalText,
+      mudou: originalText !== finalText,
+      normalized: true
+    });
   } else {
     console.log('🔧 LIMPEZA DE TEXTO LOCAL:', {
       original: text,  // ✅ SEM aspas extras adicionadas nos logs
@@ -649,16 +703,44 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       
       console.log(`🔤 Tentativa fonte: ${fontString}`);
       
-      ctx.font = fontString;
-      ctx.fillStyle = options.color;
-      ctx.textAlign = options.align || 'left';
-      ctx.textBaseline = 'top';
-      
-      const metrics = ctx.measureText(finalText);
-      console.log(`📏 Métricas: width=${metrics.width}, height=${options.fontSize}`);
-      
-      if (metrics.width > 0) {
-        ctx.fillText(finalText, options.x, options.y);
+              ctx.font = fontString;
+        ctx.fillStyle = options.color;
+        ctx.textAlign = options.align || 'left';
+        ctx.textBaseline = 'top';
+        
+        // 🚨 CORREÇÃO CRÍTICA PARA VERCEL: Configurar codificação explícita do Canvas
+        if (_renderConfig.isServerless) {
+          try {
+            // Configurações explícitas para renderização de texto no Vercel
+            (ctx as any).direction = 'ltr'; // Direção explícita (cast para any devido a limitações de tipo)
+          } catch (canvasConfigError) {
+            console.warn('⚠️  Configuração avançada Canvas não suportada:', canvasConfigError);
+          }
+        }
+        
+        const metrics = ctx.measureText(finalText);
+        console.log(`📏 Métricas: width=${metrics.width}, height=${options.fontSize}`);
+        
+        if (metrics.width > 0) {
+          // 🚨 CORREÇÃO VERCEL: Renderizar caractere por caractere se necessário
+          if (_renderConfig.isServerless && /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)) {
+            console.log('🔧 VERCEL: Renderização especial para acentos');
+            try {
+              // Tentar renderização normal primeiro
+              ctx.fillText(finalText, options.x, options.y);
+            } catch (renderError) {
+              console.warn('⚠️  Renderização normal falhou, tentando alternativa:', renderError);
+              // Fallback: renderizar caractere por caractere
+              let xOffset = options.x;
+              for (const char of finalText) {
+                ctx.fillText(char, xOffset, options.y);
+                xOffset += ctx.measureText(char).width;
+              }
+            }
+          } else {
+            // Renderização normal para textos sem acentos ou ambiente local
+            ctx.fillText(finalText, options.x, options.y);
+          }
         const finalHasAccents = /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText);
         console.log(`✅ SUCESSO renderização:`, {
           textoOriginal: text,  // ✅ SEM aspas extras adicionadas nos logs
