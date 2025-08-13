@@ -6,12 +6,14 @@ export function generateEventMetadata(event: Event): Metadata {
   const eventDate = event.date.toLocaleDateString('pt-BR', {
     day: 'numeric',
     month: 'long',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo'
   });
   
   const startTime = event.startTime.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo'
   });
 
   return {

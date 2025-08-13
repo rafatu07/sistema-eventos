@@ -6,6 +6,7 @@ import {
   getSafeFontFamily, 
   isServerlessEnvironment 
 } from './embedded-fonts';
+import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
 
 /**
  * Valida se uma URL de imagem é acessível
@@ -373,16 +374,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       fontFamily: getFontFamily()
     });
     
-    // Texto do corpo com substituição de variáveis
-    const formattedDate = data.eventDate.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-    
-    const formattedStartTime = data.eventStartTime?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '00:00';
-    const formattedEndTime = data.eventEndTime?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '00:00';
-    const formattedTimeRange = `${formattedStartTime} às ${formattedEndTime}`;
+    // Texto do corpo com substituição de variáveis - com fuso horário correto
+    const formattedDate = formatDateBrazil(data.eventDate);
+    const formattedStartTime = data.eventStartTime ? formatTimeBrazil(data.eventStartTime) : '13:00';
+    const formattedEndTime = data.eventEndTime ? formatTimeBrazil(data.eventEndTime) : '17:00';
+    const formattedTimeRange = formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
     
     const bodyText = config.bodyText
       .replace(/{userName}/g, data.userName)

@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { CertificateConfig } from '@/types';
+import { formatDateBrazil } from '@/lib/date-utils';
 
 // 🎯 BIBLIOTECA PARA GERAR CERTIFICADOS VIA CLOUDINARY
 // Esta abordagem é 100% compatível com Vercel e serverless
@@ -67,7 +68,7 @@ export function buildCloudinaryCertificateUrl(data: CloudinaryCertificateData): 
     'g_center,y_120',
     
     // 9. RODAPÉ
-    `l_text:Arial_12_normal:${encodeURIComponent(`Certificado digital emitido em ${new Date().toLocaleDateString('pt-BR')}`)}`,
+    `l_text:Arial_12_normal:${encodeURIComponent(`Certificado digital emitido em ${formatDateBrazil(new Date())}`)}`,
     `co_rgb:${(config?.secondaryColor || '#95A5A6').replace('#', '')}`,
     'g_south,y_40'
   ];

@@ -1,5 +1,6 @@
 // Importação dinâmica para compatibilidade com Next.js
 import { CertificateConfig } from '@/types';
+import { formatDateBrazil, formatTimeRangeBrazil } from '@/lib/date-utils';
 
 /**
  * Interface para dados do certificado PDF
@@ -181,15 +182,16 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
     `left: ${position.x}%; top: ${position.y}%; transform: translate(-50%, -50%);`;
 
   const replaceVariables = (text: string) => {
-    const formattedDate = data.eventDate.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
+    const formattedDate = formatDateBrazil(data.eventDate);
+    const timeRange = formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
     
-    const startTime = data.eventStartTime?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '16:00';
-    const endTime = data.eventEndTime?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '20:00';
-    const timeRange = `${startTime} às ${endTime}`;
+    console.log('🕒 Debug timezone no certificado PDF:', {
+      originalDate: data.eventDate.toISOString(),
+      originalStartTime: data.eventStartTime?.toISOString(),
+      originalEndTime: data.eventEndTime?.toISOString(),
+      formattedDate,
+      timeRange
+    });
     
     return text
       .replace(/{userName}/g, data.participantName)

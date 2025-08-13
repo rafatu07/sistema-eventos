@@ -144,7 +144,7 @@ export default function CertificateConfigPage() {
               </p>
               <div className="flex items-center space-x-4 mt-1">
                 <p className="text-sm text-gray-500">
-                  Data: {event.date.toLocaleDateString('pt-BR')} • Local: {event.location}
+                  Data: {event.date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} • Local: {event.location}
                 </p>
                 {lastUpdated && (
                   <p className="text-xs text-gray-400">
@@ -266,7 +266,7 @@ export default function CertificateConfigPage() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Data</label>
-                      <p className="text-gray-900">{event.date.toLocaleDateString('pt-BR')}</p>
+                      <p className="text-gray-900">{event.date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Local</label>
@@ -275,8 +275,8 @@ export default function CertificateConfigPage() {
                     <div>
                       <label className="text-sm font-medium text-gray-600">Horário</label>
                       <p className="text-gray-900">
-                        {event.startTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} às{' '}
-                        {event.endTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        {event.startTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })} às{' '}
+                        {event.endTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
                       </p>
                     </div>
                   </div>

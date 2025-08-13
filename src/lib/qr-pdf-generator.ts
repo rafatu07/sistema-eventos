@@ -4,6 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { Event } from '@/types';
 import { sanitizeTextForPDF, sanitizeFileName } from './text-utils';
+import { formatTimeBrazil } from '@/lib/date-utils';
 
 export interface QRCodePDFOptions {
   event: Event;
@@ -69,21 +70,16 @@ export const generateQRCodePDF = async ({ event, qrCodeUrl, baseUrl }: QRCodePDF
       color: rgb(0.1, 0.1, 0.1),
     });
 
-    // Informações do evento
+    // Informações do evento com fuso horário correto
     const eventDate = new Date(event.date).toLocaleDateString('pt-BR', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'America/Sao_Paulo'
     });
 
-    const eventTime = `${new Date(event.startTime).toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })} - ${new Date(event.endTime).toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })}`;
+    const eventTime = `${formatTimeBrazil(new Date(event.startTime))} - ${formatTimeBrazil(new Date(event.endTime))}`;
 
     // Data
     page.drawText(`Data: ${eventDate}`, {

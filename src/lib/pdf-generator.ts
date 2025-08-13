@@ -2,6 +2,7 @@ import { PDFDocument, rgb, StandardFonts, degrees, PDFFont } from 'pdf-lib';
 import { sanitizeTextForPDF } from './text-utils';
 import { CertificateConfig } from '@/types';
 import { getCertificateConfig, getDefaultCertificateConfig } from './certificate-config';
+import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
 
 export interface CertificateData {
   userName: string;
@@ -251,22 +252,18 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
     });
     console.log('✍️  Nome renderizado no PDF:', namePos.x, namePos.y);
 
-    // Body text with variable replacement
+    // Body text with variable replacement - com fuso horário correto
     const bodyPos = getPosition(config.bodyPosition);
-    const formattedDate = data.eventDate.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
+    const formattedDate = formatDateBrazil(data.eventDate);
 
-    // Format times if available
+    // Format times with correct timezone
     const formattedStartTime = data.eventStartTime 
-      ? data.eventStartTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      : '00:00';
+      ? formatTimeBrazil(data.eventStartTime)
+      : '13:00';
     const formattedEndTime = data.eventEndTime 
-      ? data.eventEndTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      : '00:00';
-    const formattedTimeRange = `${formattedStartTime} às ${formattedEndTime}`;
+      ? formatTimeBrazil(data.eventEndTime)
+      : '17:00';
+    const formattedTimeRange = formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
 
     const bodyText = config.bodyText
       .replace(/{userName}/g, data.userName)

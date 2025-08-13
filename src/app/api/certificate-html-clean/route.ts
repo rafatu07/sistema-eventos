@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CertificateConfig } from '@/types';
 import { getCertificateConfig } from '@/lib/certificate-config';
+import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
 
 // 🎨 API LIMPA PARA GERAÇÃO DE HTML - TOTALMENTE COMPATÍVEL COM VERCEL
 export const runtime = 'nodejs';
@@ -74,25 +75,14 @@ function generateCertificateHTML(data: CertificateData): string {
   // Usar configuração padrão se não houver personalizada
   const finalConfig: CertificateConfig = config || getDefaultConfig();
   
-  // Funções auxiliares
-  const formatDate = (date: Date) => 
-    date.toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
-      month: 'long', 
-      year: 'numeric' 
-    });
+  // Funções auxiliares com fuso horário correto do Brasil
+  const formatDate = (date: Date) => formatDateBrazil(date);
 
   const formatTime = (date?: Date) => 
-    date?.toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    }) || '';
+    date ? formatTimeBrazil(date) : '';
 
   const formatTimeRange = () => {
-    const start = formatTime(data.eventStartTime);
-    const end = formatTime(data.eventEndTime);
-    if (start && end) return `${start} às ${end}`;
-    return '';
+    return formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
   };
 
   // Substituir variáveis no texto
