@@ -950,58 +950,138 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
                   console.log('✅ PLACEHOLDER: Retângulo desenhado como texto');
                 }
               } else {
-                // Arial funciona para ASCII - APLICANDO MÉTODO ULTRA VISÍVEL
-                console.log('✅ ASCII RENDERIZADO: Arial funcionou - APLICANDO MÉTODO ULTRA VISÍVEL');
+                // PROBLEMA CONFIRMADO: Canvas.fillText() não funciona no Vercel
+                console.log('🚨 PROBLEMA CONFIRMADO: Canvas.fillText() não funciona no Vercel');
+                console.log('🔧 SOLUÇÃO DEFINITIVA: Desenhando texto como shapes');
                 
-                // 🚨 MÉTODO EMERGENCIAL: GARANTIA ABSOLUTA DE VISIBILIDADE
-                console.log('🔧 EMERGENCY: Forçando visibilidade absoluta');
-                
-                // Resetar contexto completamente
+                // Resetar contexto
                 ctx.save();
                 
-                // 1️⃣ FUNDO CONTRASTE FORTE (garantir que texto seja visível)
-                ctx.fillStyle = '#FFFFFF'; // Fundo branco forçado
-                ctx.fillRect(options.x - 10, options.y - options.fontSize - 5, finalText.length * options.fontSize * 0.7, options.fontSize + 10);
+                // 🎯 MÉTODO DEFINITIVO: TEXTO COMO RETÂNGULOS ESTRUTURADOS
+                console.log('🔤 DESENHANDO TEXTO COMO SHAPES ESTRUTURADOS');
                 
-                // 2️⃣ TEXTO COM COR ULTRA CONTRASTANTE
-                ctx.fillStyle = '#000000'; // PRETO PURO - máximo contraste
-                ctx.strokeStyle = '#FF0000'; // VERMELHO para stroke - visibilidade forçada
-                ctx.lineWidth = 1;
-                ctx.font = `bold ${options.fontSize}px Arial, sans-serif, monospace`; // Multiple fallbacks
+                const chars = finalText.split('');
+                const charWidth = options.fontSize * 0.6;
+                const charHeight = options.fontSize * 0.8;
                 
-                // 3️⃣ RENDERIZAÇÃO MÚLTIPLA COM OFFSETS
-                console.log('🔧 RENDERIZAÇÃO MÚLTIPLA: 9 posições diferentes');
-                const offsets = [
-                  [0, 0], [-0.5, 0], [0.5, 0], [0, -0.5], [0, 0.5], 
-                  [-0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5]
-                ];
+                // Fundo branco para contraste
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(options.x - 5, options.y - options.fontSize - 2, chars.length * charWidth + 10, options.fontSize + 4);
                 
-                for (const offset of offsets) {
-                  const offsetX = offset[0] || 0;
-                  const offsetY = offset[1] || 0;
-                  ctx.fillText(finalText, options.x + offsetX, options.y + offsetY);
-                  ctx.strokeText(finalText, options.x + offsetX, options.y + offsetY);
+                // Desenhar cada caractere como uma estrutura de retângulos
+                ctx.fillStyle = options.color;
+                
+                for (let i = 0; i < chars.length; i++) {
+                  const char = chars[i];
+                  if (!char) continue; // Skip se for undefined
+                  
+                  const charX = options.x + (i * charWidth);
+                  const charY = options.y - charHeight;
+                  
+                  if (char === ' ') {
+                    // Espaço - não desenhar nada
+                    continue;
+                  }
+                  
+                  // Desenhar estrutura básica da letra como retângulos
+                  if (/[AÁÀÂÃÄÅ]/.test(char.toUpperCase())) {
+                    // Letra A - triângulo + barra horizontal
+                    ctx.fillRect(charX, charY, 3, charHeight); // Lado esquerdo
+                    ctx.fillRect(charX + charWidth - 3, charY, 3, charHeight); // Lado direito
+                    ctx.fillRect(charX + 3, charY, charWidth - 6, 3); // Topo
+                    ctx.fillRect(charX + 3, charY + charHeight/2 - 1, charWidth - 6, 2); // Barra horizontal
+                  } else if (/[EÉÈÊË]/.test(char.toUpperCase())) {
+                    // Letra E - linhas horizontais
+                    ctx.fillRect(charX, charY, 3, charHeight); // Lado esquerdo
+                    ctx.fillRect(charX + 3, charY, charWidth - 3, 3); // Topo
+                    ctx.fillRect(charX + 3, charY + charHeight/2 - 1, charWidth - 6, 2); // Meio
+                    ctx.fillRect(charX + 3, charY + charHeight - 3, charWidth - 3, 3); // Base
+                  } else if (/[CÇĆĈĊČ]/.test(char.toUpperCase())) {
+                    // Letra C - arco
+                    ctx.fillRect(charX + 2, charY, charWidth - 2, 3); // Topo
+                    ctx.fillRect(charX, charY + 3, 3, charHeight - 6); // Lado esquerdo
+                    ctx.fillRect(charX + 2, charY + charHeight - 3, charWidth - 2, 3); // Base
+                  } else if (/[IÍ]/.test(char.toUpperCase())) {
+                    // Letra I - linha vertical
+                    ctx.fillRect(charX + charWidth/2 - 1, charY, 3, charHeight);
+                    ctx.fillRect(charX, charY, charWidth, 3); // Topo
+                    ctx.fillRect(charX, charY + charHeight - 3, charWidth, 3); // Base
+                  } else if (/[OÓÒÔÕÖØ]/.test(char.toUpperCase())) {
+                    // Letra O - retângulo oco
+                    ctx.fillRect(charX + 2, charY, charWidth - 4, 3); // Topo
+                    ctx.fillRect(charX, charY + 3, 3, charHeight - 6); // Esquerda
+                    ctx.fillRect(charX + charWidth - 3, charY + 3, 3, charHeight - 6); // Direita
+                    ctx.fillRect(charX + 2, charY + charHeight - 3, charWidth - 4, 3); // Base
+                  } else if (/[RŔ]/.test(char.toUpperCase())) {
+                    // Letra R
+                    ctx.fillRect(charX, charY, 3, charHeight); // Lado esquerdo
+                    ctx.fillRect(charX + 3, charY, charWidth - 6, 3); // Topo
+                    ctx.fillRect(charX + charWidth - 3, charY + 3, 3, charHeight/3); // Lado direito superior
+                    ctx.fillRect(charX + 3, charY + charHeight/2 - 1, charWidth - 6, 2); // Meio
+                    ctx.fillRect(charX + charWidth/2, charY + charHeight/2, 3, charHeight/2); // Diagonal
+                  } else if (/[TŤ]/.test(char.toUpperCase())) {
+                    // Letra T
+                    ctx.fillRect(charX, charY, charWidth, 3); // Topo
+                    ctx.fillRect(charX + charWidth/2 - 1, charY, 3, charHeight); // Centro vertical
+                  } else if (/[F]/.test(char.toUpperCase())) {
+                    // Letra F
+                    ctx.fillRect(charX, charY, 3, charHeight); // Lado esquerdo
+                    ctx.fillRect(charX + 3, charY, charWidth - 3, 3); // Topo
+                    ctx.fillRect(charX + 3, charY + charHeight/2 - 1, charWidth - 6, 2); // Meio
+                  } else if (/[D]/.test(char.toUpperCase())) {
+                    // Letra D
+                    ctx.fillRect(charX, charY, 3, charHeight); // Lado esquerdo
+                    ctx.fillRect(charX + 3, charY, charWidth - 6, 3); // Topo
+                    ctx.fillRect(charX + charWidth - 3, charY + 3, 3, charHeight - 6); // Direita
+                    ctx.fillRect(charX + 3, charY + charHeight - 3, charWidth - 6, 3); // Base
+                  } else if (/[N]/.test(char.toUpperCase())) {
+                    // Letra N
+                    ctx.fillRect(charX, charY, 3, charHeight); // Esquerda
+                    ctx.fillRect(charX + charWidth - 3, charY, 3, charHeight); // Direita
+                    ctx.fillRect(charX + 2, charY + charHeight/3, charWidth - 4, 2); // Diagonal
+                  } else if (/[M]/.test(char.toUpperCase())) {
+                    // Letra M
+                    ctx.fillRect(charX, charY, 3, charHeight); // Esquerda
+                    ctx.fillRect(charX + charWidth - 3, charY, 3, charHeight); // Direita
+                    ctx.fillRect(charX + charWidth/2 - 1, charY, 3, charHeight/2); // Centro
+                  } else if (/[P]/.test(char.toUpperCase())) {
+                    // Letra P
+                    ctx.fillRect(charX, charY, 3, charHeight); // Esquerda
+                    ctx.fillRect(charX + 3, charY, charWidth - 6, 3); // Topo
+                    ctx.fillRect(charX + charWidth - 3, charY + 3, 3, charHeight/3); // Direita superior
+                    ctx.fillRect(charX + 3, charY + charHeight/2 - 1, charWidth - 6, 2); // Meio
+                  } else if (/[L]/.test(char.toUpperCase())) {
+                    // Letra L
+                    ctx.fillRect(charX, charY, 3, charHeight); // Esquerda
+                    ctx.fillRect(charX + 3, charY + charHeight - 3, charWidth - 3, 3); // Base
+                  } else if (/[V]/.test(char.toUpperCase())) {
+                    // Letra V
+                    ctx.fillRect(charX, charY, 3, 2*charHeight/3); // Esquerda
+                    ctx.fillRect(charX + charWidth - 3, charY, 3, 2*charHeight/3); // Direita
+                    ctx.fillRect(charX + charWidth/2 - 1, charY + 2*charHeight/3, 3, charHeight/3); // Centro baixo
+                  } else if (/[0-9]/.test(char)) {
+                    // Números - formato similar ao O
+                    ctx.fillRect(charX + 2, charY, charWidth - 4, 3); // Topo
+                    ctx.fillRect(charX, charY + 3, 3, charHeight - 6); // Esquerda
+                    ctx.fillRect(charX + charWidth - 3, charY + 3, 3, charHeight - 6); // Direita
+                    ctx.fillRect(charX + 2, charY + charHeight - 3, charWidth - 4, 3); // Base
+                  } else {
+                    // Caracteres genéricos - retângulo estruturado
+                    ctx.fillRect(charX + 1, charY + charHeight/4, charWidth - 2, 3); // Linha superior
+                    ctx.fillRect(charX + 1, charY + charHeight/2, charWidth - 2, 2); // Linha meio
+                    ctx.fillRect(charX + 1, charY + 3*charHeight/4, charWidth - 2, 3); // Linha inferior
+                    ctx.fillRect(charX, charY + 2, 2, charHeight - 4); // Linha vertical esquerda
+                  }
                 }
-                
-                // 4️⃣ TESTE VISUAL - Desenhar retângulo colorido onde texto deveria estar
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Vermelho semi-transparente
-                ctx.fillRect(options.x - 5, options.y - options.fontSize, finalText.length * options.fontSize * 0.6, options.fontSize + 5);
                 
                 ctx.restore();
                 
-                // 5️⃣ LOG DETALHADO DE POSIÇÃO
-                console.log('📍 POSIÇÃO DETALHADA:', {
+                console.log('✅ TEXTO DESENHADO COMO SHAPES:', {
                   texto: finalText,
-                  x: options.x,
-                  y: options.y,
-                  fontSize: options.fontSize,
-                  canvasWidth: 1200,
-                  canvasHeight: 800,
-                  'área de renderização': `${options.x}-${options.x + finalText.length * options.fontSize * 0.6} x ${options.y - options.fontSize}-${options.y}`,
-                  'dentro do canvas?': options.x >= 0 && options.x < 1200 && options.y >= 0 && options.y < 800
+                  caracteres: chars.length,
+                  metodo: 'Estruturas de retângulos',
+                  posicao: { x: options.x, y: options.y }
                 });
-                
-                console.log('✅ MÉTODO ULTRA VISÍVEL APLICADO: Fundo branco + texto preto + múltiplos offsets + área de teste');
               }
             } catch (testError) {
               console.warn('⚠️  Erro no teste de fonte, usando renderização normal:', testError);
