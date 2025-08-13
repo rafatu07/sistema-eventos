@@ -577,7 +577,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         // Método 1: PNG com configurações explícitas
         const pngBuffer = canvas.toBuffer('image/png', {
           compressionLevel: 6,
-          filters: (canvas as any).PNG_FILTER_NONE || 0
+          filters: 0  // PNG_FILTER_NONE value
         });
         
         if (pngBuffer && pngBuffer.length > 0) {
@@ -747,6 +747,9 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
         reason: 'Fontes não renderizam no Vercel'
       });
       
+      // 🚨 CRUCIAL: Aplicar a conversão ASCII ao texto que vai para renderização
+      console.log('🔧 APLICANDO TEXTO ASCII CONVERTIDO PARA RENDERIZAÇÃO');
+      
     } else {
       // 🔧 MODO NORMAL: Normalização avançada UTF-8
       const originalText = finalText;
@@ -838,7 +841,8 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
         if (_renderConfig.isServerless) {
           try {
             // Configurações explícitas para renderização de texto no Vercel
-            (ctx as any).direction = 'ltr'; // Direção explícita (cast para any devido a limitações de tipo)
+            const ctxWithDirection = ctx as CanvasRenderingContext2D & { direction?: string };
+            ctxWithDirection.direction = 'ltr'; // Direção explícita
           } catch (canvasConfigError) {
             console.warn('⚠️  Configuração avançada Canvas não suportada:', canvasConfigError);
           }
@@ -848,25 +852,17 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
         console.log(`📏 Métricas: width=${metrics.width}, height=${options.fontSize}`);
         
         if (metrics.width > 0) {
-          // 🚨 CORREÇÃO VERCEL: Renderizar caractere por caractere se necessário
-          if (_renderConfig.isServerless && /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)) {
-            console.log('🔧 VERCEL: Renderização especial para acentos');
-            try {
-              // Tentar renderização normal primeiro
-              ctx.fillText(finalText, options.x, options.y);
-            } catch (renderError) {
-              console.warn('⚠️  Renderização normal falhou, tentando alternativa:', renderError);
-              // Fallback: renderizar caractere por caractere
-              let xOffset = options.x;
-              for (const char of finalText) {
-                ctx.fillText(char, xOffset, options.y);
-                xOffset += ctx.measureText(char).width;
-              }
-            }
-          } else {
-            // Renderização normal para textos sem acentos ou ambiente local
-            ctx.fillText(finalText, options.x, options.y);
-          }
+          // 🚨 CRITICAL FIX: Se ASCII foi forçado, usar finalText processado
+          console.log('🎯 RENDERIZAÇÃO FINAL:', {
+            textoParaRenderizar: finalText,
+            temAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText),
+            asciiForçado: _renderConfig.shouldUseASCII
+          });
+          
+          // Renderização direta - finalText já foi processado (ASCII ou UTF-8)
+          ctx.fillText(finalText, options.x, options.y);
+          
+          console.log('✅ TEXTO RENDERIZADO NO CANVAS:', finalText);
         const finalHasAccents = /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText);
         console.log(`✅ SUCESSO renderização:`, {
           textoOriginal: text,  // ✅ SEM aspas extras adicionadas nos logs
@@ -899,15 +895,11 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
         ctx.textAlign = options.align || 'left';
         ctx.textBaseline = 'top';
         
-        // ✅ CORREÇÃO: Preservar caracteres portugueses no fallback
-        const ultraSafeText = finalText
-          .replace(/[^\w\sàáâãäåæçèéêëìíîïñòóôõöøùúûüýÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝ\.\,\!\?\-\(\)]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim() || 'TEXTO';
+        // 🚨 USAR TEXTO JÁ PROCESSADO (ASCII ou UTF-8) - não reprocessar
+        console.log(`🆘 Tentativa fallback: ${fallbackFont} -> "${finalText}"`);
+        console.log('🎯 FALLBACK - Usando texto processado (ASCII se foi convertido)');
         
-        console.log(`🆘 Tentativa fallback: ${fallbackFont} -> "${ultraSafeText}"`);
-        
-        ctx.fillText(ultraSafeText, options.x, options.y);
+        ctx.fillText(finalText, options.x, options.y);
         console.log(`✅ FALLBACK funcionou com ${fallbackFont}`);
         drawn = true;
         break;
@@ -933,27 +925,59 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  // 🚨 CORREÇÃO: Usar fonte testada e confirmada para Vercel (sem aspas duplas)
+  // 🚨 USAR MESMO SISTEMA DE RENDERIZAÇÃO QUE drawText
   const isServerless = isServerlessEnvironment();
   const vercelSafeFont = process.env.VERCEL_SAFE_FONT || 'Arial';
   const fontFamily = isServerless ? vercelSafeFont : (options.fontFamily || getFontFamily());
-  const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerless;
   
-  // 🚨 CORREÇÃO: Remover aspas e normalizar texto para Vercel  
-  let finalText = text.replace(/^["']|["']$/g, ''); // Remove aspas do início e fim
+  // 🚨 MESMA LÓGICA DE ASCII AUTOMÁTICO QUE drawText
+  const vercelForceASCII = process.env.VERCEL_FORCE_ASCII === 'true';
+  const shouldUseASCII = vercelForceASCII; // Usar a mesma lógica
   
-  if (isServerless) {
-    finalText = finalText.normalize('NFC'); // Normalizar UTF-8 para Vercel
+  // Remover aspas do início e fim
+  let finalText = text.replace(/^["']|["']$/g, '');
+  
+  // 🚨 APLICAR CONVERSÃO ASCII SE NECESSÁRIO (mesma lógica que drawText)
+  if (isServerless && shouldUseASCII) {
+    console.log('🔧 MULTILINE ASCII: Convertendo acentos para caracteres básicos');
+    
+    const accentToASCII = {
+      'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a', 'å': 'a', 'æ': 'ae',
+      'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+      'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+      'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o',
+      'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+      'ç': 'c', 'ñ': 'n', 'ß': 'ss',
+      // Maiúsculas
+      'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A', 'Å': 'A', 'Æ': 'AE',
+      'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+      'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+      'Ó': 'O', 'Ò': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O', 'Ø': 'O',
+      'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+      'Ç': 'C', 'Ñ': 'N'
+    };
+    
+    const originalText = finalText;
+    finalText = finalText.split('').map(char => 
+      accentToASCII[char as keyof typeof accentToASCII] || char
+    ).join('');
+    
+    console.log('🔧 MULTILINE CONVERSÃO ASCII:', {
+      antes: originalText,
+      depois: finalText,
+      converteu: originalText !== finalText
+    });
+  } else if (isServerless) {
+    // Normalização UTF-8 se não usando ASCII
+    finalText = finalText.normalize('NFC');
   }
   
-  // ✅ CORREÇÃO: Preservar texto com acentos em produção
-  finalText = shouldUseASCII ? finalText.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim() : finalText;
-  
-  console.log('🔤 drawMultilineText - preservando acentos:', {
+  console.log('🔤 drawMultilineText - usando texto processado:', {
     shouldUseASCII,
+    asciiForçado: vercelForceASCII,
     isServerless,
     fontFamily: fontFamily,
-    textPreview: text.substring(0, 20)  // ✅ SEM aspas extras adicionadas nos logs
+    textPreview: finalText.substring(0, 20)  // Mostrar o texto JÁ processado
   });
   
   ctx.font = `${options.fontSize}px ${fontFamily}`;

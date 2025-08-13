@@ -170,7 +170,7 @@ async function generateCertificateClientSide(data: CertificateData): Promise<Cer
     await new Promise(resolve => setTimeout(resolve, 800));
 
     // PASSO 4: Converter para PNG com configurações compatíveis
-    // @ts-ignore - html2canvas typing
+    // @ts-expect-error - html2canvas typing
     const canvas = await window.html2canvas(container, {
       width: 1200,
       height: 800,
