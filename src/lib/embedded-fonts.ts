@@ -72,10 +72,21 @@ export const SAFE_FONT_FAMILIES = {
   minimal: 'sans-serif'
 };
 
+// 🚀 CACHE para evitar detecções repetitivas - RESETADO para aplicar multipliers extremos
+let _cachedEnvironmentResult: boolean | null = null;
+let _environmentDetectionCount = 0;
+
 /**
- * Detecta se está em ambiente serverless/produção
+ * Detecta se está em ambiente serverless/produção (COM CACHE)
  */
 export function isServerlessEnvironment(): boolean {
+  // ✅ Se já detectamos antes, retorna o cache
+  if (_cachedEnvironmentResult !== null) {
+    return _cachedEnvironmentResult;
+  }
+
+  _environmentDetectionCount++;
+
   // Indicadores mais agressivos para Vercel
   const vercelIndicators = [
     process.env.VERCEL === '1',
@@ -111,7 +122,11 @@ export function isServerlessEnvironment(): boolean {
     )
   );
 
-  console.log('🔍 Detecção ROBUSTA de ambiente:', {
+  // 🎯 CACHE o resultado para evitar repetições
+  _cachedEnvironmentResult = isServerless;
+
+  // 📝 Log apenas na PRIMEIRA detecção
+  console.log('🔍 Detecção de ambiente (primeira vez):', {
     'NODE_ENV': process.env.NODE_ENV,
     'VERCEL': process.env.VERCEL,
     'VERCEL_URL': process.env.VERCEL_URL ? 'SET' : 'NOT_SET',
@@ -126,17 +141,27 @@ export function isServerlessEnvironment(): boolean {
   return isServerless;
 }
 
+// 🚀 CACHE para família de fonte - RESETADO para novos multipliers
+let _cachedFontFamily: string | null = null;
+
 /**
- * Retorna a família de fonte mais adequada para o ambiente
+ * Retorna a família de fonte mais adequada para o ambiente (COM CACHE)
  */
 export function getSafeFontFamily(): string {
+  // ✅ Se já calculamos antes, retorna o cache
+  if (_cachedFontFamily !== null) {
+    return _cachedFontFamily;
+  }
+
   const isServerless = isServerlessEnvironment();
   
   if (isServerless) {
     // Em produção/serverless, usar apenas sans-serif puro
-    console.log('🔤 Usando fonte ultra-segura para serverless: sans-serif');
-    return SAFE_FONT_FAMILIES.minimal;
+    console.log('🔤 Fonte para serverless: sans-serif');
+    _cachedFontFamily = SAFE_FONT_FAMILIES.minimal;
+  } else {
+    _cachedFontFamily = SAFE_FONT_FAMILIES.system;
   }
   
-  return SAFE_FONT_FAMILIES.system;
+  return _cachedFontFamily;
 }

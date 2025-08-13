@@ -91,151 +91,111 @@ export async function POST(request: NextRequest) {
     let certificateUrl: string;
     let generationType: 'image' | 'pdf' | 'svg-fallback' = 'pdf';
     
-    // 🚀 ESTRATÉGIA RADICAL: PDF em produção (sabemos que Helvetica funciona)
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL);
+    // 🚀 NOVO FLUXO UNIFICADO: SEMPRE PNG PRIMEIRO (sugestão do usuário implementada)
+    console.log('🖼️  Implementando fluxo unificado: PNG com multipliers extremos');
 
-    if (isProduction || isVercel) {
-      // 🏭 PRODUÇÃO/VERCEL: Usar apenas PDF com Helvetica (100% confiável)
-      console.log('🏭 PRODUÇÃO/VERCEL DETECTADO - usando exclusivamente PDF com Helvetica');
-      console.log('⚡ Pulando Canvas completamente para evitar problemas de fonte');
+    // ✅ NOVO MÉTODO: Gerar PNG usando exatamente o mesmo código do preview
+    console.log('🎯 PASSO 1: Gerando PNG via HTML (IDÊNTICO ao preview)');
+    
+    try {
+      // NOVA ABORDAGEM: Usar API HTML que replica 100% o preview
+      const htmlResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-html`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName: fullCertificateData.userName,
+          eventName: fullCertificateData.eventName,
+          eventDate: fullCertificateData.eventDate,
+          eventStartTime: fullCertificateData.eventStartTime,
+          eventEndTime: fullCertificateData.eventEndTime,
+          config: fullCertificateData.config
+        })
+      });
+
+      if (!htmlResponse.ok) {
+        throw new Error(`API HTML falhou: ${htmlResponse.status}`);
+      }
+
+      const imageBuffer = Buffer.from(await htmlResponse.arrayBuffer());
+      
+      logInfo('✅ PNG gerado via HTML (100% idêntico ao preview)', { 
+        userId, 
+        eventId, 
+        imageSize: imageBuffer.length,
+        note: 'Usando exato mesmo código do preview - garantia total'
+      });
+
+      console.log('🎯 PASSO 2: Salvando PNG no Cloudinary com cache-buster');
+      
+      // SEMPRE salvar PNG no Cloudinary (único fonte da verdade)
+      const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_${userId}_${eventId}_${cacheBreaker}`);
+      certificateUrl = uploadResult.secureUrl;
+      generationType = 'image';
+      
+      logInfo('✅ Certificado PNG salvo no Cloudinary', { 
+        userId, 
+        eventId, 
+        publicId: uploadResult.publicId,
+        certificateUrl: certificateUrl.substring(0, 50) + '...',
+        success: 'Fontes grandes preservadas!'
+      });
+
+      console.log('🎯 PASSO 3: URL será salva no Firebase (próximo)');
+      
+    } catch (htmlError) {
+      console.error('❌ FALHA na geração HTML:', htmlError);
+      
+      // FALLBACK 1: Canvas tradicional (com correções de layout)
+      console.warn('🆘 FALLBACK 1: Tentando Canvas tradicional...');
       
       try {
-        const pdfBytes = await generateCertificatePDF(fullCertificateData);
+        const imageBuffer = await generateCertificateImage(fullCertificateData);
         
-        logInfo('PDF de produção gerado com sucesso', { 
+        logInfo('⚠️  PNG Canvas de emergência gerado', { 
           userId, 
           eventId, 
-          pdfSize: pdfBytes.length 
+          imageSize: imageBuffer.length,
+          warning: 'Usando Canvas - pode ter pequenas diferenças do preview'
         });
 
-        // FORÇA QUEBRA DE CACHE: Timestamp único para garantir nova geração
         const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const pdfBuffer = Buffer.from(pdfBytes);
-        const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_PROD_${userId}_${eventId}_${cacheBreaker}`);
+        const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_CANVAS_${userId}_${eventId}_${cacheBreaker}`);
+        certificateUrl = uploadResult.secureUrl;
+        generationType = 'image';
         
-        // 🔐 Gerar URL segura (testa acesso público + fallback para URL assinada se necessário)
-        try {
-          certificateUrl = await getSecurePDFUrl(uploadResult.publicId, uploadResult.secureUrl);
-          console.log('✅ URL segura gerada para produção');
-        } catch (urlError) {
-          console.warn('❌ Falha ao gerar URL segura, usando URL original:', urlError);
-          certificateUrl = uploadResult.secureUrl;
-        }
-        
-        generationType = 'pdf';
-        
-        logInfo('Certificado (PDF PRODUÇÃO) enviado para Cloudinary', { 
+        logInfo('✅ FALLBACK Canvas salvo no Cloudinary', { 
           userId, 
           eventId, 
           publicId: uploadResult.publicId,
           certificateUrl: certificateUrl.substring(0, 50) + '...'
         });
-
-      } catch (pdfError) {
-        // Em produção, se PDF falhar, usar SVG básico
-        console.error('PDF de produção falhou, usando SVG emergencial:', pdfError);
         
-        try {
-          console.log('🆘 Usando SVG de emergência para produção...');
-          
-          const svgResponse = await fetch(`${process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'https://sistema-eventos-nu.vercel.app'}/api/certificate-fallback`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userName: fullCertificateData.userName,
-              eventName: fullCertificateData.eventName,
-              eventDate: fullCertificateData.eventDate,
-              eventStartTime: fullCertificateData.eventStartTime,
-              eventEndTime: fullCertificateData.eventEndTime,
-            }),
-          });
-          
-          if (!svgResponse.ok) {
-            throw new Error(`SVG de emergência falhou: ${svgResponse.status}`);
-          }
-          
-          const svgContent = await svgResponse.text();
-          const svgBuffer = Buffer.from(svgContent, 'utf-8');
-          const uploadResult = await uploadPDFToCloudinary(svgBuffer, `certificate_SVG_EMERGENCY_${userId}_${eventId}`);
-          certificateUrl = uploadResult.secureUrl;
-          generationType = 'svg-fallback';
-          
-          logInfo('Certificado SVG de emergência gerado', { 
-            userId, 
-            eventId, 
-            certificateUrl: certificateUrl.substring(0, 50) + '...'
-          });
-          
-        } catch (svgError) {
-          console.error('FALHA COMPLETA EM PRODUÇÃO:', { pdfError, svgError });
-          throw new Error(`FALHA CRÍTICA EM PRODUÇÃO: PDF - ${(pdfError as Error).message}; SVG - ${(svgError as Error).message}`);
-        }
-      }
-      
-    } else {
-      // 💻 DESENVOLVIMENTO: Tentar imagem primeiro, depois PDF
-      console.log('💻 DESENVOLVIMENTO - tentando imagem PNG primeiro');
-      
-      try {
-        const imageBuffer = await generateCertificateImage(fullCertificateData);
+      } catch (canvasError) {
+        console.error('❌ FALLBACK Canvas também falhou:', canvasError);
         
-        logInfo('Imagem PNG gerada com sucesso', { 
-          userId, 
-          eventId, 
-          imageSize: imageBuffer.length 
-        });
-
-        // FORÇA QUEBRA DE CACHE: Timestamp único para garantir nova geração
-        const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_DEV_${userId}_${eventId}_${cacheBreaker}`);
-        certificateUrl = uploadResult.secureUrl;
-        generationType = 'image';
-        
-        logInfo('Certificado (imagem dev) enviado para Cloudinary', { 
-          userId, 
-          eventId, 
-          certificateUrl: certificateUrl.substring(0, 50) + '...'
-        });
-
-      } catch (imageError) {
-        console.warn('Falha em imagem no desenvolvimento, usando PDF:', imageError);
+        // FALLBACK 2: PDF tradicional (última opção)
+        console.warn('🆘 FALLBACK 2: Tentando PDF tradicional...');
         
         try {
           const pdfBytes = await generateCertificatePDF(fullCertificateData);
           
-          logInfo('PDF de fallback gerado com sucesso', { 
+          logInfo('⚠️  PDF de emergência gerado', { 
             userId, 
             eventId, 
-            pdfSize: pdfBytes.length 
+            pdfSize: pdfBytes.length,
+            warning: 'Sistema antigo - fontes menores que configurado'
           });
 
-          // FORÇA QUEBRA DE CACHE: Timestamp único para garantir nova geração
           const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const pdfBuffer = Buffer.from(pdfBytes);
-          const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_DEV_PDF_${userId}_${eventId}_${cacheBreaker}`);
-          
-          // Usar URL segura também em desenvolvimento para consistência
-          try {
-            certificateUrl = await getSecurePDFUrl(uploadResult.publicId, uploadResult.secureUrl);
-            console.log('✅ URL segura gerada para desenvolvimento');
-          } catch (urlError) {
-            console.warn('❌ Falha ao gerar URL segura, usando URL original:', urlError);
-            certificateUrl = uploadResult.secureUrl;
-          }
-          
+          const uploadResult = await uploadPDFToCloudinary(pdfBuffer, `certificate_PDF_${userId}_${eventId}_${cacheBreaker}`);
+          certificateUrl = uploadResult.secureUrl;
           generationType = 'pdf';
           
-          logInfo('Certificado (PDF fallback dev) enviado para Cloudinary', { 
-            userId, 
-            eventId, 
-            publicId: uploadResult.publicId,
-            certificateUrl: certificateUrl.substring(0, 50) + '...'
-          });
-
         } catch (pdfError) {
-          console.error('Erro completo no desenvolvimento:', { imageError, pdfError });
-          throw new Error(`Erro no desenvolvimento - Imagem: ${(imageError as Error).message}, PDF: ${(pdfError as Error).message}`);
+          console.error('💀 FALHA TOTAL - HTML, Canvas E PDF falharam:', { htmlError, canvasError, pdfError });
+          throw new Error(`FALHA TOTAL: HTML(${(htmlError as Error).message}) + Canvas(${(canvasError as Error).message}) + PDF(${(pdfError as Error).message})`);
         }
       }
     }

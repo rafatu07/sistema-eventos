@@ -170,26 +170,39 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       drawWatermark(ctx, width, height, config.watermarkText, config.watermarkOpacity, config.secondaryColor);
     }
     
-    // Obter multiplicadores baseados no template
-    const multipliers = getFontMultipliers(config.template);
+    // 🎯 NOVA LÓGICA: Replicar exatamente o preview (sem multipliers)
+    const fontSizes = getFontSizes(config);
     
-    // Título - Restaurando tamanhos originais otimizados
+    console.log('🎯 REPLICANDO PREVIEW - Tamanhos exatos:', {
+      title: fontSizes.title,
+      name: fontSizes.name, 
+      body: fontSizes.body,
+      subtitle: fontSizes.subtitle
+    });
+    
+    // Título - EXATAMENTE como no preview
+    const titlePos = formatPosition(config.titlePosition, width, height);
     drawText(ctx, config.title, {
-      x: (width * config.titlePosition.x) / 100,
-      y: (height * config.titlePosition.y) / 100,
-      fontSize: Math.round(config.titleFontSize * multipliers.title),
+      x: titlePos.x,
+      y: titlePos.y,
+      fontSize: fontSizes.title,
       color: config.primaryColor,
       fontWeight: 'bold',
       align: 'center',
       fontFamily: getFontFamily()
     });
     
-    // Subtítulo se presente
+    // Subtítulo - EXATAMENTE como no preview
     if (config.subtitle) {
+      const subtitlePos = formatPosition({
+        x: config.titlePosition.x,
+        y: config.titlePosition.y + 8  // EXATO mesmo offset do preview
+      }, width, height);
+      
       drawText(ctx, config.subtitle, {
-        x: (width * config.titlePosition.x) / 100,
-        y: (height * config.titlePosition.y) / 100 + config.titleFontSize * 2.5,
-        fontSize: Math.round(config.titleFontSize * multipliers.subtitle),
+        x: subtitlePos.x,
+        y: subtitlePos.y,
+        fontSize: fontSizes.subtitle,
         color: config.secondaryColor,
         fontWeight: 'normal',
         align: 'center',
@@ -197,14 +210,15 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       });
     }
     
-    // Nome do participante - Tamanho otimizado
+    // Nome do participante - EXATAMENTE como no preview
     const participantName = data.userName;
+    const namePos = formatPosition(config.namePosition, width, height);
     drawText(ctx, participantName, {
-      x: (width * config.namePosition.x) / 100,
-      y: (height * config.namePosition.y) / 100,
-      fontSize: Math.round(config.nameFontSize * multipliers.name),
+      x: namePos.x,
+      y: namePos.y,
+      fontSize: fontSizes.name,
       color: config.primaryColor,
-      fontWeight: 'bold',
+      fontWeight: 'semibold',  // Preview usa font-semibold
       align: 'center',
       fontFamily: getFontFamily()
     });
@@ -228,23 +242,29 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       .replace(/{eventStartTime}/g, formattedStartTime)
       .replace(/{eventEndTime}/g, formattedEndTime);
     
-    // Desenhar texto multilinha (sanitização será decidida internamente)
+    // Texto do corpo - EXATAMENTE como no preview
+    const bodyPos = formatPosition(config.bodyPosition, width, height);
     drawMultilineText(ctx, bodyText, {
-      x: (width * config.bodyPosition.x) / 100,
-      y: (height * config.bodyPosition.y) / 100,
-      fontSize: Math.round(config.bodyFontSize * multipliers.body),
+      x: bodyPos.x,
+      y: bodyPos.y,
+      fontSize: fontSizes.body,
       color: config.secondaryColor,
-      maxWidth: width * 0.8,
-      lineHeight: Math.round(config.bodyFontSize * multipliers.lineHeight),
+      maxWidth: width * 0.8,          // Preview usa width: '80%'
+      lineHeight: fontSizes.body * 1.5, // Preview usa lineHeight: '1.5'
       fontFamily: getFontFamily()
     });
     
-    // Footer se presente
+    // Footer - EXATAMENTE como no preview
     if (config.footer) {
+      const footerPos = formatPosition({
+        x: config.bodyPosition.x,
+        y: config.bodyPosition.y + 15  // EXATO mesmo offset do preview
+      }, width, height);
+      
       drawText(ctx, config.footer, {
-        x: (width * config.bodyPosition.x) / 100,
-        y: (height * config.bodyPosition.y) / 100 + 120,
-        fontSize: Math.round(config.bodyFontSize * multipliers.footer),
+        x: footerPos.x,
+        y: footerPos.y,
+        fontSize: fontSizes.footer,
         color: config.secondaryColor,
         align: 'center',
         fontFamily: getFontFamily()
@@ -288,9 +308,10 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
           logoWidth = (originalWidth * maxLogoSize) / originalHeight;
         }
         
-        // Centralizar a logo na posição especificada
-        const logoX = (width * config.logoPosition.x) / 100 - logoWidth / 2;
-        const logoY = (height * config.logoPosition.y) / 100 - logoHeight / 2;
+        // Logo - EXATAMENTE como no preview (centralizada na posição)
+        const logoPos = formatPosition(config.logoPosition, width, height);
+        const logoX = logoPos.x - logoWidth / 2;
+        const logoY = logoPos.y - logoHeight / 2;
         
         console.log('🖼️  Desenhando logo com proporções corretas:', { 
           originalWidth,
@@ -312,10 +333,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
           logoUrl: config.logoUrl
         });
         
-        // Desenhar placeholder da logo em caso de erro (mantem proporção quadrada para placeholder)
-        const logoSize = config.logoSize * 2;
-        const logoX = (width * config.logoPosition.x) / 100 - logoSize / 2;
-        const logoY = (height * config.logoPosition.y) / 100 - logoSize / 2;
+        // Placeholder da logo - EXATAMENTE como no preview
+        const logoSize = config.logoSize;  // Usar tamanho exato da configuração
+        const logoPos = formatPosition(config.logoPosition, width, height);
+        const logoX = logoPos.x - logoSize / 2;
+        const logoY = logoPos.y - logoSize / 2;
         
         console.log('🔄 Desenhando placeholder da logo:', { logoX, logoY, logoSize });
         
@@ -352,11 +374,12 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
           }
         });
         
-        // Carregar QR Code como imagem
+        // Carregar QR Code como imagem - EXATAMENTE como no preview
         const qrImage = await loadImage(qrDataURL);
-        const qrSize = 120;
-        const qrX = (width * config.qrCodePosition.x) / 100 - qrSize / 2;
-        const qrY = (height * config.qrCodePosition.y) / 100 - qrSize / 2;
+        const qrSize = 60;  // Preview usa width: '60px', height: '60px'
+        const qrPos = formatPosition(config.qrCodePosition, width, height);
+        const qrX = qrPos.x - qrSize / 2;  // Centralizar como no preview
+        const qrY = qrPos.y - qrSize / 2;
         
         console.log('🖼️  Desenhando QR Code:', { qrSize, qrX, qrY });
         ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
@@ -365,23 +388,24 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       } catch (qrError) {
         console.error('❌ Erro ao gerar QR Code:', qrError);
         
-        // Fallback para placeholder em caso de erro
+        // Fallback para placeholder - usar posicionamento correto
+        const qrPos = formatPosition(config.qrCodePosition, width, height);
         drawQRPlaceholder(ctx, {
-          x: (width * config.qrCodePosition.x) / 100,
-          y: (height * config.qrCodePosition.y) / 100,
-          size: 120,
+          x: qrPos.x,
+          y: qrPos.y,
+          size: 60,  // Mesmo tamanho do preview
           color: config.secondaryColor
         });
         }
       }
     }
     
-    // Data de geração
+    // Data de geração - posição fixa como no preview
     const currentDate = new Date().toLocaleDateString('pt-BR');
     drawText(ctx, `Certificado emitido em ${currentDate}`, {
       x: 40,
       y: height - 40,
-      fontSize: Math.round(config.bodyFontSize * multipliers.timestamp),
+      fontSize: fontSizes.timestamp,  // Usar tamanho exato
       color: config.secondaryColor,
       align: 'left',
       fontFamily: getFontFamily()
@@ -416,51 +440,31 @@ function getFontFamily(): string {
   return getSafeFontFamily();
 }
 
-// Multiplicadores de tamanho por template
-function getFontMultipliers(template: string) {
-  // CORREÇÃO AGRESSIVA: Multipliers drasticamente aumentados para garantir visibilidade
-  // Compensar redimensionamento, cache e otimizações automáticas do Cloudinary
-  const multipliers = {
-    elegant: {
-      title: 8.0,        // AUMENTADO DRASTICAMENTE: 4.5 → 8.0 (+78%)
-      subtitle: 4.5,     // AUMENTADO DRASTICAMENTE: 2.4 → 4.5 (+88%) 
-      name: 6.5,         // AUMENTADO DRASTICAMENTE: 3.6 → 6.5 (+81%)
-      body: 6.0,         // AUMENTADO DRASTICAMENTE: 3.4 → 6.0 (+76%)
-      lineHeight: 7.0,   // AUMENTADO DRASTICAMENTE: 4.0 → 7.0 (+75%)
-      footer: 5.0,       // AUMENTADO DRASTICAMENTE: 2.8 → 5.0 (+79%)
-      timestamp: 4.0     // AUMENTADO DRASTICAMENTE: 2.2 → 4.0 (+82%)
-    },
-    modern: {
-      title: 7.5,        // AUMENTADO DRASTICAMENTE: 4.2 → 7.5 (+79%)
-      subtitle: 4.0,     // AUMENTADO DRASTICAMENTE: 2.2 → 4.0 (+82%)
-      name: 6.0,         // AUMENTADO DRASTICAMENTE: 3.4 → 6.0 (+76%)
-      body: 5.5,         // AUMENTADO DRASTICAMENTE: 3.2 → 5.5 (+72%)
-      lineHeight: 6.5,   // AUMENTADO DRASTICAMENTE: 3.8 → 6.5 (+71%)
-      footer: 4.5,       // AUMENTADO DRASTICAMENTE: 2.6 → 4.5 (+73%)
-      timestamp: 3.5     // AUMENTADO DRASTICAMENTE: 2.0 → 3.5 (+75%)
-    },
-    classic: {
-      title: 7.0,        // AUMENTADO DRASTICAMENTE: 4.0 → 7.0 (+75%)
-      subtitle: 3.8,     // AUMENTADO DRASTICAMENTE: 2.0 → 3.8 (+90%)
-      name: 5.8,         // AUMENTADO DRASTICAMENTE: 3.2 → 5.8 (+81%)
-      body: 5.3,         // AUMENTADO DRASTICAMENTE: 3.0 → 5.3 (+77%)
-      lineHeight: 6.3,   // AUMENTADO DRASTICAMENTE: 3.6 → 6.3 (+75%)
-      footer: 4.3,       // AUMENTADO DRASTICAMENTE: 2.4 → 4.3 (+79%)
-      timestamp: 3.2     // AUMENTADO DRASTICAMENTE: 1.8 → 3.2 (+78%)
-    },
-    minimalist: {
-      title: 6.5,        // AUMENTADO DRASTICAMENTE: 5.0 → 6.5 (+30%)
-      subtitle: 3.5,     // AUMENTADO DRASTICAMENTE: 2.5 → 3.5 (+40%)
-      name: 5.2,         // AUMENTADO DRASTICAMENTE: 4.0 → 5.2 (+30%)
-      body: 5.0,         // AUMENTADO DRASTICAMENTE: 3.8 → 5.0 (+32%)
-      lineHeight: 6.0,   // AUMENTADO DRASTICAMENTE: 4.5 → 6.0 (+33%)
-      footer: 4.0,       // AUMENTADO DRASTICAMENTE: 3.0 → 4.0 (+33%)
-      timestamp: 3.0     // AUMENTADO DRASTICAMENTE: 2.2 → 3.0 (+36%)
-    }
+// 🎯 NOVA ABORDAGEM: REPLICAR EXATAMENTE O PREVIEW
+// O preview usa tamanhos EXATOS da configuração (sem multipliers)
+// Função de formatação de posição idêntica ao preview
+function formatPosition(position: { x: number; y: number }, width: number, height: number) {
+  return {
+    x: (width * position.x) / 100,
+    y: (height * position.y) / 100
   };
-  
-  return multipliers[template as keyof typeof multipliers] || multipliers.modern;
 }
+
+// 🚨 REMOVENDO MULTIPLIERS - usar tamanhos EXATOS como no preview
+// O preview usa: fontSize: `${config.titleFontSize}px` (SEM multipliers!)
+function getFontSizes(config: CertificateConfig) {
+  return {
+    title: config.titleFontSize,                    // EXATO: 24px
+    subtitle: config.titleFontSize * 0.6,          // EXATO: 24 * 0.6 = 14.4px 
+    name: config.nameFontSize,                      // EXATO: 18px
+    body: config.bodyFontSize,                      // EXATO: 12px
+    footer: config.bodyFontSize * 0.9,              // EXATO: 12 * 0.9 = 10.8px
+    timestamp: 8                                    // FIXO: 8px
+  };
+}
+
+// 🚀 CACHE para configuração de renderização - RESETADO para aplicar novos multipliers
+let _renderConfig: { isServerless: boolean; shouldUseASCII: boolean; fontStrategies: string[] } | null = null;
 
 function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   x: number;
@@ -474,15 +478,30 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   const weight = (options.fontWeight || 'normal').toLowerCase() === 'bold' ? 'bold' : 'normal';
   const family = options.fontFamily || getFontFamily();
   
-  // SEMPRE usar ASCII em produção para máxima compatibilidade
-  const isServerless = isServerlessEnvironment();
-  const shouldUseASCII = isServerless || process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered;
+  // 🎯 Cache da configuração de renderização
+  if (!_renderConfig) {
+    const isServerless = isServerlessEnvironment();
+    const shouldUseASCII = isServerless || process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered;
+    
+    // Estratégias de fonte em ordem de preferência
+    const fontStrategies = isServerless ? [
+      'sans-serif',                    // Mais básico possível
+      'Arial',                         // Fallback comum
+      'monospace'                      // Última opção
+    ] : [
+      family,                          // Fonte preferida
+      'Arial',                         // Fallback comum
+      'sans-serif'                     // Básico
+    ];
+
+    _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
+  }
   
   // Sanitizar texto de forma mais agressiva
-  let finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
+  let finalText = _renderConfig.shouldUseASCII ? sanitizeTextForPDF(text) : text;
   
   // Em serverless, forçar encoding ainda mais seguro
-  if (isServerless) {
+  if (_renderConfig.isServerless) {
     finalText = finalText
       .normalize('NFD')  // Decompor caracteres
       .replace(/[\u0300-\u036f]/g, '') // Remover diacríticos
@@ -492,20 +511,10 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       .trim();
   }
   
-  // Estratégias de fonte em ordem de preferência
-  const fontStrategies = isServerless ? [
-    'sans-serif',                    // Mais básico possível
-    'Arial',                         // Fallback comum
-    'monospace'                      // Última opção
-  ] : [
-    family,                          // Fonte preferida
-    'Arial',                         // Fallback comum
-    'sans-serif'                     // Básico
-  ];
-  
   let drawn = false;
   
-  for (const fontFamily of fontStrategies) {
+  // ⚡ RENDERIZAÇÃO OTIMIZADA - menos logs
+  for (const fontFamily of _renderConfig.fontStrategies) {
     try {
       const fontString = `${weight} ${options.fontSize}px ${fontFamily}`;
       ctx.font = fontString;
@@ -513,21 +522,16 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       ctx.textAlign = options.align || 'left';
       ctx.textBaseline = 'top';
       
-      console.log(`🖍️  [${isServerless ? 'SERVERLESS' : 'LOCAL'}] Tentando: "${finalText}"`);
-      console.log(`    📝 Fonte: ${fontString}`);
-      console.log(`    🔤 ASCII: ${shouldUseASCII}`);
-      
-      // Testar se a fonte funciona medindo texto
+      // 📝 Log apenas em caso de falha (modo conciso)
       const metrics = ctx.measureText(finalText);
       if (metrics.width > 0) {
         ctx.fillText(finalText, options.x, options.y);
-        console.log(`    ✅ Sucesso com: ${fontFamily}`);
         drawn = true;
         break;
       }
       
-    } catch (drawError) {
-      console.warn(`    ❌ Falha com ${fontFamily}:`, drawError);
+    } catch {
+      // Silencioso - apenas continua para próxima fonte
       continue;
     }
   }
@@ -774,95 +778,50 @@ let fontsRegistered = false;
 async function ensureFontsRegistered(registerFont: (src: string, options: { family: string }) => void) {
   if (fontsRegistered) return;
   
-  console.log('🔤 Iniciando registro de fontes para produção...');
-  console.log('🌍 Ambiente serverless:', isServerlessEnvironment());
+  console.log('🔤 Iniciando registro de fontes...');
+  
+  // 🚨 CORREÇÃO: Em ambiente de desenvolvimento Windows, pular registro de fontes
+  if (isServerlessEnvironment()) {
+    console.log('🏭 Serverless: usando fontes do sistema');
+    process.env.FORCE_ASCII_ONLY = 'true';
+    fontsRegistered = false; // Força uso de fontes do sistema
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    console.log('🪟 Windows: usando fontes do sistema (fontes customizadas desabilitadas)');
+    fontsRegistered = false; // Não registrar fontes customizadas no Windows
+    return;
+  }
+
+  // 🔄 Apenas tentar registrar fontes em Linux/macOS em produção
+  const tmpDir = process.env.TEMP || '/tmp';
   
   try {
-    // Em ambientes serverless, pular fontes customizadas e usar fontes do sistema
-    if (isServerlessEnvironment()) {
-      console.log('🏭 Ambiente serverless detectado - usando fontes do sistema');
-      process.env.FORCE_ASCII_ONLY = 'true';
-      fontsRegistered = false; // Força uso de fontes do sistema
-      return;
-    }
+    console.log('🐧 Linux/macOS: tentando registrar fontes customizadas...');
+    
+    // Tentar apenas fontes confiáveis em produção
+    const fontSources = [
+      { url: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2', name: 'Inter-Regular' },
+      { url: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiJ-Ek-_EeA.woff2', name: 'Inter-Bold' }
+    ];
 
-    const tmpDir = process.env.TEMP || '/tmp';
-
-    // 1) Tentar registrar fontes EMBUTIDAS (OpenSans) como TTF a partir de base64
-    try {
-      const regularEmbedded = EMBEDDED_FONTS.find(f => f.family === 'OpenSans' && f.weight === 'normal');
-      const boldEmbedded = EMBEDDED_FONTS.find(f => f.family === 'OpenSans' && f.weight === 'bold');
-
-      if (regularEmbedded && boldEmbedded) {
-        const regularPath = path.join(tmpDir, 'OpenSans-Regular.ttf');
-        const boldPath = path.join(tmpDir, 'OpenSans-Bold.ttf');
-
-        await writeEmbeddedFontToPath(regularEmbedded.data, regularPath);
-        await writeEmbeddedFontToPath(boldEmbedded.data, boldPath);
-
-        // Registrar famílias embutidas como ProductionFont
-        registerFont(regularPath, { family: 'ProductionFont' });
-        registerFont(boldPath, { family: 'ProductionFont' });
-
-        fontsRegistered = true;
-        console.log('✅ OpenSans (embutida) registrada com sucesso');
-        return;
+    for (const font of fontSources) {
+      try {
+        const fontPath = path.join(tmpDir, `${font.name}.woff2`);
+        await downloadIfMissing(font.url, fontPath);
+        registerFont(fontPath, { family: 'Inter' });
+      } catch (fontError) {
+        console.log(`⚠️ Fonte ${font.name} falhou: ${(fontError as Error).message}`);
+        continue; // Continua para próxima fonte
       }
-    } catch (embeddedError) {
-      console.warn('❌ Falha ao registrar fontes embutidas:', embeddedError);
     }
-
-    // 2) Se não for Windows, tentar baixar e registrar fontes remotas (evitar .woff2 no Windows)
-    if (process.platform !== 'win32') {
-      const fontSources = [
-        RELIABLE_FONT_URLS.notoSans,
-        RELIABLE_FONT_URLS.roboto,
-        RELIABLE_FONT_URLS.inter
-      ];
-
-      let fontLoaded = false;
-
-      // Tentar cada fonte até uma funcionar
-      for (let i = 0; i < fontSources.length; i++) {
-        const source = fontSources[i];
-        const fontName = ['NotoSans', 'Roboto', 'Inter'][i];
-        
-        if (!source || !fontName) continue; // Pular se não tiver source válida
-        
-        try {
-          console.log(`🔄 Tentando carregar ${fontName}...`);
-          
-          const regularPath = path.join(tmpDir, `${fontName}-Regular.woff2`);
-          const boldPath = path.join(tmpDir, `${fontName}-Bold.woff2`);
-          
-          await downloadIfMissing(source.regular, regularPath);
-          await downloadIfMissing(source.bold, boldPath);
-
-          // Registrar famílias (pode falhar se formato não suportado)
-          registerFont(regularPath, { family: 'ProductionFont' });
-          registerFont(boldPath, { family: 'ProductionFont' });
-
-          fontsRegistered = true;
-          fontLoaded = true;
-          console.log(`✅ ${fontName} registrada com sucesso`);
-          break;
-        } catch (sourceError) {
-          console.warn(`❌ Falha com ${fontName}:`, sourceError);
-          continue;
-        }
-      }
-
-      if (!fontLoaded) {
-        throw new Error('Nenhuma fonte pôde ser carregada');
-      }
-    } else {
-      console.log('🪟 Windows detectado - pulando tentativa de registrar WOFF2 (não suportado pelo node-canvas).');
-    }
-
-  } catch (err) {
-    console.warn('⚠️  Falha total no carregamento de fontes. Usando sistema de fallback.', err);
-    // Em produção serverless, sempre usar ASCII + fontes do sistema
-    process.env.FORCE_ASCII_ONLY = 'true';
+    
+    fontsRegistered = true;
+    console.log('✅ Fontes customizadas registradas (Linux/macOS)');
+    
+  } catch (generalError) {
+    console.log('⚠️ Falha geral no registro de fontes, usando fontes do sistema:', (generalError as Error).message);
     fontsRegistered = false;
   }
 }
@@ -881,21 +840,6 @@ async function downloadIfMissing(url: string, destPath: string) {
   }
   const arrayBuffer = await res.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  await fs.writeFile(destPath, buffer);
-}
-
-/**
- * Grava uma fonte embutida (data URI base64) para um caminho no disco
- */
-async function writeEmbeddedFontToPath(dataUri: string, destPath: string) {
-  try {
-    await fs.access(destPath);
-    return; // já existe
-  } catch {
-    // criar/atualizar arquivo
-  }
-  const base64 = dataUri.split(',')[1] || '';
-  const buffer = Buffer.from(base64, 'base64');
   await fs.writeFile(destPath, buffer);
 }
 
