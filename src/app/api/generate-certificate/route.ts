@@ -92,45 +92,36 @@ export async function POST(request: NextRequest) {
     let imageBuffer: Buffer | null = null;
     let generationMethod = '';
     
-    // TENTATIVA 1: API Ultra Simples (texto puro)
+    // ✅ GERAÇÃO DIRETA DE PNG COM CANVAS (fluxo otimizado)
     try {
-      console.log('🚨 Tentando API Ultra Simples...');
+      console.log('🎨 Gerando certificado PNG com Canvas...');
       
-      const simpleUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/generate-certificate-simple`;
-      console.log('🌐 URL simples:', simpleUrl);
+      // Importar gerador de imagem de certificado
+      const { generateCertificateImage } = await import('@/lib/certificate-image-generator');
       
-      const simpleResponse = await fetch(simpleUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userName: fullCertificateData.userName,
-          eventName: fullCertificateData.eventName,
-          eventDate: fullCertificateData.eventDate
-        })
+      imageBuffer = await generateCertificateImage({
+        userName: fullCertificateData.userName,
+        eventName: fullCertificateData.eventName,
+        eventDate: fullCertificateData.eventDate,
+        eventStartTime: fullCertificateData.eventStartTime,
+        eventEndTime: fullCertificateData.eventEndTime,
+        eventId: eventId,
+        config: fullCertificateData.config
       });
-
-      console.log('📊 Simple response status:', simpleResponse.status);
-
-      if (simpleResponse.ok) {
-        imageBuffer = Buffer.from(await simpleResponse.arrayBuffer());
-        generationMethod = 'SIMPLE_TEXT';
-        console.log('🎉 API Ultra Simples funcionou!');
-        
-        logInfo('🚨 Certificado texto gerado', { 
-          userId, 
-          eventId, 
-          imageSize: imageBuffer.length,
-          method: 'Simple - texto puro'
-        });
-      } else {
-        const errorText = await simpleResponse.text();
-        console.error('❌ Simple response error:', errorText);
-        throw new Error(`API simples falhou: ${simpleResponse.status} - ${errorText}`);
-      }
       
-    } catch (simpleError) {
-      console.error('💀 API Simples falhou:', simpleError);
-      throw new Error(`Até a API mais simples falhou: ${(simpleError as Error).message}`);
+      generationMethod = 'CANVAS_PNG';
+      console.log('🎉 Certificado PNG gerado com Canvas!');
+      
+      logInfo('✅ Certificado PNG gerado', { 
+        userId, 
+        eventId, 
+        imageSize: imageBuffer.length,
+        method: 'Canvas - geração direta'
+      });
+      
+    } catch (canvasError) {
+      console.error('❌ Geração Canvas falhou:', canvasError);
+      throw new Error(`Falha na geração de certificado: ${(canvasError as Error).message}`);
     }
     
     if (!imageBuffer) {

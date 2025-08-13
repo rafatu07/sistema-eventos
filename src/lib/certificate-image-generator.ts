@@ -472,7 +472,7 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   // 🎯 Cache da configuração de renderização
   if (!_renderConfig) {
     const isServerless = isServerlessEnvironment();
-    const shouldUseASCII = isServerless || process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered;
+    const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerless;
     
     // Estratégias de fonte simples e confiáveis
     const fontStrategies = [
@@ -484,30 +484,21 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
   }
   
-  // 🧹 CORREÇÃO DRÁSTICA: Forçar texto ASCII SEMPRE em produção
+  // ✅ CORREÇÃO: Manter caracteres portugueses em produção
   let finalText = text;
   
   if (_renderConfig.isServerless || _renderConfig.shouldUseASCII) {
-    // SUPER-AGRESSIVO: Converter tudo para ASCII seguro
+    // MODO CONSERVATIVO: Apenas remover caracteres realmente problemáticos
     finalText = text
-      .normalize('NFD')                           // Decompor acentos
-      .replace(/[\u0300-\u036f]/g, '')            // Remove diacríticos  
-      .replace(/ç/g, 'c').replace(/Ç/g, 'C')      // ç → c
-      .replace(/ã/g, 'a').replace(/Ã/g, 'A')      // ã → a
-      .replace(/õ/g, 'o').replace(/Õ/g, 'O')      // õ → o
-      .replace(/á/g, 'a').replace(/Á/g, 'A')      // á → a
-      .replace(/é/g, 'e').replace(/É/g, 'E')      // é → e
-      .replace(/í/g, 'i').replace(/Í/g, 'I')      // í → i
-      .replace(/ó/g, 'o').replace(/Ó/g, 'O')      // ó → o
-      .replace(/ú/g, 'u').replace(/Ú/g, 'U')      // ú → u
-      .replace(/[^\x20-\x7E]/g, '?')              // Qualquer não-ASCII → ?
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove apenas caracteres de controle
+      .replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '') // Remove emojis
       .replace(/\s+/g, ' ')                       // Normalizar espaços
       .trim();
     
-    console.log('🔥 TEXTO ULTRA-LIMPO:', {
+    console.log('✅ TEXTO PRESERVADO:', {
       original: `"${text.substring(0, 30)}"`,
-      limpo: `"${finalText.substring(0, 30)}"`,
-      allASCII: finalText.split('').every(c => c.charCodeAt(0) >= 32 && c.charCodeAt(0) <= 126)
+      preservado: `"${finalText.substring(0, 30)}"`,
+      manteuAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)
     });
   }
   
@@ -590,10 +581,10 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   fontFamily?: string;
 }) {
   const fontFamily = options.fontFamily || getFontFamily();
-  const shouldUseASCII = isServerlessEnvironment() || !fontsRegistered;
+  const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerlessEnvironment();
   
-  // Sanitizar texto se necessário
-  const finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
+  // Preservar texto com acentos em produção
+  const finalText = shouldUseASCII ? text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim() : text;
   
   ctx.font = `${options.fontSize}px ${fontFamily}`;
   ctx.fillStyle = options.color;
@@ -626,11 +617,9 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
 
 function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number, text: string, opacity: number, color: string) {
   const family = getFontFamily();
-  const shouldUseASCII = isServerlessEnvironment() || 
-                        process.env.FORCE_ASCII_ONLY === 'true' || 
-                        !fontsRegistered;
+  const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerlessEnvironment();
   
-  const finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
+  const finalText = shouldUseASCII ? text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim() : text;
 
   ctx.save();
   ctx.translate(width / 2, height / 2);
@@ -646,7 +635,7 @@ function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: num
   } catch (error) {
     console.error('❌ Erro ao desenhar watermark:', error);
     ctx.font = 'bold 80px sans-serif';
-    ctx.fillText(sanitizeTextForPDF(text), 0, 0);
+    ctx.fillText(text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim(), 0, 0);
   }
   
   ctx.restore();
