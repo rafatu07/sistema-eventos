@@ -103,15 +103,9 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         console.warn('⚠️  Erro no carregamento de fontes locais (usando fallback):', err);
       }
     } else {
-      // Produção: configuração ultra-simples
-      console.log('🏭 PRODUÇÃO DETECTADA - usando estratégia ultra-simples');
-      console.log('⚡ Pulando registro de fontes customizadas');
-      console.log('🔤 Forçando fonts do sistema + ASCII');
-      
-      // Forçar configurações seguras para produção
-      process.env.FORCE_ASCII_ONLY = 'true';
-      process.env.TESTED_FONT = 'Arial, sans-serif'; // Força fonte ultra-confiável
-      fontsRegistered = false; // Garantir que não tenta usar fonts registradas
+      // Produção: configuração simples e confiável
+      console.log('🏭 PRODUÇÃO: usando configuração simples');
+      fontsRegistered = false; // Não registrar fontes customizadas em produção
     }
     const QRCode = await import('qrcode');
     
@@ -481,15 +475,11 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     const isServerless = isServerlessEnvironment();
     const shouldUseASCII = isServerless || process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered;
     
-    // Estratégias de fonte em ordem de preferência
-    const fontStrategies = isServerless ? [
-      'sans-serif',                    // Mais básico possível
-      'Arial',                         // Fallback comum
-      'monospace'                      // Última opção
-    ] : [
+    // Estratégias de fonte simples e confiáveis
+    const fontStrategies = [
       family,                          // Fonte preferida
-      'Arial',                         // Fallback comum
-      'sans-serif'                     // Básico
+      'Arial',                         // Fallback confiável
+      'sans-serif'                     // Universal
     ];
 
     _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
@@ -498,14 +488,13 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   // Sanitizar texto de forma mais agressiva
   let finalText = _renderConfig.shouldUseASCII ? sanitizeTextForPDF(text) : text;
   
-  // Em serverless, forçar encoding ainda mais seguro
-  if (_renderConfig.isServerless) {
+  // Normalização para produção
+  if (_renderConfig.shouldUseASCII) {
     finalText = finalText
-      .normalize('NFD')  // Decompor caracteres
-      .replace(/[\u0300-\u036f]/g, '') // Remover diacríticos
-      .replace(/[^\x00-\x7F]/g, '') // Manter apenas ASCII básico
-      .replace(/[^\w\s\-\.\,\!\?\(\)]/g, ' ') // Manter apenas caracteres ultra-seguros
-      .replace(/\s+/g, ' ')  // Normalizar espaços
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\x00-\x7F]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
   }
   
@@ -514,13 +503,13 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   // ⚡ RENDERIZAÇÃO OTIMIZADA - menos logs
   for (const fontFamily of _renderConfig.fontStrategies) {
     try {
+      const weight = options.fontWeight || 'normal';
       const fontString = `${weight} ${options.fontSize}px ${fontFamily}`;
       ctx.font = fontString;
       ctx.fillStyle = options.color;
       ctx.textAlign = options.align || 'left';
       ctx.textBaseline = 'top';
       
-      // 📝 Log apenas em caso de falha (modo conciso)
       const metrics = ctx.measureText(finalText);
       if (metrics.width > 0) {
         ctx.fillText(finalText, options.x, options.y);
@@ -534,15 +523,19 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     }
   }
   
-  // Se nada funcionou, desenhar caractere por caractere
+  // Fallback simples
   if (!drawn) {
-    console.error('🆘 FALLBACK EXTREMO: desenhando caractere por caractere');
-    ctx.font = `${weight} ${options.fontSize}px monospace`;
-    ctx.fillStyle = options.color;
-    
-    // Converter para apenas letras e números
-    const safeText = finalText.replace(/[^a-zA-Z0-9\s]/g, '');
-    ctx.fillText(safeText, options.x, options.y);
+    try {
+      ctx.font = `normal ${options.fontSize}px Arial`;
+      ctx.fillStyle = options.color;
+      ctx.textAlign = options.align || 'left';
+      ctx.textBaseline = 'top';
+      
+      const safeText = finalText.replace(/[^a-zA-Z0-9\s\.\,\!\?\-]/g, '');
+      ctx.fillText(safeText, options.x, options.y);
+    } catch (error) {
+      console.error('❌ Fallback falhado:', error);
+    }
   }
 }
 
@@ -555,47 +548,13 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  // Usar a mesma estratégia robusta do drawText
-  const isServerless = isServerlessEnvironment();
-  const shouldUseASCII = isServerless || process.env.FORCE_ASCII_ONLY === 'true' || !fontsRegistered;
+  const fontFamily = options.fontFamily || getFontFamily();
+  const shouldUseASCII = isServerlessEnvironment() || !fontsRegistered;
   
-  // Sanitizar texto de forma mais agressiva
+  // Sanitizar texto se necessário
   let finalText = shouldUseASCII ? sanitizeTextForPDF(text) : text;
   
-  if (isServerless) {
-    finalText = finalText
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\x00-\x7F]/g, '')
-      .replace(/[^\w\s\-\.\,\!\?\(\)]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-  
-  const fontStrategies = isServerless ? ['sans-serif', 'Arial', 'monospace'] : [
-    options.fontFamily || getFontFamily(),
-    'Arial',
-    'sans-serif'
-  ];
-  
-  let successfulFont = 'monospace'; // Fallback padrão
-  
-  // Encontrar uma fonte que funcione
-  for (const fontFamily of fontStrategies) {
-    try {
-      const fontString = `${options.fontSize}px ${fontFamily}`;
-      ctx.font = fontString;
-      const testMetrics = ctx.measureText('test');
-      if (testMetrics.width > 0) {
-        successfulFont = fontFamily;
-        break;
-      }
-    } catch {
-      continue;
-    }
-  }
-  
-  ctx.font = `${options.fontSize}px ${successfulFont}`;
+  ctx.font = `${options.fontSize}px ${fontFamily}`;
   ctx.fillStyle = options.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -619,20 +578,8 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   
   const startY = options.y - (lines.length * options.lineHeight) / 2;
   
-  console.log(`🖍️  [${isServerless ? 'SERVERLESS' : 'LOCAL'}] Desenhando ${lines.length} linhas`);
-  console.log(`    📝 Fonte final: ${successfulFont}, ASCII: ${shouldUseASCII}`);
-  
   lines.forEach((line, index) => {
-    try {
-      // Em caso de falha extrema, usar apenas letras e números
-      const safeLine = isServerless ? line.replace(/[^a-zA-Z0-9\s]/g, '') : line;
-      ctx.fillText(safeLine, options.x, startY + index * options.lineHeight);
-    } catch (drawError) {
-      console.error(`❌ Erro linha ${index + 1}, usando fallback extremo:`, drawError);
-      ctx.font = `${options.fontSize}px monospace`;
-      const ultraSafeLine = line.replace(/[^a-zA-Z0-9\s]/g, '');
-      ctx.fillText(ultraSafeLine, options.x, startY + index * options.lineHeight);
-    }
+    ctx.fillText(line, options.x, startY + index * options.lineHeight);
   });
 }
 

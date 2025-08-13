@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
+import chromium from '@sparticuz/chromium';
 import { CertificateConfig } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -7,9 +8,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { userName, eventName, eventDate, eventStartTime, eventEndTime, config } = body;
 
-    console.log('🎯 Gerando certificado via HTML/Puppeteer (método do preview)');
+    console.log('🎯 Gerando certificado via HTML/Puppeteer (UNIFICADO local + produção)');
     console.log('🎨 Background configurado:', config.backgroundColor || '#ffffff');
-    console.log('📋 Config completa:', JSON.stringify(config, null, 2));
 
     // HTML completo com estilos inline
     const html = generateCertificateHtml({
@@ -21,22 +21,25 @@ export async function POST(request: NextRequest) {
       config
     });
 
-    // Iniciar Puppeteer com configuração otimizada
+    // Configuração otimizada para LOCAL + VERCEL
+    const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+    
     const browser = await puppeteer.launch({
-      headless: true, // Corrigido para compatibilidade com versões mais recentes
-      args: [
+      headless: true,
+      executablePath: isProduction ? await chromium.executablePath() : undefined,
+      args: isProduction ? [
+        ...chromium.args,
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-web-security',
-        '--disable-extensions',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--force-color-profile=srgb',
-        '--disable-software-rasterizer'
+      ] : [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
       ]
     });
+    
+    console.log(`🚀 Puppeteer iniciado (${isProduction ? 'PRODUÇÃO' : 'LOCAL'})`);
 
     const page = await browser.newPage();
     
@@ -47,36 +50,24 @@ export async function POST(request: NextRequest) {
       deviceScaleFactor: 2 // Alta qualidade
     });
 
-    // Definir conteúdo HTML e aguardar tudo carregar
+    // Definir conteúdo HTML e aguardar carregar
     await page.setContent(html, { 
-      waitUntil: ['networkidle0', 'domcontentloaded', 'load'],
-      timeout: 10000 
+      waitUntil: 'networkidle0',
+      timeout: 15000 
     });
     
-    // Aguardar um pouco mais para garantir que tudo foi renderizado
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Forçar fundo da configuração na página
-    await page.evaluate((bgColor) => {
-      document.body.style.backgroundColor = bgColor;
-      document.documentElement.style.backgroundColor = bgColor;
-    }, config.backgroundColor || '#ffffff');
+    // Aguardar renderização completa
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Capturar como PNG com fundo branco
+    // Capturar como PNG
     const screenshot = await page.screenshot({
       type: 'png',
-      omitBackground: false, // Manter o fundo definido no CSS
-      clip: {
-        x: 0,
-        y: 0,
-        width: 1200,
-        height: 800
-      }
+      omitBackground: false,
+      clip: { x: 0, y: 0, width: 1200, height: 800 }
     });
 
     await browser.close();
-
-    console.log('✅ Certificado gerado via HTML/Puppeteer com sucesso');
+    console.log('✅ Certificado HTML/Puppeteer gerado com sucesso');
 
     // Retornar a imagem
     return new NextResponse(screenshot, {
