@@ -4,8 +4,6 @@ import type { CanvasRenderingContext2D } from 'canvas';
 import fs from 'fs/promises';
 import path from 'path';
 import { 
-  RELIABLE_FONT_URLS, 
-  EMBEDDED_FONTS, 
   getSafeFontFamily, 
   isServerlessEnvironment 
 } from './embedded-fonts';

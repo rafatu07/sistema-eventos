@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCertificatePDF } from '@/lib/pdf-generator';
 import { generateCertificateImage } from '@/lib/certificate-image-generator';
-import { uploadPDFToCloudinary, uploadImageToCloudinary, getSecurePDFUrl } from '@/lib/upload';
+import { uploadPDFToCloudinary, uploadImageToCloudinary } from '@/lib/upload';
 import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
+import { CertificateConfig } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,7 +102,7 @@ interface CertificateData {
   eventDate: Date;
   eventStartTime?: Date;
   eventEndTime?: Date;
-  config: any;
+  config: CertificateConfig;
 }
 
 function generateCertificateHtml(data: CertificateData): string {

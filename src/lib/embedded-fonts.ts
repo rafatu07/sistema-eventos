@@ -74,7 +74,6 @@ export const SAFE_FONT_FAMILIES = {
 
 // 🚀 CACHE para evitar detecções repetitivas - RESETADO para aplicar multipliers extremos
 let _cachedEnvironmentResult: boolean | null = null;
-let _environmentDetectionCount = 0;
 
 /**
  * Detecta se está em ambiente serverless/produção (COM CACHE)
