@@ -86,7 +86,6 @@ export async function POST(request: NextRequest) {
       config: certificateConfig || undefined // Converter null para undefined
     };
 
-    let certificateUrl: string;
     let generationType: 'image' | 'pdf' | 'svg-fallback' = 'pdf';
     
     // 🚀 NOVO FLUXO UNIFICADO: SEMPRE PNG PRIMEIRO (sugestão do usuário implementada)
@@ -178,7 +177,7 @@ export async function POST(request: NextRequest) {
     // SEMPRE salvar PNG no Cloudinary (único fonte da verdade)
     const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_${generationMethod}_${userId}_${eventId}_${cacheBreaker}`);
-    certificateUrl = uploadResult.secureUrl;
+    const certificateUrl = uploadResult.secureUrl;
     generationType = 'image';
     
     logInfo('✅ Certificado PNG salvo no Cloudinary', { 
