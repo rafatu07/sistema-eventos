@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadImageToCloudinary } from '@/lib/upload';
+import { uploadImageToCloudinary, uploadPDFToCloudinary } from '@/lib/upload';
 import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
@@ -122,57 +122,60 @@ export async function POST(request: NextRequest) {
     let imageBuffer: Buffer | null = null;
     let generationMethod = '';
     
-    // ✅ GERAÇÃO DIRETA DE PNG COM CANVAS (fluxo otimizado)
+    // 🚫 CANVAS PNG TEMPORARIAMENTE DESABILITADO - problemas no Vercel
+    console.log('🚫 Canvas PNG desabilitado devido a problemas de renderização no Vercel');
+    console.log('🔄 Mudando para geração PDF direta usando componente reutilizável');
+    
     try {
-      console.log('🎨 Gerando certificado PNG com Canvas...');
+      console.log('🎨 Gerando certificado PDF...');
       
-      // Importar gerador de imagem de certificado
-      const { generateCertificateImage } = await import('@/lib/certificate-image-generator');
+      // Importar gerador de PDF de certificado
+      const { generateCertificatePDF } = await import('@/lib/certificate-pdf-generator');
       
-      imageBuffer = await generateCertificateImage({
-        userName: fullCertificateData.userName,
-        eventName: fullCertificateData.eventName,
-        eventDate: fullCertificateData.eventDate,
-        eventStartTime: fullCertificateData.eventStartTime,
-        eventEndTime: fullCertificateData.eventEndTime,
+      imageBuffer = await generateCertificatePDF({
+        userName: certificateData.userName,
+        eventName: certificateData.eventName,
+        eventDate: certificateData.eventDate,
+        eventStartTime: certificateData.eventStartTime,
+        eventEndTime: certificateData.eventEndTime,
         eventId: eventId,
-        config: fullCertificateData.config
+        config: certificateConfig
       });
       
-      generationMethod = 'CANVAS_PNG';
-      console.log('🎉 Certificado PNG gerado com Canvas!');
+      generationMethod = 'PDF_DIRECT';
+      console.log('🎉 Certificado PDF gerado com componente reutilizável!');
       
-      logInfo('✅ Certificado PNG gerado', { 
+      logInfo('✅ Certificado PDF gerado', { 
         userId, 
         eventId, 
-        imageSize: imageBuffer.length,
-        method: 'Canvas - geração direta'
+        pdfSize: imageBuffer.length,
+        method: 'PDF - geração direta com componente reutilizável'
       });
       
-    } catch (canvasError) {
-      console.error('❌ Geração Canvas falhou:', canvasError);
-      throw new Error(`Falha na geração de certificado: ${(canvasError as Error).message}`);
+    } catch (pdfError) {
+      console.error('❌ Geração PDF falhou:', pdfError);
+      throw new Error(`Falha na geração de certificado PDF: ${(pdfError as Error).message}`);
     }
     
     if (!imageBuffer) {
       throw new Error('Falha em gerar imagem via HTML/browsers');
     }
 
-    console.log('🎯 PASSO 2: Salvando PNG no Cloudinary...');
+    console.log('🎯 PASSO 2: Salvando PDF no Cloudinary...');
     
-    // SEMPRE salvar PNG no Cloudinary (único fonte da verdade)
+    // SEMPRE salvar PDF no Cloudinary (único fonte da verdade)
     const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_${generationMethod}_${userId}_${eventId}_${cacheBreaker}`);
+    const uploadResult = await uploadPDFToCloudinary(imageBuffer, `certificate_${generationMethod}_${userId}_${eventId}_${cacheBreaker}`);
     const certificateUrl = uploadResult.secureUrl;
-    generationType = 'image';
+    generationType = 'pdf';
     
-    logInfo('✅ Certificado PNG salvo no Cloudinary', { 
+    logInfo('✅ Certificado PDF salvo no Cloudinary', { 
       userId, 
       eventId, 
       publicId: uploadResult.publicId,
       certificateUrl: certificateUrl.substring(0, 50) + '...',
       generationMethod: generationMethod,
-      success: 'Certificado perfeito gerado!'
+      success: 'Certificado PDF gerado com sucesso!'
     });
 
     console.log('🎯 PASSO 3: URL será salva no Firebase (próximo)');
@@ -205,9 +208,9 @@ export async function POST(request: NextRequest) {
       certificateUrl,
       certificateType: generationType,
       message: `Certificado gerado com sucesso como ${
-        generationType === 'image' ? 'imagem PNG' : 
         generationType === 'pdf' ? 'PDF' : 
-        'SVG de fallback'
+        generationType === 'image' ? 'imagem PNG' : 
+        'formato alternativo'
       }!`,
     }, {
       headers: createRateLimitHeaders(rateLimitResult)
