@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chromium } from 'playwright';
 import { CertificateConfig } from '@/types';
 
+// Configurações para Vercel (sem vercel.json)
+export const runtime = 'nodejs';
+export const maxDuration = 59; // máximo possível sem vercel.json
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   console.log('🎭 INICIANDO geração com PLAYWRIGHT (alternativa Puppeteer)');
   

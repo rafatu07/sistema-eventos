@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { CertificateConfig } from '@/types';
 
-// ⚡ SOLUÇÃO DEFINITIVA PARA VERCEL - USANDO CLOUDINARY TRANSFORMATIONS
-// Esta é a abordagem mais confiável para serverless functions
+// ⚡ SOLUÇÃO CLOUDINARY PARA VERCEL - SEM VERCEL.JSON
+// Esta é a abordagem usando Cloudinary para serverless functions
 
 export const runtime = 'nodejs';
-export const maxDuration = 30; // 30s é suficiente para Cloudinary
+export const maxDuration = 45; // 45s para Cloudinary
 export const dynamic = 'force-dynamic';
 
 cloudinary.config({
