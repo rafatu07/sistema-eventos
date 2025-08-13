@@ -136,7 +136,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     // Border se habilitado
     if (config.showBorder) {
       ctx.strokeStyle = config.borderColor;
-      ctx.lineWidth = config.borderWidth * 2; // Dobrar para alta resolução
+      ctx.lineWidth = config.borderWidth; // ✅ CORREÇÃO: Usar valor exato da configuração
       ctx.strokeRect(
         config.borderWidth, 
         config.borderWidth, 
@@ -545,9 +545,9 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
         ctx.textAlign = options.align || 'left';
         ctx.textBaseline = 'top';
         
-        // Texto ultra-seguro: apenas ASCII básico
+        // ✅ CORREÇÃO: Preservar caracteres portugueses no fallback
         const ultraSafeText = finalText
-          .replace(/[^a-zA-Z0-9\s\.\,\!\?\-\(\)]/g, ' ')
+          .replace(/[^\w\sàáâãäåæçèéêëìíîïñòóôõöøùúûüýÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝ\.\,\!\?\-\(\)]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim() || 'TEXTO';
         
@@ -757,7 +757,7 @@ async function ensureFontsRegistered(registerFont: (src: string, options: { fami
   // 🚨 CORREÇÃO: Em ambiente de desenvolvimento Windows, pular registro de fontes
   if (isServerlessEnvironment()) {
     console.log('🏭 Serverless: usando fontes do sistema');
-    process.env.FORCE_ASCII_ONLY = 'true';
+    // ✅ REMOVIDO: process.env.FORCE_ASCII_ONLY = 'true'; - não forçar ASCII em produção
     fontsRegistered = false; // Força uso de fontes do sistema
     return;
   }
@@ -865,10 +865,10 @@ function testFontRendering(ctx: CanvasRenderingContext2D) {
   console.log(`   🌍 Ambiente: ${isServerless ? 'SERVERLESS' : 'LOCAL'}`);
   console.log(`   🔤 Suporte acentos: ${canRenderAccents ? 'SIM' : 'NÃO'}`);
   
-  // Se não suporta acentos ou está em produção, forçar ASCII
-  if (!canRenderAccents || isServerless) {
+  // ✅ CORREÇÃO: Apenas forçar ASCII se realmente não conseguir renderizar acentos
+  if (!canRenderAccents && !isServerless) {
     process.env.FORCE_ASCII_ONLY = 'true';
-    console.log(`   ⚠️  ASCII FORÇADO`);
+    console.log(`   ⚠️  ASCII FORÇADO (apenas localmente se fontes falharem)`);
   }
   
   // Se suporta acentos localmente, liberar Unicode e marcar fontes como "registradas"
