@@ -6,7 +6,7 @@ import { logInfo, logError } from '@/lib/logger';
 import { rateLimit, getUserIdentifier } from '@/lib/rate-limit';
 
 /**
- * 📄 API DINÂMICO - Gera PDF em tempo real sem storage
+ * 📄 API DINÂMICO - Gera certificado PDF em tempo real sem storage
  * 
  * URL: /api/certificate/download?registrationId=xxx
  * 
@@ -14,6 +14,7 @@ import { rateLimit, getUserIdentifier } from '@/lib/rate-limit';
  * - ✅ Sem dependência de storage externo
  * - ✅ Sempre atualizado com configurações mais recentes
  * - ✅ Zero custos de storage
+ * - ✅ Puppeteer + @sparticuz/chromium para Vercel
  * 
  * Desvantagens:
  * - ⚠️ Mais lento (gera a cada acesso)
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       hasConfig: !!certificateConfig
     });
 
-    // 🔄 Gerar PDF dinamicamente
+    // 🔄 Gerar PDF dinamicamente com Puppeteer + @sparticuz/chromium
     const pdfBuffer = await generateCertificatePDF({
       userName: registration.userName,
       eventName: event.name,
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
     });
 
     const duration = Date.now() - startTime;
-    logInfo('Certificado gerado dinamicamente', {
+    logInfo('Certificado PDF gerado dinamicamente', {
       registrationId,
       userId: registration.userId,
       eventId: registration.eventId,

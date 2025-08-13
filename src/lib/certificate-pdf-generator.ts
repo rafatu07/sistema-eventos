@@ -420,8 +420,13 @@ const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
     // Detectar se está em ambiente Vercel/serverless
     const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
     
-    // Configurações simplificadas para máxima compatibilidade
-    const launchOptions = {
+    // 🚀 CONFIGURAÇÃO PARA VERCEL: Usar @sparticuz/chromium
+    const launchOptions: {
+      args: string[];
+      headless: boolean;
+      defaultViewport: { width: number; height: number };
+      executablePath?: string;
+    } = {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -438,10 +443,32 @@ const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
       defaultViewport: { width: 1200, height: 800 }
     };
 
+    // 🔧 VERCEL: Usar @sparticuz/chromium para ambiente serverless
+    if (isServerless) {
+      console.log('🏭 Ambiente serverless detectado - configurando @sparticuz/chromium...');
+      
+      try {
+        const chromium = await import('@sparticuz/chromium');
+        launchOptions.executablePath = await chromium.default.executablePath();
+        
+        // Adicionar args específicos do chromium para Vercel
+        launchOptions.args = [
+          ...launchOptions.args,
+          ...chromium.default.args,
+        ];
+        
+        console.log('✅ @sparticuz/chromium configurado com sucesso');
+      } catch (chromiumError) {
+        console.error('❌ Erro ao configurar @sparticuz/chromium:', chromiumError);
+        console.log('🔄 Tentando usar Puppeteer padrão como fallback...');
+      }
+    }
+
     console.log('⚙️ Configurações do Puppeteer:', {
       isServerless,
       headless: launchOptions.headless,
-      argsCount: launchOptions.args.length
+      argsCount: launchOptions.args.length,
+      usingChromium: isServerless && launchOptions.executablePath ? '✅ @sparticuz/chromium' : '🔧 Puppeteer padrão'
     });
     
     browser = await puppeteer.default.launch(launchOptions);
