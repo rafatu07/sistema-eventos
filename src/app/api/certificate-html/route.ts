@@ -8,92 +8,149 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { userName, eventName, eventDate, eventStartTime, eventEndTime, config } = body;
 
-    console.log('🎯 Gerando certificado via HTML/Puppeteer (UNIFICADO local + produção)');
+    console.log('🎯 INICIANDO geração certificado HTML/Puppeteer');
+    console.log('📦 Dados recebidos:', {
+      userName: userName?.substring(0, 20),
+      eventName: eventName?.substring(0, 30),
+      eventDate,
+      configExists: !!config,
+      configKeys: config ? Object.keys(config).slice(0, 5) : []
+    });
     console.log('🎨 Background configurado:', config.backgroundColor || '#ffffff');
 
-    // HTML completo com estilos inline
-    const html = generateCertificateHtml({
-      userName,
-      eventName,
-      eventDate: new Date(eventDate),
-      eventStartTime: eventStartTime ? new Date(eventStartTime) : undefined,
-      eventEndTime: eventEndTime ? new Date(eventEndTime) : undefined,
-      config
-    });
+    // PASSO 1: Gerar HTML
+    console.log('📄 PASSO 1: Gerando HTML...');
+    let html: string;
+    try {
+      html = generateCertificateHtml({
+        userName,
+        eventName,
+        eventDate: new Date(eventDate),
+        eventStartTime: eventStartTime ? new Date(eventStartTime) : undefined,
+        eventEndTime: eventEndTime ? new Date(eventEndTime) : undefined,
+        config
+      });
+      console.log('✅ HTML gerado com sucesso (tamanho:', html.length, 'chars)');
+    } catch (htmlGenError) {
+      console.error('❌ FALHA ao gerar HTML:', htmlGenError);
+      throw new Error(`Falha na geração HTML: ${(htmlGenError as Error).message}`);
+    }
 
-    // Configuração otimizada para LOCAL + VERCEL
+    // PASSO 2: Configurar Puppeteer  
+    console.log('🤖 PASSO 2: Configurando Puppeteer...');
     const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
     
     console.log('🔍 DEBUG Ambiente:', {
       isProduction,
       VERCEL: process.env.VERCEL,
       NODE_ENV: process.env.NODE_ENV,
-      platform: process.platform
+      platform: process.platform,
+      memoryUsage: process.memoryUsage(),
+      uptime: process.uptime()
     });
     
-    // Configuração específica do Chromium para Vercel
-    if (isProduction) {
-      console.log('⚙️ Configurando Chromium para produção...');
+    // PASSO 3: Inicializar Chromium
+    console.log('🚀 PASSO 3: Inicializando browser...');
+    let browser;
+    try {
+      if (isProduction) {
+        console.log('🏭 PRODUÇÃO: Configurando @sparticuz/chromium...');
+        const executablePath = await chromium.executablePath();
+        console.log('📍 Chromium path:', executablePath);
+        
+        const launchConfig = {
+          headless: true,
+          executablePath: executablePath,
+          args: [
+            ...chromium.args,
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+          ],
+          timeout: 60000 // 60 segundos
+        };
+        
+        console.log('⚙️ Config produção:', JSON.stringify(launchConfig.args.slice(0, 5), null, 2));
+        browser = await puppeteer.launch(launchConfig);
+        
+      } else {
+        console.log('💻 LOCAL: Usando Chrome nativo...');
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+          timeout: 30000
+        });
+      }
+      
+      console.log(`✅ Browser iniciado com sucesso (${isProduction ? 'PRODUÇÃO' : 'LOCAL'})`);
+      
+    } catch (browserError) {
+      console.error('❌ FALHA CRÍTICA ao iniciar browser:', browserError);
+      throw new Error(`Falha browser: ${(browserError as Error).message}`);
     }
-    
-    const launchConfig = {
-      headless: true,
-      executablePath: isProduction ? await chromium.executablePath() : undefined,
-      args: isProduction ? [
-        ...chromium.args,
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-web-security',
-        '--disable-features=site-per-process',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--font-render-hinting=none',
-        '--disable-extensions',
-        '--disable-plugins',
-        '--virtual-time-budget=30000'
-      ] : [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-      timeout: 30000
-    };
-    
-    console.log('🚀 Configuração Puppeteer:', JSON.stringify(launchConfig, null, 2));
-    
-    const browser = await puppeteer.launch(launchConfig);
-    
-    console.log(`✅ Puppeteer iniciado com sucesso (${isProduction ? 'PRODUÇÃO' : 'LOCAL'})`);
 
-    const page = await browser.newPage();
-    
-    // Configurar viewport
-    await page.setViewport({
-      width: 1200,
-      height: 800,
-      deviceScaleFactor: 2 // Alta qualidade
-    });
+    // PASSO 4: Configurar página
+    console.log('📄 PASSO 4: Criando nova página...');
+    let page;
+    try {
+      page = await browser.newPage();
+      console.log('✅ Página criada');
+      
+      // Configurar viewport
+      await page.setViewport({
+        width: 1200,
+        height: 800,
+        deviceScaleFactor: 2
+      });
+      console.log('✅ Viewport configurado (1200x800, scale=2)');
+      
+    } catch (pageError) {
+      await browser.close();
+      console.error('❌ FALHA ao criar página:', pageError);
+      throw new Error(`Falha página: ${(pageError as Error).message}`);
+    }
 
-    // Definir conteúdo HTML e aguardar carregar
-    await page.setContent(html, { 
-      waitUntil: 'networkidle0',
-      timeout: 15000 
-    });
-    
-    // Aguardar renderização completa
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // PASSO 5: Renderizar HTML
+    console.log('🎨 PASSO 5: Renderizando HTML...');
+    try {
+      await page.setContent(html, { 
+        waitUntil: 'networkidle0',
+        timeout: 30000 
+      });
+      console.log('✅ HTML renderizado');
+      
+      // Aguardar estabilização
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ Renderização estabilizada');
+      
+    } catch (renderError) {
+      await browser.close();
+      console.error('❌ FALHA na renderização:', renderError);
+      throw new Error(`Falha renderização: ${(renderError as Error).message}`);
+    }
 
-    // Capturar como PNG
-    const screenshot = await page.screenshot({
-      type: 'png',
-      omitBackground: false,
-      clip: { x: 0, y: 0, width: 1200, height: 800 }
-    });
+    // PASSO 6: Capturar screenshot
+    console.log('📸 PASSO 6: Capturando screenshot...');
+    let screenshot;
+    try {
+      screenshot = await page.screenshot({
+        type: 'png',
+        omitBackground: false,
+        clip: { x: 0, y: 0, width: 1200, height: 800 }
+      });
+      console.log('✅ Screenshot capturado (tamanho:', screenshot.length, 'bytes)');
+      
+    } catch (screenshotError) {
+      await browser.close();
+      console.error('❌ FALHA no screenshot:', screenshotError);
+      throw new Error(`Falha screenshot: ${(screenshotError as Error).message}`);
+    }
 
+    // PASSO 7: Finalizar
+    console.log('🔚 PASSO 7: Finalizando...');
     await browser.close();
-    console.log('✅ Certificado HTML/Puppeteer gerado com sucesso');
+    console.log('✅ Browser fechado');
+    console.log('🎉 Certificado HTML/Puppeteer gerado com SUCESSO TOTAL!');
 
     // Retornar a imagem
     return new NextResponse(screenshot, {
@@ -105,9 +162,26 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao gerar certificado via HTML:', error);
+    console.error('💀 ERRO FATAL na geração HTML/Puppeteer:', error);
+    console.error('📊 Stack trace completo:', (error as Error).stack);
+    console.error('🔍 Detalhes do erro:', {
+      message: (error as Error).message,
+      name: (error as Error).name,
+      toString: (error as Error).toString()
+    });
+    console.error('🌍 Estado do sistema:', {
+      memoryUsage: process.memoryUsage(),
+      uptime: process.uptime(),
+      platform: process.platform,
+      version: process.version
+    });
+    
     return NextResponse.json(
-      { error: 'Falha ao gerar certificado via HTML' },
+      { 
+        error: 'Falha crítica na geração de certificado HTML/Puppeteer',
+        details: (error as Error).message,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }

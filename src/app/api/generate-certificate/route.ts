@@ -143,14 +143,47 @@ export async function POST(request: NextRequest) {
       
     } catch (htmlError) {
       console.error('❌ FALHA CRÍTICA na geração HTML/Puppeteer:', htmlError);
+      console.error('📊 Detalhes completos do erro:', {
+        message: (htmlError as Error).message,
+        name: (htmlError as Error).name,
+        stack: (htmlError as Error).stack,
+        toString: (htmlError as Error).toString()
+      });
       
       logError('Falha na geração de certificado HTML/Puppeteer', htmlError as Error, { 
         userId: userId, 
-        eventId: eventId
+        eventId: eventId,
+        errorType: (htmlError as Error).name
       });
       
-      // 🚫 SEM FALLBACKS CORROMPIDOS - melhor falhar limpo que gerar lixo
-      throw new Error(`Falha na geração do certificado: ${(htmlError as Error).message}`);
+      // 💀 FALLBACK DE EMERGÊNCIA: Fallback Canvas simples (temporário)
+      console.warn('🆘 ATIVANDO FALLBACK DE EMERGÊNCIA - Canvas temporário...');
+      
+      try {
+        // Importar Canvas dinamicamente 
+        const { generateCertificateImage } = await import('@/lib/certificate-image-generator');
+        
+        console.log('📦 Canvas importado, gerando certificado de emergência...');
+        const imageBuffer = await generateCertificateImage(fullCertificateData);
+        
+        logInfo('🆘 EMERGÊNCIA: PNG Canvas gerado como fallback', { 
+          userId, 
+          eventId, 
+          imageSize: imageBuffer.length,
+          warning: 'Fallback de emergência - Puppeteer falhou'
+        });
+
+        const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_EMERGENCY_${userId}_${eventId}_${cacheBreaker}`);
+        certificateUrl = uploadResult.secureUrl;
+        generationType = 'image';
+        
+        console.log('🆘 Fallback de emergência funcionou!');
+        
+      } catch (emergencyError) {
+        console.error('💀 FALHA TOTAL: até o fallback de emergência falhou:', emergencyError);
+        throw new Error(`Falha total na geração: HTML(${(htmlError as Error).message}) + Canvas(${(emergencyError as Error).message})`);
+      }
     }
 
     // Update registration to mark certificate as generated
