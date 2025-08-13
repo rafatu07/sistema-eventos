@@ -200,26 +200,25 @@ export default function EventDetailsPage() {
     setActionLoading(true);
     
     try {
-      const response = await fetch('/api/generate-certificate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          registrationId: registration.id,
-          eventId: event.id,
-          userId: registration.userId,
-          userName: registration.userName,
-          eventName: event.name,
-          eventDate: event.date.toISOString(),
-          eventStartTime: event.startTime?.toISOString(),
-          eventEndTime: event.endTime?.toISOString(),
-        }),
+      console.log('🎯 Iniciando geração com nova API client-side...');
+      
+      // Usar nova biblioteca client-side
+      const { generateCertificate: generateCertificateClient } = await import('@/lib/certificate-client');
+      
+      const result = await generateCertificateClient({
+        registrationId: registration.id,
+        eventId: event.id,
+        userId: registration.userId,
+        userName: registration.userName,
+        eventName: event.name,
+        eventDate: event.date.toISOString(),
+        eventStartTime: event.startTime?.toISOString(),
+        eventEndTime: event.endTime?.toISOString(),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (result.success && result.certificateUrl) {
+        console.log('✅ Certificado gerado:', result.certificateUrl);
+        
         // Reload registration data from database to ensure consistency
         try {
           const updatedRegistration = await getRegistration(event.id, registration.userId);
@@ -230,7 +229,7 @@ export default function EventDetailsPage() {
             setRegistration({
               ...registration,
               certificateGenerated: true,
-              certificateUrl: data.certificateUrl,
+              certificateUrl: result.certificateUrl,
             });
           }
         } catch (reloadError) {
@@ -239,15 +238,15 @@ export default function EventDetailsPage() {
           setRegistration({
             ...registration,
             certificateGenerated: true,
-            certificateUrl: data.certificateUrl,
+            certificateUrl: result.certificateUrl,
           });
         }
         
         // Open certificate in new tab
-        window.open(data.certificateUrl, '_blank');
-        setSuccessMessage('Certificado gerado com sucesso!');
+        window.open(result.certificateUrl, '_blank');
+        setSuccessMessage('Certificado PNG gerado com sucesso!');
       } else {
-        throw new Error(data.error);
+        throw new Error(result.error || 'Erro desconhecido na geração');
       }
 
     } catch (error) {
