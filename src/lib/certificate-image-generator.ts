@@ -719,7 +719,7 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       'Arial',                         // Fallback confiável
       'sans-serif'                     // Universal
     ];
-    
+
     console.log('🔤 Estratégias de fonte para', isServerless ? 'SERVERLESS' : 'LOCAL', ':', fontStrategies);
 
     // 🚨 VERIFICAR FALLBACK ASCII AUTOMÁTICO (ativado pelo teste de fontes)
@@ -859,10 +859,10 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       
       console.log(`🔤 Tentativa fonte: ${fontString}`);
       
-              ctx.font = fontString;
-        ctx.fillStyle = options.color;
-        ctx.textAlign = options.align || 'left';
-        ctx.textBaseline = 'top';
+      ctx.font = fontString;
+      ctx.fillStyle = options.color;
+      ctx.textAlign = options.align || 'left';
+      ctx.textBaseline = 'top';
         
         // 🚨 CORREÇÃO CRÍTICA PARA VERCEL: Configurar codificação explícita do Canvas
         if (_renderConfig.isServerless) {
@@ -874,11 +874,11 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
             console.warn('⚠️  Configuração avançada Canvas não suportada:', canvasConfigError);
           }
         }
-        
-        const metrics = ctx.measureText(finalText);
-        console.log(`📏 Métricas: width=${metrics.width}, height=${options.fontSize}`);
-        
-        if (metrics.width > 0) {
+      
+      const metrics = ctx.measureText(finalText);
+      console.log(`📏 Métricas: width=${metrics.width}, height=${options.fontSize}`);
+      
+      if (metrics.width > 0) {
           // 🚨 CRITICAL FIX: Se ASCII foi forçado, usar finalText processado
           console.log('🎯 RENDERIZAÇÃO FINAL:', {
             textoParaRenderizar: finalText,
@@ -933,7 +933,7 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
                   ctx.fillStyle = options.color;
                   
                   try {
-                    ctx.fillText(finalText, options.x, options.y);
+        ctx.fillText(finalText, options.x, options.y);
                     console.log(`✅ SUCESSO: Fonte ${fallbackFont} funcionou`);
                     fontWorked = true;
                     break;
@@ -950,41 +950,58 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
                   console.log('✅ PLACEHOLDER: Retângulo desenhado como texto');
                 }
               } else {
-                // Arial funciona para ASCII - MAS vamos usar método SUPER ROBUSTO
-                console.log('✅ ASCII RENDERIZADO: Arial funcionou - APLICANDO MÉTODO ROBUSTO');
+                // Arial funciona para ASCII - APLICANDO MÉTODO ULTRA VISÍVEL
+                console.log('✅ ASCII RENDERIZADO: Arial funcionou - APLICANDO MÉTODO ULTRA VISÍVEL');
                 
-                // Método 1: Tentar renderização normal primeiro
-                ctx.fillText(finalText, options.x, options.y);
+                // 🚨 MÉTODO EMERGENCIAL: GARANTIA ABSOLUTA DE VISIBILIDADE
+                console.log('🔧 EMERGENCY: Forçando visibilidade absoluta');
                 
-                // Método 2: FORÇAR com strokeText também (contorno)
-                ctx.strokeStyle = options.color;
-                ctx.lineWidth = 0.5;
-                ctx.strokeText(finalText, options.x, options.y);
+                // Resetar contexto completamente
+                ctx.save();
                 
-                // Método 3: GARANTIA - Desenhar retângulos pequenos sobre cada caractere
-                console.log('🔧 APLICANDO GARANTIA VISUAL: Reforçando cada caractere');
-                const charWidth = options.fontSize * 0.6;
-                const chars = finalText.split('');
+                // 1️⃣ FUNDO CONTRASTE FORTE (garantir que texto seja visível)
+                ctx.fillStyle = '#FFFFFF'; // Fundo branco forçado
+                ctx.fillRect(options.x - 10, options.y - options.fontSize - 5, finalText.length * options.fontSize * 0.7, options.fontSize + 10);
                 
-                for (let i = 0; i < chars.length; i++) {
-                  const char = chars[i];
-                  if (!char) continue; // Skip se for undefined
-                  
-                  const charX = options.x + (i * charWidth);
-                  const charY = options.y;
-                  
-                  // Desenhar cada caractere individualmente com fillText + stroke
-                  ctx.fillStyle = options.color;
-                  ctx.strokeStyle = options.color;
-                  ctx.lineWidth = 0.8;
-                  
-                  // Triple rendering para garantia
-                  ctx.fillText(char, charX, charY);
-                  ctx.strokeText(char, charX, charY);
-                  ctx.fillText(char, charX + 0.1, charY); // Micro offset para densidade
+                // 2️⃣ TEXTO COM COR ULTRA CONTRASTANTE
+                ctx.fillStyle = '#000000'; // PRETO PURO - máximo contraste
+                ctx.strokeStyle = '#FF0000'; // VERMELHO para stroke - visibilidade forçada
+                ctx.lineWidth = 1;
+                ctx.font = `bold ${options.fontSize}px Arial, sans-serif, monospace`; // Multiple fallbacks
+                
+                // 3️⃣ RENDERIZAÇÃO MÚLTIPLA COM OFFSETS
+                console.log('🔧 RENDERIZAÇÃO MÚLTIPLA: 9 posições diferentes');
+                const offsets = [
+                  [0, 0], [-0.5, 0], [0.5, 0], [0, -0.5], [0, 0.5], 
+                  [-0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5]
+                ];
+                
+                for (const offset of offsets) {
+                  const offsetX = offset[0] || 0;
+                  const offsetY = offset[1] || 0;
+                  ctx.fillText(finalText, options.x + offsetX, options.y + offsetY);
+                  ctx.strokeText(finalText, options.x + offsetX, options.y + offsetY);
                 }
                 
-                console.log('✅ MÉTODO ROBUSTO APLICADO: Triple rendering + stroke por caractere');
+                // 4️⃣ TESTE VISUAL - Desenhar retângulo colorido onde texto deveria estar
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Vermelho semi-transparente
+                ctx.fillRect(options.x - 5, options.y - options.fontSize, finalText.length * options.fontSize * 0.6, options.fontSize + 5);
+                
+                ctx.restore();
+                
+                // 5️⃣ LOG DETALHADO DE POSIÇÃO
+                console.log('📍 POSIÇÃO DETALHADA:', {
+                  texto: finalText,
+                  x: options.x,
+                  y: options.y,
+                  fontSize: options.fontSize,
+                  canvasWidth: 1200,
+                  canvasHeight: 800,
+                  'área de renderização': `${options.x}-${options.x + finalText.length * options.fontSize * 0.6} x ${options.y - options.fontSize}-${options.y}`,
+                  'dentro do canvas?': options.x >= 0 && options.x < 1200 && options.y >= 0 && options.y < 800
+                });
+                
+                console.log('✅ MÉTODO ULTRA VISÍVEL APLICADO: Fundo branco + texto preto + múltiplos offsets + área de teste');
               }
             } catch (testError) {
               console.warn('⚠️  Erro no teste de fonte, usando renderização normal:', testError);
