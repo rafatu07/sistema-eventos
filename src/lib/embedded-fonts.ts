@@ -84,8 +84,6 @@ export function isServerlessEnvironment(): boolean {
     return _cachedEnvironmentResult;
   }
 
-  _environmentDetectionCount++;
-
   // Indicadores mais agressivos para Vercel
   const vercelIndicators = [
     process.env.VERCEL === '1',

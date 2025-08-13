@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     });
     
     // Aguardar um pouco mais para garantir que tudo foi renderizado
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Forçar fundo da configuração na página
     await page.evaluate((bgColor) => {
