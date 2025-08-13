@@ -858,8 +858,83 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
             asciiForçado: _renderConfig.shouldUseASCII
           });
           
-          // Renderização direta - finalText já foi processado (ASCII ou UTF-8)
-          ctx.fillText(finalText, options.x, options.y);
+          // 🚨 TESTE FINAL: Verificar se Arial renderiza usando canvas atual
+          if (_renderConfig.isServerless) {
+            console.log('🧪 TESTE CRÍTICO: Verificando se Arial renderiza ASCII básico no Vercel');
+            
+            // Testar renderização em área pequena do canvas atual
+            const testText = 'TEST';
+            const testX = options.x + 500; // Área de teste fora do texto principal
+            const testY = options.y;
+            
+            // Salvar estado atual
+            ctx.save();
+            ctx.font = `${options.fontSize}px Arial`;
+            ctx.fillStyle = options.color;
+            ctx.fillText(testText, testX, testY);
+            
+            // Verificar pixels na área de teste
+            try {
+              const testImageData = ctx.getImageData(testX, testY - options.fontSize, 100, options.fontSize + 10);
+              const testPixels = testImageData.data;
+              let testRenderedPixels = 0;
+              for (let i = 0; i < testPixels.length; i += 4) {
+                const r = testPixels[i] || 0, g = testPixels[i + 1] || 0, b = testPixels[i + 2] || 0;
+                if (r < 250 || g < 250 || b < 250) {
+                  testRenderedPixels++;
+                }
+              }
+              
+              console.log(`🧪 TESTE RESULTADO: Arial renderizou ${testRenderedPixels} pixels para "${testText}"`);
+              
+              // Limpar área de teste
+              ctx.clearRect(testX - 10, testY - options.fontSize - 10, 120, options.fontSize + 20);
+              ctx.restore();
+              
+              if (testRenderedPixels < 10) {
+                console.error('🚨 CRÍTICO: Arial não renderiza nem ASCII básico no Vercel');
+                console.log('🔧 ATIVANDO FALLBACK FONTS UNIVERSAIS');
+                
+                // Lista de fontes universais para tentar
+                const universalFonts = ['sans-serif', 'monospace', 'serif'];
+                let fontWorked = false;
+                
+                for (const fallbackFont of universalFonts) {
+                  console.log(`🔧 Tentando fonte universal: ${fallbackFont}`);
+                  ctx.font = `${options.fontSize}px ${fallbackFont}`;
+                  ctx.fillStyle = options.color;
+                  
+                  try {
+                    ctx.fillText(finalText, options.x, options.y);
+                    console.log(`✅ SUCESSO: Fonte ${fallbackFont} funcionou`);
+                    fontWorked = true;
+                    break;
+                  } catch (fontError) {
+                    console.warn(`❌ Fonte ${fallbackFont} falhou:`, fontError);
+                  }
+                }
+                
+                if (!fontWorked) {
+                  console.log('🔧 ÚLTIMA OPÇÃO: Renderização de emergência');
+                  // Desenhar retângulo simples como placeholder
+                  ctx.fillStyle = options.color;
+                  ctx.fillRect(options.x, options.y - options.fontSize * 0.8, finalText.length * options.fontSize * 0.5, options.fontSize);
+                  console.log('✅ PLACEHOLDER: Retângulo desenhado como texto');
+                }
+              } else {
+                // Arial funciona para ASCII
+                ctx.fillText(finalText, options.x, options.y);
+                console.log('✅ ASCII RENDERIZADO: Arial funcionou');
+              }
+            } catch (testError) {
+              console.warn('⚠️  Erro no teste de fonte, usando renderização normal:', testError);
+              ctx.restore();
+              ctx.fillText(finalText, options.x, options.y);
+            }
+          } else {
+            // Ambiente local - renderização normal
+            ctx.fillText(finalText, options.x, options.y);
+          }
           
           console.log('✅ TEXTO RENDERIZADO NO CANVAS:', finalText);
         const finalHasAccents = /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText);
