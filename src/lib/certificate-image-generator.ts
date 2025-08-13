@@ -120,6 +120,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
             if (metrics.width > 0) {
               workingFont = font;
               console.log(`🎯 FONTE CONFIRMADA para Vercel: "${workingFont}"`);
+              // ✅ CORREÇÃO: Salvar fonte SEM aspas para evitar ""Arial""
               process.env.VERCEL_SAFE_FONT = workingFont;
               break;
             }
@@ -179,6 +180,17 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
+    
+    // 🚨 CONFIGURAÇÃO ESPECÍFICA PARA VERCEL
+    if (isServerlessEnv) {
+      try {
+        // Configurar renderização adequada para Vercel (apenas propriedades básicas)
+        ctx.imageSmoothingEnabled = true;
+        console.log('✅ Canvas configurado para ambiente Vercel com imageSmoothingEnabled');
+      } catch (configError) {
+        console.warn('⚠️  Configuração do Canvas não disponível:', configError);
+      }
+    }
     
     // Background
     ctx.fillStyle = config.backgroundColor;
@@ -542,11 +554,13 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
   const family = options.fontFamily || getFontFamily();
   
   // 🚨 LOG DETALHADO DO TEXTO DE ENTRADA
+  const hasAccents = /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(text);
   console.log('📝 drawText - ENTRADA:', {
     texto: `"${text}"`,
     tamanho: options.fontSize,
     fontWeight: options.fontWeight || 'normal',
-    hasAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(text)
+    hasAcentos: hasAccents,
+    caracteresEspeciais: text.match(/[àáâãäåæçèéêëìíîïñòóôõöøùúûüýÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝ]/g) || 'nenhum'
   });
   
   // 🎯 Cache da configuração de renderização (resetar para aplicar correções)
@@ -554,10 +568,10 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     const isServerless = isServerlessEnvironment();
     const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerless;
     
-    // 🚨 CORREÇÃO CRÍTICA: Estratégias específicas para Vercel
+    // 🚨 CORREÇÃO CRÍTICA: Estratégias específicas para Vercel (sem aspas duplas)
     const vercelSafeFont = process.env.VERCEL_SAFE_FONT || 'Arial';
     const fontStrategies = isServerless ? [
-      `"${vercelSafeFont}"`,           // Fonte testada e confirmada para Vercel
+      vercelSafeFont,                  // Fonte testada e confirmada para Vercel (SEM aspas extras)
       'Arial',                         // Primeira opção para Vercel
       'DejaVu Sans',                   // Fonte comum no Linux
       'Liberation Sans',               // Fonte livre comum
@@ -581,8 +595,25 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     });
   }
   
-  // ✅ CORREÇÃO: Manter caracteres portugueses em produção
-  let finalText = text;
+  // 🚨 CORREÇÃO: Remover aspas desnecessárias do texto (pode estar causando problemas)
+  let finalText = text.replace(/^["']|["']$/g, ''); // Remove aspas do início e fim
+  
+  // ✅ NORMALIZAÇÃO ADICIONAL PARA VERCEL
+  if (_renderConfig.isServerless) {
+    // Normalizar para forma canônica e garantir UTF-8 válido
+    finalText = finalText.normalize('NFC');
+    console.log('🔧 NORMALIZAÇÃO UTF-8 SERVERLESS:', {
+      antes: `"${text.replace(/^["']|["']$/g, '')}"`,
+      depois: `"${finalText}"`,
+      normalized: true
+    });
+  } else {
+    console.log('🔧 LIMPEZA DE TEXTO LOCAL:', {
+      original: `"${text}"`,
+      semAspas: `"${finalText}"`,
+      removeuAspas: text !== finalText
+    });
+  }
   
   // 🚨 CORREÇÃO CRÍTICA: Usar AND (&&) em vez de OR (||)
   // Só processar texto se REALMENTE precisar forçar ASCII
@@ -628,11 +659,14 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
       
       if (metrics.width > 0) {
         ctx.fillText(finalText, options.x, options.y);
+        const finalHasAccents = /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText);
         console.log(`✅ SUCESSO renderização:`, {
+          textoOriginal: `"${text}"`,
           textoFinal: `"${finalText}"`,
           fonte: fontFamily,
           posição: { x: options.x, y: options.y },
-          preservouAcentos: /[àáâãäåæçèéêëìíîïñòóôõöøùúûüý]/i.test(finalText)
+          preservouAcentos: finalHasAccents,
+          caracteresFinal: finalText.match(/[àáâãäåæçèéêëìíîïñòóôõöøùúûüýÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝ]/g) || 'nenhum'
         });
         drawn = true;
         break;
@@ -691,19 +725,26 @@ function drawMultilineText(ctx: CanvasRenderingContext2D, text: string, options:
   lineHeight: number;
   fontFamily?: string;
 }) {
-  // 🚨 CORREÇÃO: Usar fonte testada e confirmada para Vercel
+  // 🚨 CORREÇÃO: Usar fonte testada e confirmada para Vercel (sem aspas duplas)
   const isServerless = isServerlessEnvironment();
   const vercelSafeFont = process.env.VERCEL_SAFE_FONT || 'Arial';
-  const fontFamily = isServerless ? `"${vercelSafeFont}"` : (options.fontFamily || getFontFamily());
+  const fontFamily = isServerless ? vercelSafeFont : (options.fontFamily || getFontFamily());
   const shouldUseASCII = process.env.FORCE_ASCII_ONLY === 'true' && isServerless;
   
+  // 🚨 CORREÇÃO: Remover aspas e normalizar texto para Vercel  
+  let finalText = text.replace(/^["']|["']$/g, ''); // Remove aspas do início e fim
+  
+  if (isServerless) {
+    finalText = finalText.normalize('NFC'); // Normalizar UTF-8 para Vercel
+  }
+  
   // ✅ CORREÇÃO: Preservar texto com acentos em produção
-  const finalText = shouldUseASCII ? text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim() : text;
+  finalText = shouldUseASCII ? finalText.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').replace(/\s+/g, ' ').trim() : finalText;
   
   console.log('🔤 drawMultilineText - preservando acentos:', {
     shouldUseASCII,
     isServerless,
-    fontFamily: `"${fontFamily}"`,
+    fontFamily: fontFamily,
     textPreview: `"${text.substring(0, 20)}"`
   });
   
