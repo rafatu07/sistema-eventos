@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Iniciar Puppeteer com configuração otimizada
     const browser = await puppeteer.launch({
-      headless: 'new',
+      headless: true, // Corrigido para compatibilidade com versões mais recentes
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
