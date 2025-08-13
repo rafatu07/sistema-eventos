@@ -4,7 +4,7 @@ import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
 import { logError, logInfo, logAudit, AuditAction } from '@/lib/logger';
-import { getCertificateConfig } from '@/lib/certificate-config';
+// import { getCertificateConfig } from '@/lib/certificate-config'; // Temporariamente comentado
 
 // Configurações da API para Vercel (sem vercel.json)
 export const runtime = 'nodejs';
@@ -71,24 +71,14 @@ export async function POST(request: NextRequest) {
       eventId: eventId,
     };
 
-    // Buscar configurações personalizadas do certificado para este evento
-    console.log('🔍 Buscando configurações do certificado para evento:', eventId);
-    const certificateConfig = await getCertificateConfig(eventId);
+    // TEMPORARIAMENTE COMENTADO - pode estar causando o erro
+    console.log('⚠️ Pulando busca de configurações (debug mode)');
+    const certificateConfig = null; // Forçar null
     
-    if (certificateConfig) {
-      console.log('✅ Configurações personalizadas encontradas:', {
-        template: certificateConfig.template,
-        hasLogo: !!certificateConfig.logoUrl,
-        includeQRCode: certificateConfig.includeQRCode
-      });
-    } else {
-      console.log('⚠️  Nenhuma configuração personalizada encontrada, usando padrão');
-    }
-
-    // Preparar dados completos para geração
+    // Preparar dados completos para geração (sem config por enquanto)
     const fullCertificateData = {
       ...certificateData,
-      config: certificateConfig || undefined // Converter null para undefined
+      config: undefined // Sem configuração personalizada por enquanto
     };
 
     let generationType: 'image' | 'pdf' | 'svg-fallback' = 'pdf';
@@ -102,81 +92,45 @@ export async function POST(request: NextRequest) {
     let imageBuffer: Buffer | null = null;
     let generationMethod = '';
     
-    // TENTATIVA 1: API de Emergência (100% garantida para Vercel)
+    // TENTATIVA 1: API Ultra Simples (texto puro)
     try {
-      console.log('🚨 Tentando API de Emergência (ultra simples)...');
-      const emergencyResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-emergency`, {
+      console.log('🚨 Tentando API Ultra Simples...');
+      
+      const simpleUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/generate-certificate-simple`;
+      console.log('🌐 URL simples:', simpleUrl);
+      
+      const simpleResponse = await fetch(simpleUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userName: fullCertificateData.userName,
           eventName: fullCertificateData.eventName,
-          eventDate: fullCertificateData.eventDate,
-          eventStartTime: fullCertificateData.eventStartTime,
-          eventEndTime: fullCertificateData.eventEndTime,
-          config: fullCertificateData.config
+          eventDate: fullCertificateData.eventDate
         })
       });
 
-      if (emergencyResponse.ok) {
-        const contentType = emergencyResponse.headers.get('content-type');
-        
-        if (contentType?.includes('image/')) {
-          imageBuffer = Buffer.from(await emergencyResponse.arrayBuffer());
-          generationMethod = 'EMERGENCY_SVG';
-          console.log('🎉 API de Emergência funcionou!');
-          
-          logInfo('🚨 Certificado gerado via API de Emergência', { 
-            userId, 
-            eventId, 
-            imageSize: imageBuffer.length,
-            method: 'Emergency - SVG simples garantido'
-          });
-        } else {
-          throw new Error('API de emergência retornou formato inválido');
-        }
-      } else {
-        throw new Error(`API de emergência falhou: ${emergencyResponse.status}`);
-      }
-      
-    } catch (emergencyError) {
-      console.warn('⚠️ API de Emergência falhou, tentando Cloudinary...', emergencyError);
-      
-      // TENTATIVA 2: Cloudinary (como fallback)
-      try {
-        console.log('☁️ Tentando Cloudinary...');
-        const cloudinaryResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-cloudinary`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userName: fullCertificateData.userName,
-            eventName: fullCertificateData.eventName,
-            eventDate: fullCertificateData.eventDate,
-            eventStartTime: fullCertificateData.eventStartTime,
-            eventEndTime: fullCertificateData.eventEndTime,
-            config: fullCertificateData.config
-          })
-        });
+      console.log('📊 Simple response status:', simpleResponse.status);
 
-        if (cloudinaryResponse.ok) {
-          imageBuffer = Buffer.from(await cloudinaryResponse.arrayBuffer());
-          generationMethod = 'CLOUDINARY_FALLBACK';
-          console.log('🎉 Cloudinary fallback funcionou!');
-          
-          logInfo('☁️ PNG gerado via Cloudinary (fallback)', { 
-            userId, 
-            eventId, 
-            imageSize: imageBuffer.length,
-            method: 'Cloudinary - fallback'
-          });
-        } else {
-          throw new Error(`Cloudinary falhou: ${cloudinaryResponse.status}`);
-        }
+      if (simpleResponse.ok) {
+        imageBuffer = Buffer.from(await simpleResponse.arrayBuffer());
+        generationMethod = 'SIMPLE_TEXT';
+        console.log('🎉 API Ultra Simples funcionou!');
         
-      } catch (cloudinaryError) {
-        console.warn('⚠️ Cloudinary também falhou:', cloudinaryError);
-        throw new Error(`API Emergência E Cloudinary falharam: ${(emergencyError as Error).message} | ${(cloudinaryError as Error).message}`);
+        logInfo('🚨 Certificado texto gerado', { 
+          userId, 
+          eventId, 
+          imageSize: imageBuffer.length,
+          method: 'Simple - texto puro'
+        });
+      } else {
+        const errorText = await simpleResponse.text();
+        console.error('❌ Simple response error:', errorText);
+        throw new Error(`API simples falhou: ${simpleResponse.status} - ${errorText}`);
       }
+      
+    } catch (simpleError) {
+      console.error('💀 API Simples falhou:', simpleError);
+      throw new Error(`Até a API mais simples falhou: ${(simpleError as Error).message}`);
     }
     
     if (!imageBuffer) {
