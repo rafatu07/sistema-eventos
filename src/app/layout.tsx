@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { getBaseUrl } from '@/lib/url-detector';
 import { Providers } from '@/components/Providers';
 import { SkipLink } from '@/components/SkipLink';
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
   authors: [{ name: 'Sistema de Gestão de Eventos' }],
   creator: 'Sistema de Gestão de Eventos',
   publisher: 'Sistema de Gestão de Eventos',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  metadataBase: new URL(getBaseUrl()),
   openGraph: {
     type: 'website',
     locale: 'pt_BR',

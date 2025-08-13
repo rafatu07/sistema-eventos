@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadImageToCloudinary } from '@/lib/upload';
+import { getBaseUrl } from '@/lib/url-detector';
 import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
@@ -80,7 +81,7 @@ async function generateCertificateHTML(request: NextRequest, body: Record<string
 
   try {
     // Chamar API HTML limpa
-    const htmlResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-html-clean`, {
+    const htmlResponse = await fetch(`${getBaseUrl()}/api/certificate-html-clean`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

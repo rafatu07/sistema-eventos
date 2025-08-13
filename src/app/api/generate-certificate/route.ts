@@ -4,6 +4,7 @@ import { updateRegistration } from '@/lib/firestore';
 import { rateLimit, getUserIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { sanitizeInput } from '@/lib/validators';
 import { logError, logInfo, logAudit, AuditAction } from '@/lib/logger';
+import { getCertificateDownloadUrl, logUrlConfig } from '@/lib/url-detector';
 // import { getCertificateConfig } from '@/lib/certificate-config'; // Temporariamente comentado
 
 // Configurações da API para Vercel (sem vercel.json)
@@ -208,9 +209,9 @@ export async function POST(request: NextRequest) {
     let certificateUrl: string;
     
     if (USE_DYNAMIC_API) {
-      // 🌐 ESTRATÉGIA DINÂMICA: URL da API sem storage
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      certificateUrl = `${baseUrl}/api/certificate/download?registrationId=${registrationId}`;
+      // 🌐 ESTRATÉGIA DINÂMICA: URL da API sem storage (detecção automática)
+      logUrlConfig(); // Debug da configuração
+      certificateUrl = getCertificateDownloadUrl(registrationId);
       
       console.log('✅ URL dinâmica gerada:', {
         strategy: 'API Dinâmico',

@@ -22,7 +22,7 @@ import { rateLimit, getUserIdentifier } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  const userIp = getUserIdentifier(request);
+  const userIp = getUserIdentifier('anonymous', request);
 
   try {
     // 🔒 Rate limiting - configuração simplificada para API dinâmica
@@ -111,8 +111,7 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime;
     console.error('❌ Erro na geração dinâmica do certificado:', error);
     
-    logError('Erro na geração dinâmica de certificado', {
-      error: (error as Error).message,
+    logError('Erro na geração dinâmica de certificado', error as Error, {
       duration,
       registrationId: request.url.includes('registrationId=') 
         ? new URL(request.url).searchParams.get('registrationId') 

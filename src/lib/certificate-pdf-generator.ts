@@ -163,6 +163,7 @@ interface SimpleCertificateConfig {
   logoUrl?: string;
   qrCodePosition: { x: number; y: number };
   includeQRCode: boolean;
+  qrCodeText: string;
   fontFamily: 'helvetica';
 }
 
