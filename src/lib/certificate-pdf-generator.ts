@@ -1,5 +1,4 @@
-const puppeteer = require('puppeteer');
-import { CertificateConfigData } from '@/lib/schemas';
+// Importação dinâmica para compatibilidade com Next.js
 import { CertificateConfig } from '@/types';
 
 /**
@@ -110,8 +109,22 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
     
     const pdfBuffer = await generatePDFFromHTML(certificateHTML);
 
-    console.log('✅ PDF gerado com sucesso', {
+    // 🚨 VALIDAÇÃO CRÍTICA: Verificar se o PDF foi gerado corretamente
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new Error('PDF buffer vazio - geração falhou');
+    }
+
+    // Verificar assinatura PDF
+    const pdfSignature = pdfBuffer.subarray(0, 4).toString('ascii');
+    if (pdfSignature !== '%PDF') {
+      console.error('❌ Buffer gerado não é um PDF válido. Assinatura:', pdfSignature);
+      console.error('📊 Primeiros 100 bytes:', pdfBuffer.subarray(0, 100).toString('hex'));
+      throw new Error(`Buffer inválido gerado pelo Puppeteer. Assinatura: ${pdfSignature}`);
+    }
+
+    console.log('✅ PDF válido gerado com sucesso', {
       tamanho: pdfBuffer.length,
+      assinatura: pdfSignature,
       método: 'CertificatePreview + Puppeteer'
     });
 
@@ -124,9 +137,39 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
 };
 
 /**
+ * Interface para configuração simplificada do certificado
+ */
+interface SimpleCertificateConfig {
+  template: 'modern' | 'classic' | 'elegant' | 'minimalist';
+  orientation: 'landscape';
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  title: string;
+  subtitle: string;
+  bodyText: string;
+  footer?: string;
+  showBorder: boolean;
+  borderWidth: number;
+  borderColor: string;
+  titlePosition: { x: number; y: number };
+  titleFontSize: number;
+  namePosition: { x: number; y: number };
+  nameFontSize: number;
+  bodyPosition: { x: number; y: number };
+  bodyFontSize: number;
+  logoPosition: { x: number; y: number };
+  logoSize: number;
+  logoUrl?: string;
+  qrCodePosition: { x: number; y: number };
+  includeQRCode: boolean;
+  fontFamily: 'helvetica';
+}
+
+/**
  * Gera HTML do certificado baseado no componente CertificatePreview
  */
-const generateCertificateHTML = (config: any, data: {
+const generateCertificateHTML = (config: SimpleCertificateConfig, data: {
   participantName: string;
   eventName: string;
   eventDate: Date;
@@ -335,16 +378,22 @@ const generateCertificateHTML = (config: any, data: {
 };
 
 /**
- * Converte HTML em PDF usando Puppeteer
+ * Converte HTML em PDF usando Puppeteer simplificado
  */
 const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
-  let browser: any = null;
+  let browser: Awaited<ReturnType<typeof import('puppeteer')['default']['launch']>> | null = null;
   
   try {
-    console.log('🌐 Iniciando Puppeteer...');
+    console.log('🌐 Iniciando Puppeteer com importação dinâmica...');
     
-    // Configurações otimizadas para Vercel
-    browser = await puppeteer.launch({
+    // Importação dinâmica para evitar problemas de build no Next.js
+    const puppeteer = await import('puppeteer');
+    
+    // Detectar se está em ambiente Vercel/serverless
+    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
+    // Configurações simplificadas para máxima compatibilidade
+    const launchOptions = {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -352,10 +401,22 @@ const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--hide-scrollbars',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
       ],
-      headless: true
+      headless: true,
+      defaultViewport: { width: 1200, height: 800 }
+    };
+
+    console.log('⚙️ Configurações do Puppeteer:', {
+      isServerless,
+      headless: launchOptions.headless,
+      argsCount: launchOptions.args.length
     });
+    
+    browser = await puppeteer.default.launch(launchOptions);
 
     const page = await browser.newPage();
     
@@ -365,7 +426,7 @@ const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
     });
 
     console.log('🖨️ Gerando PDF...');
-    const pdfBuffer = await page.pdf({
+    const pdfData = await page.pdf({
       format: 'A4',
       landscape: true,
       margin: {
@@ -378,7 +439,43 @@ const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
       preferCSSPageSize: false
     });
 
-    console.log('✅ PDF gerado via Puppeteer');
+    console.log('✅ PDF gerado via Puppeteer', {
+      tamanho: pdfData.length,
+      tipo: typeof pdfData,
+      isBuffer: Buffer.isBuffer(pdfData),
+      isUint8Array: pdfData instanceof Uint8Array
+    });
+
+    // 🚨 VALIDAÇÃO: Verificar se o Puppeteer retornou dados válidos
+    if (!pdfData || pdfData.length === 0) {
+      throw new Error('Puppeteer retornou dados vazios');
+    }
+
+    // 🔧 CONVERSÃO: Puppeteer pode retornar Uint8Array, garantir que seja Buffer
+    let pdfBuffer: Buffer;
+    
+    if (Buffer.isBuffer(pdfData)) {
+      console.log('✅ Puppeteer retornou Buffer diretamente');
+      pdfBuffer = pdfData;
+    } else if (pdfData instanceof Uint8Array) {
+      console.log('🔄 Convertendo Uint8Array para Buffer...');
+      pdfBuffer = Buffer.from(pdfData);
+      console.log('✅ Conversão Uint8Array → Buffer bem-sucedida');
+    } else {
+      const unknownData = pdfData as { constructor?: { name?: string } };
+      console.error('❌ Puppeteer retornou tipo inesperado:', {
+        tipo: typeof pdfData,
+        constructor: unknownData?.constructor?.name || 'unknown',
+        isArray: Array.isArray(pdfData)
+      });
+      throw new Error(`Puppeteer retornou tipo inválido: ${typeof pdfData} (${unknownData?.constructor?.name || 'unknown'})`);
+    }
+
+    console.log('✅ Buffer PDF validado e pronto', {
+      tamanho: pdfBuffer.length,
+      isBuffer: Buffer.isBuffer(pdfBuffer)
+    });
+
     return pdfBuffer;
     
   } catch (error) {

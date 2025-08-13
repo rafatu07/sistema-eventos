@@ -105,11 +105,7 @@ export async function POST(request: NextRequest) {
       forceASCII: process.env.FORCE_ASCII_ONLY
     });
 
-    // Preparar dados completos para geração (COM configuração personalizada)
-    const fullCertificateData = {
-      ...certificateData,
-      config: certificateConfig || undefined // ✅ Usar configuração personalizada se disponível
-    };
+    // Dados serão passados diretamente para os geradores
 
     let generationType: 'image' | 'pdf' | 'svg-fallback' = 'pdf';
     
@@ -154,30 +150,110 @@ export async function POST(request: NextRequest) {
       
     } catch (pdfError) {
       console.error('❌ Geração PDF falhou:', pdfError);
-      throw new Error(`Falha na geração de certificado PDF: ${(pdfError as Error).message}`);
+      console.error('🔍 Detalhes do erro PDF:', {
+        message: (pdfError as Error).message,
+        stack: (pdfError as Error).stack?.substring(0, 500)
+      });
+      
+      // 🚨 FALLBACK AUTOMÁTICO: Voltar para Canvas PNG se PDF falhar
+      console.log('🔄 FALLBACK AUTOMÁTICO: Tentando Canvas PNG...');
+      
+      try {
+        // Re-habilitar Canvas temporariamente como fallback
+        const { generateCertificateImage } = await import('@/lib/certificate-image-generator');
+        
+        imageBuffer = await generateCertificateImage({
+          userName: certificateData.userName,
+          eventName: certificateData.eventName,
+          eventDate: certificateData.eventDate,
+          eventStartTime: certificateData.eventStartTime,
+          eventEndTime: certificateData.eventEndTime,
+          eventId: eventId,
+          config: certificateConfig || undefined
+        });
+        
+        generationMethod = 'CANVAS_PNG_FALLBACK';
+        console.log('✅ FALLBACK bem-sucedido: Canvas PNG funcionou');
+        
+        logInfo('✅ Certificado gerado via FALLBACK', { 
+          userId, 
+          eventId, 
+          imageSize: imageBuffer.length,
+          method: 'Canvas PNG - fallback após falha do PDF'
+        });
+        
+      } catch (fallbackError) {
+        console.error('❌ FALLBACK também falhou:', fallbackError);
+        throw new Error(`PDF falhou: ${(pdfError as Error).message}. Fallback PNG também falhou: ${(fallbackError as Error).message}`);
+      }
     }
     
     if (!imageBuffer) {
       throw new Error('Falha em gerar imagem via HTML/browsers');
     }
 
-    console.log('🎯 PASSO 2: Salvando PDF no Cloudinary...');
+    console.log('🎯 PASSO 2: Definindo estratégia de URL...');
     
-    // SEMPRE salvar PDF no Cloudinary (único fonte da verdade)
-    const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const uploadResult = await uploadPDFToCloudinary(imageBuffer, `certificate_${generationMethod}_${userId}_${eventId}_${cacheBreaker}`);
-    const certificateUrl = uploadResult.secureUrl;
-    generationType = 'pdf';
+    // 🔄 NOVA OPÇÃO: API Dinâmico ou Cloudinary?
+    // TEMPORÁRIO: Forçando API dinâmico para teste
+    const USE_DYNAMIC_API = true; // FORÇADO PARA TESTE
     
-    logInfo('✅ Certificado PDF salvo no Cloudinary', { 
-      userId, 
-      eventId, 
-      publicId: uploadResult.publicId,
-      certificateUrl: certificateUrl.substring(0, 50) + '...',
-      generationMethod: generationMethod,
-      success: 'Certificado PDF gerado com sucesso!'
+    console.log('🔍 DIAGNÓSTICO DE ESTRATÉGIA:', {
+      USE_DYNAMIC_CERTIFICATES: process.env.USE_DYNAMIC_CERTIFICATES || 'undefined',
+      FORCED_MODE: 'API_DINAMICO_FORCADO',
+      parsed: USE_DYNAMIC_API,
+      strategy: USE_DYNAMIC_API ? '🌐 API DINÂMICO (FORÇADO)' : 'CLOUDINARY STORAGE'
     });
-
+    
+    let certificateUrl: string;
+    
+    if (USE_DYNAMIC_API) {
+      // 🌐 ESTRATÉGIA DINÂMICA: URL da API sem storage
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      certificateUrl = `${baseUrl}/api/certificate/download?registrationId=${registrationId}`;
+      
+      console.log('✅ URL dinâmica gerada:', {
+        strategy: 'API Dinâmico',
+        url: certificateUrl,
+        benefits: 'Sem storage, sempre atualizado'
+      });
+      
+      logInfo('✅ Certificado configurado como dinâmico', {
+        userId,
+        eventId,
+        registrationId,
+        strategy: 'API dinâmico - sem storage'
+      });
+      
+    } else {
+      // 📁 ESTRATÉGIA TRADICIONAL: Cloudinary storage
+      console.log('📁 Usando estratégia de storage (Cloudinary)...');
+      
+      const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      let uploadResult;
+      
+      if (generationMethod.includes('PDF')) {
+        console.log('📄 Salvando como PDF...');
+        uploadResult = await uploadPDFToCloudinary(imageBuffer, `certificate_${generationMethod}_${userId}_${eventId}_${cacheBreaker}`);
+        generationType = 'pdf';
+      } else {
+        console.log('🖼️ Salvando como PNG (fallback)...');
+        uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_${generationMethod}_${userId}_${eventId}_${cacheBreaker}`);
+        generationType = 'image';
+      }
+      
+      certificateUrl = uploadResult.secureUrl;
+      
+      logInfo(`✅ Certificado ${generationType.toUpperCase()} salvo no Cloudinary`, { 
+        userId, 
+        eventId, 
+        publicId: uploadResult.publicId,
+        certificateUrl: certificateUrl.substring(0, 50) + '...',
+        generationMethod: generationMethod,
+        success: `Certificado ${generationType.toUpperCase()} gerado com sucesso!`
+      });
+    }
+    
     console.log('🎯 PASSO 3: URL será salva no Firebase (próximo)');
 
     // Update registration to mark certificate as generated
@@ -206,12 +282,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       certificateUrl,
-      certificateType: generationType,
-      message: `Certificado gerado com sucesso como ${
-        generationType === 'pdf' ? 'PDF' : 
-        generationType === 'image' ? 'imagem PNG' : 
-        'formato alternativo'
-      }!`,
+      certificateType: USE_DYNAMIC_API ? 'dynamic-pdf' : generationType,
+      strategy: USE_DYNAMIC_API ? 'API Dinâmico' : 'Cloudinary Storage',
+      message: USE_DYNAMIC_API 
+        ? 'Certificado configurado como dinâmico (sem storage)!'
+        : `Certificado gerado com sucesso como ${
+            generationType === 'pdf' ? 'PDF' : 
+            generationType === 'image' ? 'imagem PNG' : 
+            'formato alternativo'
+          }!`,
     }, {
       headers: createRateLimitHeaders(rateLimitResult)
     });

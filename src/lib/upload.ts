@@ -12,9 +12,23 @@ export const uploadPDFToCloudinary = async (
   folder: string = 'certificates'
 ): Promise<UploadResult> => {
   try {
-    // 🚀 ESTRATÉGIA CORRIGIDA: Testar múltiplas abordagens para máxima compatibilidade
     console.log('📤 Iniciando upload de PDF para Cloudinary...');
     console.log('📏 Tamanho do buffer:', pdfBuffer.length, 'bytes');
+    
+    // 🚨 VALIDAÇÃO CRÍTICA: Verificar se o buffer é válido
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new Error('Buffer PDF vazio ou inválido');
+    }
+
+    // Verificar assinatura PDF (deve começar com %PDF)
+    const pdfSignature = pdfBuffer.subarray(0, 4).toString('ascii');
+    if (pdfSignature !== '%PDF') {
+      console.error('❌ Buffer não é um PDF válido. Assinatura:', pdfSignature);
+      console.error('📊 Primeiros 50 bytes:', pdfBuffer.subarray(0, 50).toString('hex'));
+      throw new Error(`Buffer não é um PDF válido. Assinatura encontrada: ${pdfSignature}`);
+    }
+
+    console.log('✅ PDF válido detectado, tamanho:', pdfBuffer.length, 'bytes');
     
     let result;
     const uploadOptions = {
@@ -23,40 +37,46 @@ export const uploadPDFToCloudinary = async (
       access_mode: 'public' as const,
       type: 'upload' as const,
       overwrite: true,
+      invalidate: true, // Invalidar cache para garantir acesso imediato
     };
     
-    // Tentativa 1: resource_type "raw" (padrão para PDFs)
+    // 🔄 ESTRATÉGIA CORRIGIDA: Usar AUTO (público por padrão)
     try {
-      console.log('🔄 Tentativa 1: Upload como RAW...');
+      console.log('🔄 Upload como AUTO (resource_type: auto)...');
       result = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${pdfBuffer.toString('base64')}`,
         {
           ...uploadOptions,
-          resource_type: 'raw',
-          format: 'pdf',
+          resource_type: 'auto', // Deixar Cloudinary decidir e garantir acesso público
         }
       );
-      console.log('✅ Upload RAW bem-sucedido!');
+      console.log('✅ Upload AUTO bem-sucedido!');
       
-    } catch (rawError) {
-      console.warn('❌ Upload RAW falhou, tentando como IMAGE:', rawError);
+    } catch (uploadError) {
+      console.error('❌ Upload RAW falhou:', uploadError);
+      console.error('🔍 Detalhes do erro:', {
+        message: (uploadError as Error).message,
+        name: (uploadError as Error & { name?: string }).name,
+        http_code: (uploadError as Error & { http_code?: number }).http_code,
+        api_response: (uploadError as Error & { api_response?: unknown }).api_response
+      });
       
-      // Tentativa 2: resource_type "image" (para contornar restrições)
+      // 🚨 FALLBACK: Tentar como IMAGE (garantidamente público)
       try {
-        console.log('🔄 Tentativa 2: Upload como IMAGE...');
+        console.log('🔄 Tentativa FALLBACK: Upload como IMAGE...');
         result = await cloudinary.uploader.upload(
           `data:application/pdf;base64,${pdfBuffer.toString('base64')}`,
           {
             ...uploadOptions,
-            resource_type: 'image',
+            resource_type: 'image', // Forçar como imagem para garantir acesso público
             format: 'pdf',
           }
         );
         console.log('✅ Upload IMAGE bem-sucedido!');
         
-      } catch (imageError) {
-        console.error('❌ Ambas as tentativas falharam:', { rawError, imageError });
-        throw new Error(`Upload falhou: RAW(${(rawError as Error).message}) IMAGE(${(imageError as Error).message})`);
+      } catch (autoError) {
+        console.error('❌ Upload AUTO também falhou:', autoError);
+        throw new Error(`Todos os uploads falharam: RAW(${(uploadError as Error).message}) AUTO(${(autoError as Error).message})`);
       }
     }
 
@@ -71,10 +91,27 @@ export const uploadPDFToCloudinary = async (
       height: result.height
     });
 
+    // 🔧 WORKAROUND: Gerar URL pública garantida
+    let finalUrl = result.secure_url;
+    
+    if (result.resource_type === 'image') {
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const publicId = result.public_id;
+      
+      // URL pública direta com fl_attachment para forçar download
+      finalUrl = `https://res.cloudinary.com/${cloudName}/image/upload/fl_attachment/${publicId}.pdf`;
+      
+      console.log('🔧 URL corrigida para acesso público garantido:', {
+        originalUrl: result.secure_url,
+        publicUrl: finalUrl,
+        strategy: 'Manual URL com fl_attachment flag'
+      });
+    }
+
     return {
       publicId: result.public_id,
-      url: result.secure_url,
-      secureUrl: result.secure_url,
+      url: finalUrl,
+      secureUrl: finalUrl,
     };
   } catch (error) {
     console.error('Error uploading PDF to Cloudinary:', error);

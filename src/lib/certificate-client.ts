@@ -169,8 +169,10 @@ async function generateCertificateClientSide(data: CertificateData): Promise<Cer
     await waitForImages(container);
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    // PASSO 4: Converter para PNG com configurações compatíveis
-    const canvas = await (window as any).html2canvas(container, {
+    // PASSO 4: Converter para PNG com configurações compatíveis  
+    const canvas = await (window as Window & { 
+      html2canvas: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>
+    }).html2canvas(container, {
       width: 1200,
       height: 800,
       scale: 1.5, // Reduzido para melhor performance
