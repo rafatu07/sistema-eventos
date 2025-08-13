@@ -35,63 +35,83 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
     // Validar dados de entrada
     validateCertificateData(data);
 
-    // Preparar configuração do certificado usando formato simples (não o CertificateConfigData completo)
+    // ✅ CORREÇÃO: Usar configurações personalizadas salvas ou fallbacks padrão
     const certificateConfig = {
       // Configurações básicas
       template: data.config?.template || 'elegant',
-      orientation: 'landscape' as const,
+      orientation: data.config?.orientation || 'landscape',
       
-      // Cores
+      // Cores personalizadas
       primaryColor: data.config?.primaryColor || '#7c3aed',
       secondaryColor: data.config?.secondaryColor || '#6b7280',
-      backgroundColor: '#ffffff',
+      backgroundColor: data.config?.backgroundColor || '#ffffff',
       
-      // Textos
-      title: 'Certificado de Excelência',
-      subtitle: 'Reconhecimento de Participação',
-      bodyText: 'Por meio deste, certificamos que {userName} participou com distinção do evento {eventName}, demonstrando dedicação e comprometimento, realizado em {eventDate} das {eventTime}.',
-      footer: 'Organização Certificada',
+      // Textos personalizados
+      title: data.config?.title || 'Certificado de Participação',
+      subtitle: data.config?.subtitle || '',
+      bodyText: data.config?.bodyText || 'Certificamos que {userName} participou do evento {eventName}, realizado em {eventDate} das {eventTime}.',
+      footer: data.config?.footer || '',
       
-      // Posicionamento (usando as mesmas posições do Canvas)
-      titlePosition: { x: 50, y: 20 },
-      namePosition: { x: 50, y: 42 },
-      bodyPosition: { x: 50, y: 65 },
-      logoPosition: { x: 15, y: 20 },
-      qrCodePosition: { x: 85, y: 20 },
+      // Posicionamento personalizado
+      titlePosition: data.config?.titlePosition || { x: 50, y: 25 },
+      namePosition: data.config?.namePosition || { x: 50, y: 45 },
+      bodyPosition: data.config?.bodyPosition || { x: 50, y: 65 },
+      logoPosition: data.config?.logoPosition || { x: 10, y: 10 },
+      qrCodePosition: data.config?.qrCodePosition || { x: 85, y: 85 },
       
-      // Tamanhos de fonte
-      titleFontSize: 24,
-      nameFontSize: 18,
-      bodyFontSize: 12,
+      // Tamanhos de fonte personalizados
+      titleFontSize: data.config?.titleFontSize || 24,
+      nameFontSize: data.config?.nameFontSize || 18,
+      bodyFontSize: data.config?.bodyFontSize || 12,
       
-      // Logo
+      // Logo personalizada
       logoUrl: data.config?.logoUrl || '',
-      logoSize: 150,
+      logoSize: data.config?.logoSize || 80,
       
-      // QR Code
-      includeQRCode: data.config?.includeQRCode ?? true,
-      qrCodeText: data.config?.qrCodeText || 'Validação digital de autenticidade',
+      // QR Code personalizado
+      includeQRCode: data.config?.includeQRCode ?? false,
+      qrCodeText: data.config?.qrCodeText || '',
       
-      // Bordas e decorações
-      showBorder: true,
-      borderColor: data.config?.primaryColor || '#7c3aed',
-      borderWidth: 2,
-      showWatermark: false,
-      watermarkText: '',
-      watermarkOpacity: 0.1,
+      // Bordas e decorações personalizadas
+      showBorder: data.config?.showBorder ?? true,
+      borderColor: data.config?.borderColor || data.config?.primaryColor || '#e2e8f0',
+      borderWidth: data.config?.borderWidth || 2,
+      showWatermark: data.config?.showWatermark ?? false,
+      watermarkText: data.config?.watermarkText || 'CERTIFICADO',
+      watermarkOpacity: data.config?.watermarkOpacity || 0.1,
       
-      // Fonte
-      fontFamily: 'helvetica' as const
+      // Fonte personalizada
+      fontFamily: data.config?.fontFamily || 'helvetica'
     };
 
     console.log('🎨 Configurações do certificado preparadas:', {
       template: certificateConfig.template,
+      orientation: certificateConfig.orientation,
       colors: {
         primary: certificateConfig.primaryColor,
-        secondary: certificateConfig.secondaryColor
+        secondary: certificateConfig.secondaryColor,
+        background: certificateConfig.backgroundColor
       },
-      hasLogo: !!certificateConfig.logoUrl,
-      includeQRCode: certificateConfig.includeQRCode
+      fonts: {
+        family: certificateConfig.fontFamily,
+        titleSize: certificateConfig.titleFontSize,
+        nameSize: certificateConfig.nameFontSize,
+        bodySize: certificateConfig.bodyFontSize
+      },
+      customTexts: {
+        title: certificateConfig.title,
+        hasSubtitle: !!certificateConfig.subtitle,
+        hasFooter: !!certificateConfig.footer,
+        bodyTextLength: certificateConfig.bodyText.length
+      },
+      features: {
+        hasLogo: !!certificateConfig.logoUrl,
+        logoSize: certificateConfig.logoSize,
+        includeQRCode: certificateConfig.includeQRCode,
+        showBorder: certificateConfig.showBorder,
+        showWatermark: certificateConfig.showWatermark
+      },
+      usingCustomConfig: !!data.config
     });
 
     // Gerar HTML do certificado
@@ -142,7 +162,7 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
  */
 interface SimpleCertificateConfig {
   template: 'modern' | 'classic' | 'elegant' | 'minimalist';
-  orientation: 'landscape';
+  orientation: 'landscape' | 'portrait';
   primaryColor: string;
   secondaryColor: string;
   backgroundColor: string;
@@ -165,7 +185,10 @@ interface SimpleCertificateConfig {
   qrCodePosition: { x: number; y: number };
   includeQRCode: boolean;
   qrCodeText: string;
-  fontFamily: 'helvetica';
+  showWatermark: boolean;
+  watermarkText: string;
+  watermarkOpacity: number;
+  fontFamily: 'helvetica' | 'times' | 'courier' | 'DejaVuSans';
 }
 
 /**
@@ -209,7 +232,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
       <title>Certificado</title>
       <style>
         @page {
-          size: A4 landscape;
+          size: A4 ${config.orientation};
           margin: 0.5in;
         }
         
@@ -220,7 +243,12 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         }
         
         body {
-          font-family: Arial, sans-serif;
+          font-family: ${
+            config.fontFamily === 'helvetica' ? 'Arial, sans-serif' :
+            config.fontFamily === 'times' ? 'Times, serif' :
+            config.fontFamily === 'courier' ? 'Courier, monospace' :
+            'Arial, sans-serif'
+          };
           background: white;
           width: 100%;
           height: 100vh;
@@ -231,8 +259,8 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         
         .certificate {
           position: relative;
-          width: 800px;
-          height: 600px;
+          width: ${config.orientation === 'landscape' ? '800px' : '600px'};
+          height: ${config.orientation === 'landscape' ? '600px' : '800px'};
           background-color: ${config.backgroundColor};
           border: ${config.showBorder ? `${config.borderWidth}px solid ${config.borderColor}` : 'none'};
           margin: 0 auto;
@@ -342,10 +370,28 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           border-left: none;
           border-top: none;
         }
+        
+        /* Watermark */
+        .watermark {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(-45deg);
+          font-size: ${config.titleFontSize * 2}px;
+          font-weight: bold;
+          color: ${config.secondaryColor};
+          opacity: ${config.watermarkOpacity};
+          pointer-events: none;
+          z-index: 1;
+          user-select: none;
+        }
       </style>
     </head>
     <body>
       <div class="certificate">
+        <!-- Watermark -->
+        ${config.showWatermark ? `<div class="watermark">${config.watermarkText}</div>` : ''}
+        
         <!-- Título -->
         <div class="title">${config.title}</div>
         

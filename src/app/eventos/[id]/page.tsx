@@ -216,8 +216,12 @@ export default function EventDetailsPage() {
         eventEndTime: event.endTime?.toISOString(),
       });
 
-      if (result.success && result.certificateUrl) {
-        console.log('✅ Certificado gerado:', result.certificateUrl);
+      if (result.success) {
+        console.log('✅ Certificado gerado:', result.certificateUrl || 'URL dinâmica');
+        
+        // ✅ CORREÇÃO: Gerar URL dinâmica se não fornecida
+        const finalCertificateUrl = result.certificateUrl || 
+          `/api/certificate/download?registrationId=${registration.id}`;
         
         // Reload registration data from database to ensure consistency
         try {
@@ -229,7 +233,7 @@ export default function EventDetailsPage() {
             setRegistration({
               ...registration,
               certificateGenerated: true,
-              certificateUrl: result.certificateUrl,
+              certificateUrl: finalCertificateUrl,
             });
           }
         } catch (reloadError) {
@@ -238,13 +242,13 @@ export default function EventDetailsPage() {
           setRegistration({
             ...registration,
             certificateGenerated: true,
-            certificateUrl: result.certificateUrl,
+            certificateUrl: finalCertificateUrl,
           });
         }
         
         // Open certificate in new tab
-        window.open(result.certificateUrl, '_blank');
-        setSuccessMessage('Certificado PNG gerado com sucesso!');
+        window.open(finalCertificateUrl, '_blank');
+        setSuccessMessage('Certificado gerado com sucesso!');
       } else {
         throw new Error(result.error || 'Erro desconhecido na geração');
       }

@@ -219,8 +219,13 @@ export async function POST(request: NextRequest) {
         strategy: 'Fresh generation sempre'
       });
       
-      // Não precisamos de URL salva, sempre geramos fresh
-      certificateUrl = undefined;
+      // ✅ CORREÇÃO: Definir URL dinâmica para que frontend funcione no primeiro clique
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+                     'http://localhost:3000';
+      certificateUrl = `${baseUrl}/api/certificate/download?registrationId=${registrationId}`;
+      console.log('🔗 URL dinâmica gerada:', certificateUrl);
+      console.log('🌍 Base URL detectada:', baseUrl);
       
     } else {
       // 📁 ESTRATÉGIA TRADICIONAL: Cloudinary storage
