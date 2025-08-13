@@ -92,12 +92,16 @@ export async function POST(request: NextRequest) {
     // 🚀 NOVO FLUXO UNIFICADO: SEMPRE PNG PRIMEIRO (sugestão do usuário implementada)
     console.log('🖼️  Implementando fluxo unificado: PNG com multipliers extremos');
 
-    // ✅ NOVO MÉTODO: Gerar PNG usando exatamente o mesmo código do preview
-    console.log('🎯 PASSO 1: Gerando PNG via HTML (IDÊNTICO ao preview)');
+    // 🎭 NOVA ESTRATÉGIA: Playwright primeiro, depois Puppeteer, depois Canvas
+    console.log('🎯 PASSO 1: Tentando PLAYWRIGHT (mais estável)');
     
+    let imageBuffer: Buffer | null = null;
+    let generationMethod = '';
+    
+    // TENTATIVA 1: Playwright (mais estável que Puppeteer)
     try {
-      // NOVA ABORDAGEM: Usar API HTML que replica 100% o preview
-      const htmlResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-html`, {
+      console.log('🎭 Tentando Playwright...');
+      const playwrightResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-playwright`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,81 +114,83 @@ export async function POST(request: NextRequest) {
         })
       });
 
-      if (!htmlResponse.ok) {
-        throw new Error(`API HTML falhou: ${htmlResponse.status}`);
-      }
-
-      const imageBuffer = Buffer.from(await htmlResponse.arrayBuffer());
-      
-      logInfo('✅ PNG gerado via HTML (100% idêntico ao preview)', { 
-        userId, 
-        eventId, 
-        imageSize: imageBuffer.length,
-        note: 'Usando exato mesmo código do preview - garantia total'
-      });
-
-      console.log('🎯 PASSO 2: Salvando PNG no Cloudinary com cache-buster');
-      
-      // SEMPRE salvar PNG no Cloudinary (único fonte da verdade)
-      const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_${userId}_${eventId}_${cacheBreaker}`);
-      certificateUrl = uploadResult.secureUrl;
-      generationType = 'image';
-      
-      logInfo('✅ Certificado PNG salvo no Cloudinary', { 
-        userId, 
-        eventId, 
-        publicId: uploadResult.publicId,
-        certificateUrl: certificateUrl.substring(0, 50) + '...',
-        success: 'Fontes grandes preservadas!'
-      });
-
-      console.log('🎯 PASSO 3: URL será salva no Firebase (próximo)');
-      
-    } catch (htmlError) {
-      console.error('❌ FALHA CRÍTICA na geração HTML/Puppeteer:', htmlError);
-      console.error('📊 Detalhes completos do erro:', {
-        message: (htmlError as Error).message,
-        name: (htmlError as Error).name,
-        stack: (htmlError as Error).stack,
-        toString: (htmlError as Error).toString()
-      });
-      
-      logError('Falha na geração de certificado HTML/Puppeteer', htmlError as Error, { 
-        userId: userId, 
-        eventId: eventId,
-        errorType: (htmlError as Error).name
-      });
-      
-      // 💀 FALLBACK DE EMERGÊNCIA: Fallback Canvas simples (temporário)
-      console.warn('🆘 ATIVANDO FALLBACK DE EMERGÊNCIA - Canvas temporário...');
-      
-      try {
-        // Importar Canvas dinamicamente 
-        const { generateCertificateImage } = await import('@/lib/certificate-image-generator');
+      if (playwrightResponse.ok) {
+        imageBuffer = Buffer.from(await playwrightResponse.arrayBuffer());
+        generationMethod = 'PLAYWRIGHT';
+        console.log('🎉 PLAYWRIGHT funcionou!');
         
-        console.log('📦 Canvas importado, gerando certificado de emergência...');
-        const imageBuffer = await generateCertificateImage(fullCertificateData);
-        
-        logInfo('🆘 EMERGÊNCIA: PNG Canvas gerado como fallback', { 
+        logInfo('🎭 PNG gerado via PLAYWRIGHT com sucesso', { 
           userId, 
           eventId, 
           imageSize: imageBuffer.length,
-          warning: 'Fallback de emergência - Puppeteer falhou'
+          method: 'Playwright - alternativa robusta'
+        });
+      } else {
+        throw new Error(`Playwright falhou: ${playwrightResponse.status}`);
+      }
+      
+    } catch (playwrightError) {
+      console.warn('⚠️ Playwright falhou, tentando Puppeteer...', playwrightError);
+      
+      // TENTATIVA 2: Puppeteer (original)
+      try {
+        console.log('🤖 Tentando Puppeteer...');
+        const htmlResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/certificate-html`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userName: fullCertificateData.userName,
+            eventName: fullCertificateData.eventName,
+            eventDate: fullCertificateData.eventDate,
+            eventStartTime: fullCertificateData.eventStartTime,
+            eventEndTime: fullCertificateData.eventEndTime,
+            config: fullCertificateData.config
+          })
         });
 
-        const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_EMERGENCY_${userId}_${eventId}_${cacheBreaker}`);
-        certificateUrl = uploadResult.secureUrl;
-        generationType = 'image';
+        if (htmlResponse.ok) {
+          imageBuffer = Buffer.from(await htmlResponse.arrayBuffer());
+          generationMethod = 'PUPPETEER';
+          console.log('🎉 PUPPETEER funcionou!');
+          
+          logInfo('🤖 PNG gerado via PUPPETEER', { 
+            userId, 
+            eventId, 
+            imageSize: imageBuffer.length,
+            method: 'Puppeteer - método original'
+          });
+        } else {
+          throw new Error(`Puppeteer falhou: ${htmlResponse.status}`);
+        }
         
-        console.log('🆘 Fallback de emergência funcionou!');
-        
-      } catch (emergencyError) {
-        console.error('💀 FALHA TOTAL: até o fallback de emergência falhou:', emergencyError);
-        throw new Error(`Falha total na geração: HTML(${(htmlError as Error).message}) + Canvas(${(emergencyError as Error).message})`);
+      } catch (puppeteerError) {
+        console.warn('⚠️ Puppeteer também falhou:', puppeteerError);
+        throw new Error(`Playwright E Puppeteer falharam: ${(playwrightError as Error).message} | ${(puppeteerError as Error).message}`);
       }
     }
+    
+    if (!imageBuffer) {
+      throw new Error('Falha em gerar imagem via HTML/browsers');
+    }
+
+    console.log('🎯 PASSO 2: Salvando PNG no Cloudinary...');
+    
+    // SEMPRE salvar PNG no Cloudinary (único fonte da verdade)
+    const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const uploadResult = await uploadImageToCloudinary(imageBuffer, `certificate_${generationMethod}_${userId}_${eventId}_${cacheBreaker}`);
+    certificateUrl = uploadResult.secureUrl;
+    generationType = 'image';
+    
+    logInfo('✅ Certificado PNG salvo no Cloudinary', { 
+      userId, 
+      eventId, 
+      publicId: uploadResult.publicId,
+      certificateUrl: certificateUrl.substring(0, 50) + '...',
+      generationMethod: generationMethod,
+      success: 'Certificado perfeito gerado!'
+    });
+
+    console.log('🎯 PASSO 3: URL será salva no Firebase (próximo)');
 
     // Update registration to mark certificate as generated
     await updateRegistration(registrationId, {

@@ -484,33 +484,30 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, options: {
     _renderConfig = { isServerless, shouldUseASCII, fontStrategies };
   }
   
-  // 🔍 DEBUG: Texto de entrada
-  console.log('🎨 drawText entrada:', {
-    textOriginal: `"${text}"`,
-    textLength: text.length,
-    primeirosChars: text.substring(0, 10),
-    charCodes: text.substring(0, 5).split('').map(c => c.charCodeAt(0)),
-    isServerless: _renderConfig.isServerless,
-    shouldUseASCII: _renderConfig.shouldUseASCII
-  });
-  
-  // Sanitizar texto FORÇANDO ASCII sempre em produção
+  // 🧹 CORREÇÃO DRÁSTICA: Forçar texto ASCII SEMPRE em produção
   let finalText = text;
   
   if (_renderConfig.isServerless || _renderConfig.shouldUseASCII) {
+    // SUPER-AGRESSIVO: Converter tudo para ASCII seguro
     finalText = text
-      .normalize('NFD')                         // Decompor caracteres acentuados
-      .replace(/[\u0300-\u036f]/g, '')          // Remover diacríticos
-      .replace(/[^\x00-\x7F]/g, '?')            // Substituir não-ASCII por ?
-      .replace(/[^\w\s\-\.\,\!\?\(\)]/g, ' ')   // Manter apenas seguros
-      .replace(/\s+/g, ' ')                     // Normalizar espaços
+      .normalize('NFD')                           // Decompor acentos
+      .replace(/[\u0300-\u036f]/g, '')            // Remove diacríticos  
+      .replace(/ç/g, 'c').replace(/Ç/g, 'C')      // ç → c
+      .replace(/ã/g, 'a').replace(/Ã/g, 'A')      // ã → a
+      .replace(/õ/g, 'o').replace(/Õ/g, 'O')      // õ → o
+      .replace(/á/g, 'a').replace(/Á/g, 'A')      // á → a
+      .replace(/é/g, 'e').replace(/É/g, 'E')      // é → e
+      .replace(/í/g, 'i').replace(/Í/g, 'I')      // í → i
+      .replace(/ó/g, 'o').replace(/Ó/g, 'O')      // ó → o
+      .replace(/ú/g, 'u').replace(/Ú/g, 'U')      // ú → u
+      .replace(/[^\x20-\x7E]/g, '?')              // Qualquer não-ASCII → ?
+      .replace(/\s+/g, ' ')                       // Normalizar espaços
       .trim();
     
-    console.log('🧹 Texto normalizado:', {
-      original: `"${text}"`,
-      normalizado: `"${finalText}"`,
-      comprimento: finalText.length,
-      isOnlyASCII: finalText.split('').every(c => c.charCodeAt(0) <= 127)
+    console.log('🔥 TEXTO ULTRA-LIMPO:', {
+      original: `"${text.substring(0, 30)}"`,
+      limpo: `"${finalText.substring(0, 30)}"`,
+      allASCII: finalText.split('').every(c => c.charCodeAt(0) >= 32 && c.charCodeAt(0) <= 126)
     });
   }
   
