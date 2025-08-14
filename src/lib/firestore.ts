@@ -88,14 +88,36 @@ export const isUserAdmin = (email: string): boolean => {
 // Event CRUD operations
 export const createEvent = async (eventData: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>) => {
   const eventsRef = collection(db, COLLECTIONS.EVENTS);
-  const newEvent = {
-    ...eventData,
+  
+  // Filtrar campos undefined e preparar dados para criação
+  const newEvent: DocumentData = {
+    name: eventData.name,
+    description: eventData.description,
+    location: eventData.location,
+    createdBy: eventData.createdBy,
     date: Timestamp.fromDate(eventData.date),
     startTime: Timestamp.fromDate(eventData.startTime),
     endTime: Timestamp.fromDate(eventData.endTime),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
+  
+  // Adicionar campos opcionais apenas se não forem undefined
+  if (eventData.registrationDeadline) {
+    newEvent.registrationDeadline = Timestamp.fromDate(eventData.registrationDeadline);
+  }
+  
+  if (eventData.registrationDeadlineMessage) {
+    newEvent.registrationDeadlineMessage = eventData.registrationDeadlineMessage;
+  }
+  
+  if (eventData.maxParticipants) {
+    newEvent.maxParticipants = eventData.maxParticipants;
+  }
+  
+  if (eventData.maxParticipantsMessage) {
+    newEvent.maxParticipantsMessage = eventData.maxParticipantsMessage;
+  }
   
   const docRef = await addDoc(eventsRef, newEvent);
   
@@ -149,6 +171,11 @@ export const getEvent = async (eventId: string): Promise<Event | null> => {
       createdBy: data.createdBy,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
+      // Novos campos opcionais
+      registrationDeadline: data.registrationDeadline?.toDate() || undefined,
+      registrationDeadlineMessage: data.registrationDeadlineMessage || undefined,
+      maxParticipants: data.maxParticipants || undefined,
+      maxParticipantsMessage: data.maxParticipantsMessage || undefined,
     } as Event;
   }
   
@@ -176,6 +203,11 @@ export const getAllEvents = async (): Promise<Event[]> => {
     createdBy: doc.data().createdBy,
     createdAt: doc.data().createdAt?.toDate() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    // Novos campos opcionais
+    registrationDeadline: doc.data().registrationDeadline?.toDate() || undefined,
+    registrationDeadlineMessage: doc.data().registrationDeadlineMessage || undefined,
+    maxParticipants: doc.data().maxParticipants || undefined,
+    maxParticipantsMessage: doc.data().maxParticipantsMessage || undefined,
   })) as Event[];
 
   setCachedResult(cacheKey, events);
@@ -218,6 +250,11 @@ export const getEventsPaginated = async (
     createdBy: doc.data().createdBy,
     createdAt: doc.data().createdAt?.toDate() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    // Novos campos opcionais
+    registrationDeadline: doc.data().registrationDeadline?.toDate() || undefined,
+    registrationDeadlineMessage: doc.data().registrationDeadlineMessage || undefined,
+    maxParticipants: doc.data().maxParticipants || undefined,
+    maxParticipantsMessage: doc.data().maxParticipantsMessage || undefined,
   })) as Event[];
 
   const result: PaginatedResult<Event> = {
@@ -234,11 +271,21 @@ export const getEventsPaginated = async (
 
 export const updateEvent = async (eventId: string, eventData: Partial<Event>) => {
   const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+  
+  // Filtrar campos undefined e preparar dados para update
   const updateData: DocumentData = {
-    ...eventData,
     updatedAt: serverTimestamp(),
   };
   
+  // Copiar apenas campos definidos (não undefined)
+  Object.keys(eventData).forEach(key => {
+    const value = eventData[key as keyof Event];
+    if (value !== undefined) {
+      updateData[key] = value;
+    }
+  });
+  
+  // Converter datas para Timestamp
   if (eventData.date) {
     updateData.date = Timestamp.fromDate(eventData.date);
   }
@@ -249,6 +296,27 @@ export const updateEvent = async (eventId: string, eventData: Partial<Event>) =>
   
   if (eventData.endTime) {
     updateData.endTime = Timestamp.fromDate(eventData.endTime);
+  }
+  
+  // Tratar registrationDeadline opcional
+  if (eventData.registrationDeadline) {
+    updateData.registrationDeadline = Timestamp.fromDate(eventData.registrationDeadline);
+  } else if (eventData.hasOwnProperty('registrationDeadline') && eventData.registrationDeadline === undefined) {
+    // Se o campo está presente mas é undefined, remover do Firestore
+    updateData.registrationDeadline = null;
+  }
+  
+  // Tratar campos opcionais de limite
+  if (eventData.hasOwnProperty('maxParticipants') && eventData.maxParticipants === undefined) {
+    updateData.maxParticipants = null;
+  }
+  
+  if (eventData.hasOwnProperty('maxParticipantsMessage') && eventData.maxParticipantsMessage === undefined) {
+    updateData.maxParticipantsMessage = null;
+  }
+  
+  if (eventData.hasOwnProperty('registrationDeadlineMessage') && eventData.registrationDeadlineMessage === undefined) {
+    updateData.registrationDeadlineMessage = null;
   }
   
   await updateDoc(eventRef, updateData);
@@ -276,6 +344,93 @@ export const deleteEvent = async (eventId: string) => {
   invalidateCache('events');
   invalidateCache(`event-${eventId}`);
   invalidateCache('registrations');
+};
+
+// Função para verificar se inscrições são permitidas para o evento
+export interface RegistrationValidationResult {
+  isAllowed: boolean;
+  reason?: string;
+  message?: string;
+}
+
+export const validateEventRegistration = async (eventId: string): Promise<RegistrationValidationResult> => {
+  try {
+    // Buscar dados do evento
+    const event = await getEvent(eventId);
+    if (!event) {
+      return {
+        isAllowed: false,
+        reason: 'EVENT_NOT_FOUND',
+        message: 'Evento não encontrado.'
+      };
+    }
+    
+    // Verificar data limite de inscrição
+    if (event.registrationDeadline) {
+      const now = new Date();
+      const deadline = new Date(event.registrationDeadline);
+      deadline.setHours(23, 59, 59, 999); // Fim do dia
+      
+      if (now > deadline) {
+        return {
+          isAllowed: false,
+          reason: 'REGISTRATION_DEADLINE_PASSED',
+          message: event.registrationDeadlineMessage || 'As inscrições para este evento foram encerradas.'
+        };
+      }
+    }
+    
+    // Verificar limite de participantes
+    if (event.maxParticipants) {
+      const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
+      const q = query(registrationsRef, where('eventId', '==', eventId));
+      const registrationsSnapshot = await getDocs(q);
+      const currentRegistrations = registrationsSnapshot.size;
+      
+      if (currentRegistrations >= event.maxParticipants) {
+        return {
+          isAllowed: false,
+          reason: 'MAX_PARTICIPANTS_REACHED',
+          message: event.maxParticipantsMessage || 'Este evento atingiu o limite máximo de participantes.'
+        };
+      }
+    }
+    
+    return { isAllowed: true };
+    
+  } catch (error) {
+    console.error('Erro ao validar inscrição:', error);
+    return {
+      isAllowed: false,
+      reason: 'VALIDATION_ERROR',
+      message: 'Erro interno. Tente novamente.'
+    };
+  }
+};
+
+// Função para obter estatísticas do evento
+export const getEventStats = async (eventId: string) => {
+  const registrationsRef = collection(db, COLLECTIONS.REGISTRATIONS);
+  const q = query(registrationsRef, where('eventId', '==', eventId));
+  const registrationsSnapshot = await getDocs(q);
+  
+  const totalRegistrations = registrationsSnapshot.size;
+  const checkedInCount = registrationsSnapshot.docs.filter(doc => 
+    doc.data().checkedIn === true
+  ).length;
+  const checkedOutCount = registrationsSnapshot.docs.filter(doc => 
+    doc.data().checkedOut === true
+  ).length;
+  const certificatesGenerated = registrationsSnapshot.docs.filter(doc => 
+    doc.data().certificateGenerated === true
+  ).length;
+  
+  return {
+    totalRegistrations,
+    checkedInCount,
+    checkedOutCount, 
+    certificatesGenerated,
+  };
 };
 
 // Registration CRUD operations

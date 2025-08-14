@@ -156,6 +156,53 @@ export const eventSchema = z
       .min(3, 'Local deve ter pelo menos 3 caracteres')
       .max(200, 'Local muito longo')
       .trim(),
+
+    // Campos opcionais para limite de inscrição
+    registrationDeadline: z
+      .string()
+      .optional()
+      .refine((dateStr) => {
+        if (!dateStr) return true; // Campo opcional
+        try {
+          const deadline = new Date(`${dateStr}T23:59:59`);
+          return !isNaN(deadline.getTime());
+        } catch {
+          return false;
+        }
+      }, 'Data limite inválida'),
+    
+    registrationDeadlineMessage: z
+      .string()
+      .optional()
+      .refine((msg) => {
+        if (!msg) return true; // Campo opcional
+        return msg.trim().length >= 10 && msg.trim().length <= 500;
+      }, 'Mensagem deve ter entre 10 e 500 caracteres'),
+    
+    maxParticipants: z
+      .union([
+        z.number()
+          .int('Deve ser um número inteiro')
+          .min(1, 'Deve haver pelo menos 1 vaga')
+          .max(10000, 'Limite máximo é 10.000 participantes'),
+        z.literal(''),
+        z.undefined()
+      ])
+      .optional()
+      .transform((val) => {
+        if (val === '' || val === undefined || val === null) {
+          return undefined;
+        }
+        return val;
+      }),
+    
+    maxParticipantsMessage: z
+      .string()
+      .optional()
+      .refine((msg) => {
+        if (!msg) return true; // Campo opcional
+        return msg.trim().length >= 10 && msg.trim().length <= 500;
+      }, 'Mensagem deve ter entre 10 e 500 caracteres'),
   })
   .refine(
     (data) => {
@@ -178,6 +225,47 @@ export const eventSchema = z
     {
       message: 'Evento deve ter pelo menos 30 minutos de duração',
       path: ['endTime'],
+    }
+  )
+  .refine(
+    (data) => {
+      // Validar data limite de inscrição se fornecida
+      if (!data.registrationDeadline) return true;
+      
+      const eventDate = new Date(`${data.date}T23:59:59`);
+      const deadlineDate = new Date(`${data.registrationDeadline}T23:59:59`);
+      
+      return deadlineDate <= eventDate;
+    },
+    {
+      message: 'Data limite de inscrição não pode ser após a data do evento',
+      path: ['registrationDeadline'],
+    }
+  )
+  .refine(
+    (data) => {
+      // Se tem limite de participantes (número válido), deve ter mensagem
+      if (typeof data.maxParticipants === 'number' && data.maxParticipants > 0 && !data.maxParticipantsMessage?.trim()) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Mensagem é obrigatória quando há limite de participantes',
+      path: ['maxParticipantsMessage'],
+    }
+  )
+  .refine(
+    (data) => {
+      // Se tem data limite, deve ter mensagem  
+      if (data.registrationDeadline && !data.registrationDeadlineMessage?.trim()) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Mensagem é obrigatória quando há data limite de inscrição',
+      path: ['registrationDeadlineMessage'],
     }
   );
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Event } from '@/types';
 import { createEvent, updateEvent } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, MapPin, FileText, Save, ArrowLeft, Clock } from 'lucide-react';
+import { Calendar, MapPin, FileText, Save, ArrowLeft, Clock, Users, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useScreenReader } from '@/hooks/useA11y';
 import { useValidatedForm, FieldError } from '@/hooks/useValidatedForm';
@@ -54,6 +54,11 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
       startTime: event?.startTime ? formatTimeForInput(event.startTime) : '',
       endTime: event?.endTime ? formatTimeForInput(event.endTime) : '',
       location: event?.location || '',
+      // Novos campos opcionais
+      registrationDeadline: event?.registrationDeadline ? formatDateForInput(event.registrationDeadline) : '',
+      registrationDeadlineMessage: event?.registrationDeadlineMessage || 'As inscrições para este evento foram encerradas.',
+      maxParticipants: event?.maxParticipants || undefined,
+      maxParticipantsMessage: event?.maxParticipantsMessage || 'Este evento atingiu o limite máximo de participantes.',
     },
     onSubmitSuccess: () => {
       notifications.success(
@@ -89,6 +94,13 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
       endTime: endDateTime,
       location: data.location.trim(),
       createdBy: user.uid,
+      // Novos campos opcionais
+      registrationDeadline: data.registrationDeadline 
+        ? createLocalDate(data.registrationDeadline) 
+        : undefined,
+      registrationDeadlineMessage: data.registrationDeadlineMessage?.trim() || undefined,
+      maxParticipants: data.maxParticipants || undefined,
+      maxParticipantsMessage: data.maxParticipantsMessage?.trim() || undefined,
     };
 
     if (isEditing && event) {
@@ -227,6 +239,103 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
               placeholder="Digite o local do evento"
             />
             <FieldError error={getFieldError('location')} />
+          </div>
+
+          {/* Seção de Configurações de Inscrição */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+              <Users className="h-5 w-5 mr-2" />
+              Configurações de Inscrição
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Configure limites e restrições para as inscrições do evento (opcionais)
+            </p>
+
+            {/* Data Limite de Inscrição */}
+            <div className="space-y-4 mb-6">
+              <div>
+                <label htmlFor="registrationDeadline" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Calendar className="inline h-4 w-4 mr-2" />
+                  Data Limite de Inscrição (opcional)
+                </label>
+                <input
+                  type="date"
+                  id="registrationDeadline"
+                  {...register('registrationDeadline')}
+                  className={`input w-full ${getFieldError('registrationDeadline') ? 'border-red-500' : ''}`}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Se definida, as inscrições serão bloqueadas após esta data
+                </p>
+                <FieldError error={getFieldError('registrationDeadline')} />
+              </div>
+
+              <div>
+                <label htmlFor="registrationDeadlineMessage" className="block text-sm font-medium text-gray-700 mb-2">
+                  <AlertTriangle className="inline h-4 w-4 mr-2" />
+                  Mensagem quando Data Limite Expirar
+                </label>
+                <textarea
+                  id="registrationDeadlineMessage"
+                  {...register('registrationDeadlineMessage')}
+                  rows={3}
+                  className={`input w-full resize-none ${getFieldError('registrationDeadlineMessage') ? 'border-red-500' : ''}`}
+                  placeholder="As inscrições para este evento foram encerradas."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Mensagem exibida quando usuários tentarem se inscrever após a data limite (10-500 caracteres)
+                </p>
+                <FieldError error={getFieldError('registrationDeadlineMessage')} />
+              </div>
+            </div>
+
+            {/* Limite de Participantes */}
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="maxParticipants" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Users className="inline h-4 w-4 mr-2" />
+                  Limite Máximo de Participantes (opcional)
+                </label>
+                <input
+                  type="number"
+                  id="maxParticipants"
+                  {...register('maxParticipants', { 
+                    setValueAs: (value) => {
+                      if (value === '' || value === null || isNaN(Number(value))) {
+                        return undefined;
+                      }
+                      return Number(value);
+                    }
+                  })}
+                  className={`input w-full ${getFieldError('maxParticipants') ? 'border-red-500' : ''}`}
+                  placeholder="Ex: 100"
+                  min="1"
+                  max="10000"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Número máximo de pessoas que podem se inscrever no evento
+                </p>
+                <FieldError error={getFieldError('maxParticipants')} />
+              </div>
+
+              <div>
+                <label htmlFor="maxParticipantsMessage" className="block text-sm font-medium text-gray-700 mb-2">
+                  <AlertTriangle className="inline h-4 w-4 mr-2" />
+                  Mensagem quando Limite Atingido
+                </label>
+                <textarea
+                  id="maxParticipantsMessage"
+                  {...register('maxParticipantsMessage')}
+                  rows={3}
+                  className={`input w-full resize-none ${getFieldError('maxParticipantsMessage') ? 'border-red-500' : ''}`}
+                  placeholder="Este evento atingiu o limite máximo de participantes."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Mensagem exibida quando o limite de participantes for atingido (10-500 caracteres)
+                </p>
+                <FieldError error={getFieldError('maxParticipantsMessage')} />
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end space-x-4 pt-6">

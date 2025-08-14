@@ -41,6 +41,7 @@
     "react-dom": "19.1.0",
     "react-hook-form": "^7.62.0",
     "react-qr-code": "^2.0.18",
+    "xlsx": "^0.18.5",
     "zod": "^4.0.17",
     "zustand": "^5.0.7"
   },
@@ -51,6 +52,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/xlsx": "^0.0.35",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.4.4",

@@ -29,12 +29,14 @@ import {
   Copy,
   Share2,
   FileText,
-  Settings
+  Settings,
+  Table
 } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { downloadQRCodePDF } from '@/lib/qr-pdf-generator';
 import { downloadParticipantsPDF } from '@/lib/participants-pdf-generator';
+import { downloadParticipantsExcel } from '@/lib/participants-excel-generator';
 
 export default function EventDetailsPage() {
   const params = useParams();
@@ -274,57 +276,89 @@ export default function EventDetailsPage() {
     }
   };
 
-  const downloadParticipantsList = async () => {
-    if (!event || !user?.isAdmin) return;
+  // Função auxiliar para buscar dados dos participantes
+  const getParticipantsData = async () => {
+    if (!event || !user?.isAdmin) return null;
 
+    // Buscar lista completa de registrations
+    const registrations = await getEventRegistrations(event.id);
+    
+    if (registrations.length === 0) {
+      throw new Error('Não há participantes inscritos neste evento');
+    }
+
+    // Buscar formulário personalizado se existir
+    const customForm = await getCustomFormByEventId(event.id);
+    
+    // Buscar respostas dos formulários personalizados se houver formulário
+    const formResponses = customForm 
+      ? await getEventFormResponses(event.id)
+      : [];
+
+    // Combinar dados de registro com respostas do formulário
+    const participants = registrations.map(registration => {
+      const formResponse = formResponses.find(
+        response => response.userEmail === registration.userEmail
+      );
+      
+      return {
+        registration,
+        formResponse
+      };
+    });
+
+    return {
+      event,
+      participants,
+      customForm: customForm || undefined
+    };
+  };
+
+  const downloadParticipantsPDFList = async () => {
     // Limpar mensagens anteriores
     setError('');
     setSuccessMessage('');
     setDownloadLoading(true);
     
     try {
-      // Buscar lista completa de registrations
-      const registrations = await getEventRegistrations(event.id);
-      
-      if (registrations.length === 0) {
-        setError('Não há participantes inscritos neste evento');
-        return;
-      }
-
-      // Buscar formulário personalizado se existir
-      const customForm = await getCustomFormByEventId(event.id);
-      
-      // Buscar respostas dos formulários personalizados se houver formulário
-      const formResponses = customForm 
-        ? await getEventFormResponses(event.id)
-        : [];
-
-      // Combinar dados de registro com respostas do formulário
-      const participants = registrations.map(registration => {
-        const formResponse = formResponses.find(
-          response => response.userEmail === registration.userEmail
-        );
-        
-        return {
-          registration,
-          formResponse
-        };
-      });
+      const data = await getParticipantsData();
+      if (!data) return;
 
       // Gerar e baixar PDF
-      await downloadParticipantsPDF({
-        event,
-        participants,
-        customForm: customForm || undefined
-      });
+      await downloadParticipantsPDF(data);
       
       // Mostrar mensagem de sucesso
-      setSuccessMessage(`Relatório PDF baixado com sucesso! (${registrations.length} participantes)`);
+      setSuccessMessage(`Relatório PDF baixado com sucesso! (${data.participants.length} participantes)`);
       setTimeout(() => setSuccessMessage(''), 5000);
       
     } catch (error) {
-      console.error('Error downloading participants list:', error);
-      setError('Erro ao baixar relatório de participantes');
+      console.error('Error downloading participants PDF:', error);
+      setError(error instanceof Error ? error.message : 'Erro ao baixar relatório PDF');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+  const downloadParticipantsExcelList = async () => {
+    // Limpar mensagens anteriores
+    setError('');
+    setSuccessMessage('');
+    setDownloadLoading(true);
+    
+    try {
+      const data = await getParticipantsData();
+      if (!data) return;
+
+      // Gerar e baixar Excel
+      await downloadParticipantsExcel(data);
+      
+      // Mostrar mensagem de sucesso
+      setSuccessMessage(`Planilha Excel baixada com sucesso! (${data.participants.length} participantes)`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+      
+    } catch (error) {
+      console.error('Error downloading participants Excel:', error);
+      setError(error instanceof Error ? error.message : 'Erro ao baixar planilha Excel');
     } finally {
       setDownloadLoading(false);
     }
@@ -524,17 +558,31 @@ export default function EventDetailsPage() {
                           </Link>
 
                           <button
-                            onClick={downloadParticipantsList}
+                            onClick={downloadParticipantsPDFList}
                             disabled={downloadLoading || allRegistrations.length === 0}
-                            className="btn-outline flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={allRegistrations.length === 0 ? "Nenhum participante inscrito" : "Baixar lista de participantes"}
+                            className="btn-outline flex items-center disabled:opacity-50 disabled:cursor-not-allowed text-red-600 border-red-300 hover:bg-red-50"
+                            title={allRegistrations.length === 0 ? "Nenhum participante inscrito" : "Baixar lista de participantes em PDF"}
                           >
                             {downloadLoading ? (
-                              <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2" />
+                              <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
                             ) : (
                               <Download className="h-4 w-4 mr-2" />
                             )}
-                            {downloadLoading ? 'Gerando PDF...' : 'Baixar Lista PDF'}
+                            {downloadLoading ? 'Gerando PDF...' : 'Baixar PDF'}
+                          </button>
+
+                          <button
+                            onClick={downloadParticipantsExcelList}
+                            disabled={downloadLoading || allRegistrations.length === 0}
+                            className="btn-outline flex items-center disabled:opacity-50 disabled:cursor-not-allowed text-green-600 border-green-300 hover:bg-green-50"
+                            title={allRegistrations.length === 0 ? "Nenhum participante inscrito" : "Baixar lista de participantes em Excel"}
+                          >
+                            {downloadLoading ? (
+                              <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin mr-2" />
+                            ) : (
+                              <Table className="h-4 w-4 mr-2" />
+                            )}
+                            {downloadLoading ? 'Gerando Excel...' : 'Baixar Excel'}
                           </button>
 
                           <button
@@ -828,6 +876,36 @@ export default function EventDetailsPage() {
                       <h4 className="text-sm font-medium text-gray-900 mb-1">Descrição</h4>
                       <p className="text-sm text-gray-600">{event.description}</p>
                     </div>
+                    
+                    {/* Informações de limites de inscrição */}
+                    {(event.registrationDeadline || event.maxParticipants) && (
+                      <div className="border-t pt-4">
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">Limites de Inscrição</h4>
+                        <div className="space-y-2">
+                          {event.registrationDeadline && (
+                            <div>
+                              <span className="text-xs text-gray-500">Data limite:</span>
+                              <p className="text-sm text-gray-600">
+                                {event.registrationDeadline.toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                          )}
+                          {event.maxParticipants && (
+                            <div>
+                              <span className="text-xs text-gray-500">Máximo de participantes:</span>
+                              <p className="text-sm text-gray-600">
+                                {allRegistrations.length}/{event.maxParticipants} inscritos
+                              </p>
+                              {allRegistrations.length >= event.maxParticipants && (
+                                <p className="text-xs text-amber-600 font-medium mt-1">
+                                  ⚠️ Limite atingido
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { createRegistration, isUserAdmin, saveFormResponse } from '@/lib/firestore';
+import { createRegistration, isUserAdmin, saveFormResponse, validateEventRegistration } from '@/lib/firestore';
 import { PublicRegistrationData } from '@/types';
 import { FormFieldResponse } from '@/types/custom-forms';
 import { rateLimit, getRequestIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
@@ -154,6 +154,22 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
       );
     }
+
+    // Validar se as inscrições estão abertas para o evento
+    logInfo('Validando disponibilidade de inscrição para o evento', { eventId });
+    const registrationValidation = await validateEventRegistration(eventId);
+    if (!registrationValidation.isAllowed) {
+      logInfo('Inscrição não permitida para o evento', { 
+        eventId, 
+        reason: registrationValidation.reason,
+        message: registrationValidation.message 
+      });
+      return NextResponse.json(
+        { error: registrationValidation.message },
+        { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
+      );
+    }
+    logInfo('Validação de inscrição aprovada, prosseguindo com criação do usuário');
 
     try {
       // Tentar criar usuário no Firebase Auth com a senha fornecida

@@ -17,6 +17,11 @@ export interface Event {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+  // Campos de limite de inscrição
+  registrationDeadline?: Date;
+  registrationDeadlineMessage?: string;
+  maxParticipants?: number;
+  maxParticipantsMessage?: string;
 }
 
 export interface Registration {
@@ -63,6 +68,11 @@ export interface EventFormData {
   startTime: string;
   endTime: string;
   location: string;
+  // Campos de limite de inscrição
+  registrationDeadline?: string; // ISO string for form input
+  registrationDeadlineMessage?: string;
+  maxParticipants?: number;
+  maxParticipantsMessage?: string;
 }
 
 export interface PublicRegistrationData {

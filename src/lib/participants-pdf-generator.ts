@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Event, Registration } from '@/types';
 import { FormResponse, CustomFormConfig } from '@/types/custom-forms';
+import { getSafeFieldsForReports } from './security-filters';
 
 interface ParticipantData {
   registration: Registration;
@@ -130,30 +131,34 @@ export const generateParticipantsPDF = async ({
         (reg.checkOutTime ? reg.checkOutTime.toLocaleString('pt-BR') : 'Sim') : 'Não realizado'}`, 11, font);
       addText(`   Certificado: ${reg.certificateGenerated ? 'Gerado' : 'Não gerado'}`, 11, font);
       
-      // Dados do formulário personalizado
+      // Dados do formulário personalizado (excluindo campos sensíveis)
       if (customForm && customForm.fields.length > 0) {
-        yPosition -= 5;
-        addText(`   DADOS DO FORMULÁRIO:`, 11, boldFont);
-        
-        customForm.fields.forEach(field => {
-          const fieldResponse = formData[field.id];
-          const value = fieldResponse?.value;
-          const displayValue = formatValue(value);
+        const safeFields = getSafeFieldsForReports(customForm.fields);
+
+        if (safeFields.length > 0) {
+          yPosition -= 5;
+          addText(`   DADOS DO FORMULÁRIO:`, 11, boldFont);
           
-          // Quebrar linhas longas
-          const maxCharsPerLine = 80;
-          const label = `     ${field.label}:`;
-          
-          if (displayValue.length > maxCharsPerLine) {
-            addText(label, 10, font);
-            const lines = displayValue.match(new RegExp(`.{1,${maxCharsPerLine}}`, 'g')) || [displayValue];
-            lines.forEach(line => {
-              addText(`       ${line}`, 10, font);
-            });
-          } else {
-            addText(`${label} ${displayValue}`, 10, font);
-          }
-        });
+          safeFields.forEach(field => {
+            const fieldResponse = formData[field.id];
+            const value = fieldResponse?.value;
+            const displayValue = formatValue(value);
+            
+            // Quebrar linhas longas
+            const maxCharsPerLine = 80;
+            const label = `     ${field.label}:`;
+            
+            if (displayValue.length > maxCharsPerLine) {
+              addText(label, 10, font);
+              const lines = displayValue.match(new RegExp(`.{1,${maxCharsPerLine}}`, 'g')) || [displayValue];
+              lines.forEach(line => {
+                addText(`       ${line}`, 10, font);
+              });
+            } else {
+              addText(`${label} ${displayValue}`, 10, font);
+            }
+          });
+        }
       }
       
       yPosition -= 15; // Espaço entre participantes
