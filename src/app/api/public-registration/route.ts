@@ -2,11 +2,45 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { createRegistration, isUserAdmin } from '@/lib/firestore';
+import { createRegistration, isUserAdmin, saveFormResponse } from '@/lib/firestore';
 import { PublicRegistrationData } from '@/types';
+import { FormFieldResponse } from '@/types/custom-forms';
 import { rateLimit, getRequestIdentifier, RATE_LIMIT_CONFIGS, createRateLimitHeaders } from '@/lib/rate-limit';
 import { validateCPF, validateEmail, validateFullName, sanitizeInput } from '@/lib/validators';
 import { logError, logInfo, logAudit, AuditAction } from '@/lib/logger';
+
+// Função auxiliar para salvar respostas do formulário personalizado
+const saveCustomFormResponse = async (
+  formId: string, 
+  eventId: string, 
+  userId: string, 
+  userEmail: string, 
+  userName: string, 
+  formResponses: Record<string, FormFieldResponse>
+) => {
+  try {
+    if (!formId || !formResponses || Object.keys(formResponses).length === 0) {
+      return null; // Nenhum formulário personalizado para salvar
+    }
+
+    const formResponseId = await saveFormResponse({
+      formId,
+      eventId,
+      userId,
+      userEmail,
+      userName,
+      responses: formResponses,
+      ipAddress: '', // Podemos adicionar depois se necessário
+      userAgent: '' // Podemos adicionar depois se necessário
+    });
+
+    return formResponseId;
+  } catch (error) {
+    console.error('Erro ao salvar resposta do formulário:', error);
+    // Não vamos falhar a inscrição por causa do formulário
+    return null;
+  }
+};
 
 // Função para traduzir erros do Firebase para mensagens amigáveis
 const getFirebaseErrorMessage = (error: { code?: string; message?: string }): string => {
@@ -54,9 +88,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { eventId, name, email, cpf, password }: { 
+    const { 
+      eventId, 
+      name, 
+      email, 
+      cpf, 
+      password, 
+      phone,
+      formId, 
+      formResponses 
+    }: { 
       eventId: string; 
-      password: string; 
+      password: string;
+      phone?: string;
+      formId?: string;
+      formResponses?: Record<string, FormFieldResponse>;
     } & Omit<PublicRegistrationData, 'phone'> = body;
 
     logInfo('Tentativa de registro público', { eventId, email: email?.substring(0, 3) + '***' });
@@ -134,12 +180,25 @@ export async function POST(request: NextRequest) {
         userEmail: email,
         userName: name,
         userCPF: cpf,
+        userPhone: phone || '',
         checkedIn: false,
         checkedOut: false,
         certificateGenerated: false,
       };
 
       const registrationId = await createRegistration(registrationData);
+
+      // Salvar respostas do formulário personalizado se fornecidas
+      if (formId && formResponses) {
+        await saveCustomFormResponse(
+          formId,
+          eventId,
+          firebaseUser.uid,
+          email,
+          name,
+          formResponses
+        );
+      }
 
       // Log de auditoria para novo usuário
       logAudit(AuditAction.REGISTER, firebaseUser.uid, true, {
@@ -206,12 +265,25 @@ export async function POST(request: NextRequest) {
               userEmail: email,
               userName: name,
               userCPF: cpf,
+              userPhone: phone || '',
               checkedIn: false,
               checkedOut: false,
               certificateGenerated: false,
             };
 
             const registrationId = await createRegistration(registrationData);
+
+            // Salvar respostas do formulário personalizado se fornecidas
+            if (formId && formResponses) {
+              await saveCustomFormResponse(
+                formId,
+                eventId,
+                userId,
+                email,
+                name,
+                formResponses
+              );
+            }
 
             // Log de auditoria para usuário existente
             logAudit(AuditAction.REGISTRATION_CREATE, userId, true, {

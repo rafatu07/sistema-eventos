@@ -10,7 +10,9 @@ import {
   getEvent, 
   getRegistration, 
   getEventRegistrations, 
-  createRegistration
+  createRegistration,
+  getCustomFormByEventId,
+  getEventFormResponses
 } from '@/lib/firestore';
 import { Event, Registration } from '@/types';
 import { 
@@ -32,6 +34,7 @@ import {
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { downloadQRCodePDF } from '@/lib/qr-pdf-generator';
+import { downloadParticipantsPDF } from '@/lib/participants-pdf-generator';
 
 export default function EventDetailsPage() {
   const params = useParams();
@@ -287,69 +290,41 @@ export default function EventDetailsPage() {
         setError('Não há participantes inscritos neste evento');
         return;
       }
+
+      // Buscar formulário personalizado se existir
+      const customForm = await getCustomFormByEventId(event.id);
       
-      // Preparar dados para CSV
-      const csvData = registrations.map(reg => ({
-        'Nome': reg.userName,
-        'Email': reg.userEmail,
-        'CPF': reg.userCPF || 'Não informado',
-        'Data da Inscrição': isClient ? reg.createdAt.toLocaleDateString('pt-BR') : 'N/A',
-        'Check-in Realizado': reg.checkedIn ? 'Sim' : 'Não',
-        'Data do Check-in': reg.checkedIn && reg.checkInTime && isClient 
-          ? reg.checkInTime.toLocaleString('pt-BR') 
-          : 'N/A',
-        'Check-out Realizado': reg.checkedOut ? 'Sim' : 'Não',
-        'Data do Check-out': reg.checkedOut && reg.checkOutTime && isClient 
-          ? reg.checkOutTime.toLocaleString('pt-BR') 
-          : 'N/A',
-        'Certificado Gerado': reg.certificateGenerated ? 'Sim' : 'Não',
-      }));
+      // Buscar respostas dos formulários personalizados se houver formulário
+      const formResponses = customForm 
+        ? await getEventFormResponses(event.id)
+        : [];
 
-      // Gerar CSV com cabeçalho de informações do evento
-      const eventInfo = [
-        `"Evento: ${event.name}"`,
-        `"Descrição: ${event.description}"`,
-        `"Data: ${times.dateStr}"`,
-        `"Horário: ${times.fullTimeStr}"`,
-        `"Local: ${event.location}"`,
-        `"Total de Participantes: ${registrations.length}"`,
-        `"Relatório gerado em: ${isClient ? new Date().toLocaleString('pt-BR') : new Date().toISOString()}"`,
-        '', // Linha em branco
-      ];
+      // Combinar dados de registro com respostas do formulário
+      const participants = registrations.map(registration => {
+        const formResponse = formResponses.find(
+          response => response.userEmail === registration.userEmail
+        );
+        
+        return {
+          registration,
+          formResponse
+        };
+      });
 
-      const headers = Object.keys(csvData[0] || {});
-      const csvContent = [
-        ...eventInfo,
-        headers.join(','),
-        ...csvData.map(row => 
-          headers.map(header => `"${row[header as keyof typeof row] || ''}"`).join(',')
-        )
-      ].join('\n');
-
-      // Adicionar BOM para UTF-8 (para o Excel reconhecer acentos)
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      
-      if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        const fileName = `participantes_${event.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
-        link.setAttribute('href', url);
-        link.setAttribute('download', fileName);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
+      // Gerar e baixar PDF
+      await downloadParticipantsPDF({
+        event,
+        participants,
+        customForm: customForm || undefined
+      });
       
       // Mostrar mensagem de sucesso
-      setSuccessMessage(`Lista de participantes baixada com sucesso! (${registrations.length} participantes)`);
+      setSuccessMessage(`Relatório PDF baixado com sucesso! (${registrations.length} participantes)`);
       setTimeout(() => setSuccessMessage(''), 5000);
       
     } catch (error) {
       console.error('Error downloading participants list:', error);
-      setError('Erro ao baixar lista de participantes');
+      setError('Erro ao baixar relatório de participantes');
     } finally {
       setDownloadLoading(false);
     }
@@ -559,7 +534,7 @@ export default function EventDetailsPage() {
                             ) : (
                               <Download className="h-4 w-4 mr-2" />
                             )}
-                            {downloadLoading ? 'Gerando...' : 'Baixar Lista'}
+                            {downloadLoading ? 'Gerando PDF...' : 'Baixar Lista PDF'}
                           </button>
 
                           <button

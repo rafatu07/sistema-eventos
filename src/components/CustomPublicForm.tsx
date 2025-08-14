@@ -67,9 +67,25 @@ export const CustomPublicForm: React.FC<CustomPublicFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [countdown, setCountdown] = useState(3);
   
   // Usar lógica condicional para determinar campos visíveis
   const { visibleFields } = useConditionalLogic(config.fields, formData);
+
+  // Controlar contador regressivo de redirecionamento
+  React.useEffect(() => {
+    if (isSubmitted && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (isSubmitted && countdown === 0) {
+      // Redirecionar quando contador chega a 0
+      const redirectUrl = config.settings.redirectUrl || '/dashboard';
+      window.location.href = redirectUrl;
+    }
+    return undefined; // Garantir que sempre retorna algo
+  }, [isSubmitted, countdown, config.settings.redirectUrl]);
 
   const updateFieldValue = (fieldId: string, value: string | string[] | boolean) => {
     setFormData(prev => ({
@@ -280,24 +296,20 @@ export const CustomPublicForm: React.FC<CustomPublicFormProps> = ({
             cpf: formData['cpf'] || '',
             phone: formData['phone'] || '',
             password: formData['password'] || '',
+            formId: config.id,
+            formResponses: responses,
           }),
         });
 
         const result = await response.json();
 
         if (!response.ok) {
-          throw new Error(result.error || 'Erro ao enviar formulário');
+          setSubmitError(result.error || 'Erro ao enviar formulário');
+          return;
         }
       }
 
       setIsSubmitted(true);
-      
-      // Redirecionar após alguns segundos se configurado
-      if (config.settings.redirectUrl) {
-        setTimeout(() => {
-          window.location.href = config.settings.redirectUrl!;
-        }, 3000);
-      }
 
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -565,14 +577,20 @@ export const CustomPublicForm: React.FC<CustomPublicFormProps> = ({
             <h3 className="text-xl font-semibold text-gray-900 mb-4">
               Inscrição Confirmada!
             </h3>
-            <p className="text-gray-600 mb-6">
-              Redirecionando para o dashboard...
+            <p className="text-gray-600 mb-4">
+              {config.settings.redirectUrl 
+                ? 'Redirecionando você agora...' 
+                : 'Redirecionando para o dashboard...'}
             </p>
-            {config.settings.redirectUrl && (
-              <p className="text-sm text-gray-500">
-                Você será redirecionado em alguns segundos...
-              </p>
-            )}
+            <p className="text-sm text-gray-500 mb-6">
+              Redirecionamento automático em <strong>{countdown}</strong> segundo{countdown !== 1 ? 's' : ''}
+            </p>
+            <button 
+              onClick={() => window.location.href = config.settings.redirectUrl || '/dashboard'}
+              className="btn-primary"
+            >
+              Ir Agora
+            </button>
           </div>
         </div>
       </>
