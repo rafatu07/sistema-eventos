@@ -109,3 +109,6 @@ export interface CertificateConfig {
   updatedAt?: Date;
 }
 
+// Re-export custom form types
+export * from './custom-forms';
+

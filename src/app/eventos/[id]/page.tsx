@@ -26,7 +26,8 @@ import {
   QrCode,
   Copy,
   Share2,
-  FileText
+  FileText,
+  Settings
 } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
@@ -521,6 +522,14 @@ export default function EventDetailsPage() {
                           >
                             <Edit className="h-4 w-4 mr-2" />
                             Editar Evento
+                          </Link>
+                          
+                          <Link
+                            href={`/dashboard/eventos/${event.id}/formulario`}
+                            className="btn-outline flex items-center text-blue-600 border-blue-300 hover:bg-blue-50"
+                          >
+                            <Settings className="h-4 w-4 mr-2" />
+                            Editar Formulário
                           </Link>
                           
                           <Link

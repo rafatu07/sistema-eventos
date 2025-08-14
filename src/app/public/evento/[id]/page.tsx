@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getEvent } from '@/lib/firestore';
-import { Event } from '@/types';
+import { getEvent, getCustomFormByEventId } from '@/lib/firestore';
+import { Event, CustomFormConfig } from '@/types';
 import { Loading } from '@/components/Loading';
+import { CustomPublicForm } from '@/components/CustomPublicForm';
 import { validateCPF, validateEmail, validateFullName, formatCPF } from '@/lib/validators';
 import { 
   Calendar, 
@@ -25,6 +26,7 @@ export default function PublicEventPage() {
   const eventId = params.id as string;
   
   const [event, setEvent] = useState<Event | null>(null);
+  const [customForm, setCustomForm] = useState<CustomFormConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -54,6 +56,15 @@ export default function PublicEventPage() {
           return;
         }
         setEvent(eventData);
+
+        // Tentar carregar formulário personalizado
+        try {
+          const customFormData = await getCustomFormByEventId(eventId);
+          setCustomForm(customFormData);
+        } catch {
+          console.log('No custom form found, using default form');
+          setCustomForm(null);
+        }
       } catch (error) {
         console.error('Error loading event:', error);
         setError('Erro ao carregar evento');
@@ -336,169 +347,176 @@ export default function PublicEventPage() {
 
           {/* Registration Form */}
           <div className="space-y-8">
-            <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-8 text-white">
-              <div className="flex items-center mb-3">
-                <UserPlus className="h-8 w-8 mr-4" />
-                <h2 className="text-3xl font-bold">Inscreva-se no Evento</h2>
-              </div>
-              <p className="text-green-100 text-lg">
-                Preencha seus dados para confirmar sua participação
-              </p>
-            </div>
-
-            <div className="card">
-              <div className="card-content">
-                {success && (
-                  <div className="mb-8 p-6 bg-green-50 border border-green-200 rounded-xl">
-                    <p className="text-green-800 font-semibold text-lg mb-2">{success}</p>
-                    <p className="text-green-700">
-                      Redirecionando para o dashboard...
-                    </p>
+            {/* Se existe formulário personalizado, usar ele, senão usar formulário padrão */}
+            {customForm ? (
+              <CustomPublicForm eventId={eventId} config={customForm} />
+            ) : (
+              <>
+                <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-8 text-white">
+                  <div className="flex items-center mb-3">
+                    <UserPlus className="h-8 w-8 mr-4" />
+                    <h2 className="text-3xl font-bold">Inscreva-se no Evento</h2>
                   </div>
-                )}
+                  <p className="text-green-100 text-lg">
+                    Preencha seus dados para confirmar sua participação
+                  </p>
+                </div>
 
-                {error && (
-                  <div className="mb-8 p-6 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-red-800 font-semibold text-lg">{error}</p>
+                <div className="card">
+                  <div className="card-content">
+                    {success && (
+                      <div className="mb-8 p-6 bg-green-50 border border-green-200 rounded-xl">
+                        <p className="text-green-800 font-semibold text-lg mb-2">{success}</p>
+                        <p className="text-green-700">
+                          Redirecionando para o dashboard...
+                        </p>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="mb-8 p-6 bg-red-50 border border-red-200 rounded-xl">
+                        <p className="text-red-800 font-semibold text-lg">{error}</p>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
+                            <User className="inline h-5 w-5 mr-2" />
+                            Nome Completo *
+                          </label>
+                          <input
+                            type="text"
+                            id="name"
+                            name="name"
+                            required
+                            className="input w-full text-lg"
+                            placeholder="Digite seu nome completo"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-3">
+                            <Mail className="inline h-5 w-5 mr-2" />
+                            Email *
+                          </label>
+                          <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            required
+                            className="input w-full text-lg"
+                            placeholder="Digite seu email"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="cpf" className="block text-sm font-semibold text-gray-700 mb-3">
+                            <CreditCard className="inline h-5 w-5 mr-2" />
+                            CPF *
+                          </label>
+                          <input
+                            type="text"
+                            id="cpf"
+                            name="cpf"
+                            required
+                            maxLength={14}
+                            className="input w-full text-lg"
+                            placeholder="000.000.000-00"
+                            value={formData.cpf}
+                            onChange={handleCPFChange}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-3">
+                            <Phone className="inline h-5 w-5 mr-2" />
+                            Telefone (opcional)
+                          </label>
+                          <input
+                            type="tel"
+                            id="phone"
+                            name="phone"
+                            className="input w-full text-lg"
+                            placeholder="(11) 99999-9999"
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
+                            <Lock className="inline h-5 w-5 mr-2" />
+                            Senha *
+                          </label>
+                          <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            required
+                            minLength={6}
+                            className="input w-full text-lg"
+                            placeholder="Digite uma senha com pelo menos 6 caracteres"
+                            value={formData.password}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-3">
+                            <Lock className="inline h-5 w-5 mr-2" />
+                            Confirmar Senha *
+                          </label>
+                          <input
+                            type="password"
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            required
+                            minLength={6}
+                            className="input w-full text-lg"
+                            placeholder="Digite a senha novamente"
+                            value={formData.confirmPassword}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-4">
+                        <button
+                          type="submit"
+                          disabled={submitting}
+                          className="btn-primary w-full flex items-center justify-center text-lg py-4"
+                        >
+                          {submitting ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
+                              Processando...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-5 w-5 mr-3" />
+                              Confirmar Inscrição
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                        <p className="text-blue-800 font-medium">
+                          Ao se inscrever, você receberá acesso ao seu dashboard pessoal para 
+                          acompanhar o evento.
+                        </p>
+                      </div>
+                    </form>
                   </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
-                        <User className="inline h-5 w-5 mr-2" />
-                        Nome Completo *
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        required
-                        className="input w-full text-lg"
-                        placeholder="Digite seu nome completo"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-3">
-                        <Mail className="inline h-5 w-5 mr-2" />
-                        Email *
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        required
-                        className="input w-full text-lg"
-                        placeholder="Digite seu email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="cpf" className="block text-sm font-semibold text-gray-700 mb-3">
-                        <CreditCard className="inline h-5 w-5 mr-2" />
-                        CPF *
-                      </label>
-                      <input
-                        type="text"
-                        id="cpf"
-                        name="cpf"
-                        required
-                        maxLength={14}
-                        className="input w-full text-lg"
-                        placeholder="000.000.000-00"
-                        value={formData.cpf}
-                        onChange={handleCPFChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-3">
-                        <Phone className="inline h-5 w-5 mr-2" />
-                        Telefone (opcional)
-                      </label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        className="input w-full text-lg"
-                        placeholder="(11) 99999-9999"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
-                        <Lock className="inline h-5 w-5 mr-2" />
-                        Senha *
-                      </label>
-                      <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        required
-                        minLength={6}
-                        className="input w-full text-lg"
-                        placeholder="Digite uma senha com pelo menos 6 caracteres"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-3">
-                        <Lock className="inline h-5 w-5 mr-2" />
-                        Confirmar Senha *
-                      </label>
-                      <input
-                        type="password"
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        required
-                        minLength={6}
-                        className="input w-full text-lg"
-                        placeholder="Digite a senha novamente"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-4">
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="btn-primary w-full flex items-center justify-center text-lg py-4"
-                    >
-                      {submitting ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
-                          Processando...
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="h-5 w-5 mr-3" />
-                          Confirmar Inscrição
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
-                    <p className="text-blue-800 font-medium">
-                      Ao se inscrever, você receberá acesso ao seu dashboard pessoal para 
-                      acompanhar o evento.
-                    </p>
-                  </div>
-                </form>
-              </div>
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

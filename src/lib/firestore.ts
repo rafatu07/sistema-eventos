@@ -21,13 +21,15 @@ import {
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Event, Registration } from '@/types';
+import { Event, Registration, CustomFormConfig, FormResponse } from '@/types';
 
 const COLLECTIONS = {
   USERS: 'users',
   EVENTS: 'events',
   REGISTRATIONS: 'registrations',
   CERTIFICATE_CONFIGS: 'certificate_configs',
+  CUSTOM_FORMS: 'custom_forms',
+  FORM_RESPONSES: 'form_responses',
 } as const;
 
 // Interfaces para paginação
@@ -499,5 +501,261 @@ export const getUserRegistrations = async (userId: string): Promise<Registration
     checkInTime: doc.data().checkInTime?.toDate(),
     checkOutTime: doc.data().checkOutTime?.toDate(),
   })) as Registration[];
+};
+
+// ===================================================================
+// CUSTOM FORMS CRUD OPERATIONS
+// ===================================================================
+
+/**
+ * Criar formulário personalizado para um evento
+ */
+export const createCustomForm = async (formData: Omit<CustomFormConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const formsRef = collection(db, COLLECTIONS.CUSTOM_FORMS);
+  const newForm = {
+    ...formData,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(formsRef, newForm);
+  
+  // Invalidar cache
+  invalidateCache('custom-forms');
+  invalidateCache(`form-${formData.eventId}`);
+  
+  return docRef.id;
+};
+
+/**
+ * Obter formulário personalizado por ID do evento
+ */
+export const getCustomFormByEventId = async (eventId: string): Promise<CustomFormConfig | null> => {
+  const cacheKey = `form-${eventId}`;
+  const cached = getCachedResult<CustomFormConfig>(cacheKey);
+  if (cached) return cached;
+
+  const formsRef = collection(db, COLLECTIONS.CUSTOM_FORMS);
+  const q = query(formsRef, where('eventId', '==', eventId), where('isActive', '==', true));
+  const querySnapshot = await getDocs(q);
+  
+  if (querySnapshot.empty) {
+    return null;
+  }
+  
+  const doc = querySnapshot.docs[0];
+  if (!doc) {
+    return null;
+  }
+  
+  const data = doc.data();
+  
+  const form: CustomFormConfig = {
+    id: doc.id,
+    eventId: data.eventId,
+    title: data.title,
+    description: data.description,
+    fields: data.fields || [],
+    settings: data.settings || {
+      allowMultipleSubmissions: false,
+      requireLogin: true,
+      showProgressBar: true,
+      confirmationMessage: 'Formulário enviado com sucesso!',
+      emailNotifications: false,
+      saveResponsesToFirestore: true,
+    },
+    styling: data.styling || {
+      theme: 'default',
+      primaryColor: '#3b82f6',
+      backgroundColor: '#ffffff',
+      textColor: '#1f2937',
+      borderRadius: 8,
+    },
+    createdBy: data.createdBy,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+    isActive: data.isActive ?? true,
+  };
+
+  setCachedResult(cacheKey, form);
+  return form;
+};
+
+/**
+ * Obter formulário personalizado por ID
+ */
+export const getCustomFormById = async (formId: string): Promise<CustomFormConfig | null> => {
+  const formRef = doc(db, COLLECTIONS.CUSTOM_FORMS, formId);
+  const formSnap = await getDoc(formRef);
+  
+  if (!formSnap.exists()) {
+    return null;
+  }
+  
+  const data = formSnap.data();
+  return {
+    id: formSnap.id,
+    eventId: data.eventId,
+    title: data.title,
+    description: data.description,
+    fields: data.fields || [],
+    settings: data.settings,
+    styling: data.styling,
+    createdBy: data.createdBy,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+    isActive: data.isActive ?? true,
+  } as CustomFormConfig;
+};
+
+/**
+ * Atualizar formulário personalizado
+ */
+export const updateCustomForm = async (formId: string, formData: Partial<CustomFormConfig>) => {
+  const formRef = doc(db, COLLECTIONS.CUSTOM_FORMS, formId);
+  const updateData: DocumentData = {
+    ...formData,
+    updatedAt: serverTimestamp(),
+  };
+  
+  // Remover campos que não devem ser atualizados
+  delete updateData.id;
+  delete updateData.createdAt;
+  
+  await updateDoc(formRef, updateData);
+  
+  // Invalidar cache
+  invalidateCache('custom-forms');
+  if (formData.eventId) {
+    invalidateCache(`form-${formData.eventId}`);
+  }
+};
+
+/**
+ * Excluir formulário personalizado (soft delete)
+ */
+export const deleteCustomForm = async (formId: string) => {
+  const formRef = doc(db, COLLECTIONS.CUSTOM_FORMS, formId);
+  await updateDoc(formRef, {
+    isActive: false,
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Invalidar cache
+  invalidateCache('custom-forms');
+  const form = await getCustomFormById(formId);
+  if (form) {
+    invalidateCache(`form-${form.eventId}`);
+  }
+};
+
+/**
+ * Listar todos os formulários personalizados
+ */
+export const getAllCustomForms = async (): Promise<CustomFormConfig[]> => {
+  const cacheKey = 'all-custom-forms';
+  const cached = getCachedResult<CustomFormConfig[]>(cacheKey);
+  if (cached) return cached;
+
+  const formsRef = collection(db, COLLECTIONS.CUSTOM_FORMS);
+  const q = query(formsRef, where('isActive', '==', true), orderBy('createdAt', 'desc'));
+  const querySnapshot = await getDocs(q);
+  
+  const forms = querySnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      eventId: data.eventId,
+      title: data.title,
+      description: data.description,
+      fields: data.fields || [],
+      settings: data.settings,
+      styling: data.styling,
+      createdBy: data.createdBy,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+      isActive: data.isActive ?? true,
+    } as CustomFormConfig;
+  });
+
+  setCachedResult(cacheKey, forms);
+  return forms;
+};
+
+// ===================================================================
+// FORM RESPONSES OPERATIONS
+// ===================================================================
+
+/**
+ * Salvar resposta do formulário
+ */
+export const saveFormResponse = async (responseData: Omit<FormResponse, 'id' | 'submittedAt'>) => {
+  const responsesRef = collection(db, COLLECTIONS.FORM_RESPONSES);
+  const newResponse = {
+    ...responseData,
+    submittedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(responsesRef, newResponse);
+  return docRef.id;
+};
+
+/**
+ * Obter respostas de um formulário específico
+ */
+export const getFormResponses = async (formId: string): Promise<FormResponse[]> => {
+  const responsesRef = collection(db, COLLECTIONS.FORM_RESPONSES);
+  const q = query(responsesRef, where('formId', '==', formId), orderBy('submittedAt', 'desc'));
+  const querySnapshot = await getDocs(q);
+  
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    formId: doc.data().formId,
+    eventId: doc.data().eventId,
+    userId: doc.data().userId,
+    userEmail: doc.data().userEmail,
+    userName: doc.data().userName,
+    responses: doc.data().responses,
+    submittedAt: doc.data().submittedAt?.toDate() || new Date(),
+    ipAddress: doc.data().ipAddress,
+    userAgent: doc.data().userAgent,
+  })) as FormResponse[];
+};
+
+/**
+ * Obter respostas de um evento específico
+ */
+export const getEventFormResponses = async (eventId: string): Promise<FormResponse[]> => {
+  const responsesRef = collection(db, COLLECTIONS.FORM_RESPONSES);
+  const q = query(responsesRef, where('eventId', '==', eventId), orderBy('submittedAt', 'desc'));
+  const querySnapshot = await getDocs(q);
+  
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    formId: doc.data().formId,
+    eventId: doc.data().eventId,
+    userId: doc.data().userId,
+    userEmail: doc.data().userEmail,
+    userName: doc.data().userName,
+    responses: doc.data().responses,
+    submittedAt: doc.data().submittedAt?.toDate() || new Date(),
+    ipAddress: doc.data().ipAddress,
+    userAgent: doc.data().userAgent,
+  })) as FormResponse[];
+};
+
+/**
+ * Verificar se usuário já respondeu formulário
+ */
+export const hasUserRespondedForm = async (formId: string, userEmail: string): Promise<boolean> => {
+  const responsesRef = collection(db, COLLECTIONS.FORM_RESPONSES);
+  const q = query(
+    responsesRef, 
+    where('formId', '==', formId),
+    where('userEmail', '==', userEmail)
+  );
+  const querySnapshot = await getDocs(q);
+  
+  return !querySnapshot.empty;
 };
 
