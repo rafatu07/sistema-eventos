@@ -21,7 +21,9 @@ import {
   Settings,
   Sliders,
   QrCode,
-  Shield
+  Shield,
+  Check,
+  Clock
 } from 'lucide-react';
 
 interface CertificateConfigFormProps {
@@ -51,12 +53,27 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   const notifications = useNotifications();
   const [activeTab, setActiveTab] = React.useState<'template' | 'colors' | 'fonts' | 'layout' | 'advanced'>('template');
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const previousHasChanges = React.useRef(false);
 
   const form = useValidatedForm<CertificateConfigData>({
     schema: certificateConfigSchema,
     defaultValues: config || (user?.uid ? getDefaultCertificateConfig(eventId, user.uid) : undefined),
     onSubmitSuccess: () => {
       notifications.success('Configuração Salva', 'Configuração do certificado salva com sucesso!');
+      setSaveSuccess(true);
+      
+      // CORREÇÃO: Aguardar um pouco antes de limpar hasUnsavedChanges 
+      // para dar tempo da nova config ser carregada do servidor
+      setTimeout(() => {
+        setHasUnsavedChanges(false);
+        console.log('🔄 SUBMIT_SUCCESS: hasUnsavedChanges limpo após salvamento');
+      }, 100);
+      
+      // Remove o feedback de sucesso após 3 segundos
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
     },
     onSubmitError: (error) => {
       notifications.error('Erro ao Salvar', error.message);
@@ -65,6 +82,19 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
 
   const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, reset, trigger, setValue } = form;
   const watchedValues = watch();
+
+  // CORREÇÃO: Sincronizar formulário quando config carregada do servidor muda
+  React.useEffect(() => {
+    if (config && config.id) {
+      console.log('🔄 SYNC: Sincronizando formulário com config do servidor...');
+      console.log('🔍 SYNC: Config logoUrl:', config.logoUrl);
+      
+      // Reset do formulário com os novos valores
+      reset(config);
+      
+      console.log('✅ SYNC: Formulário sincronizado!');
+    }
+  }, [config, reset]);
 
   // Função para salvamento automático da logo
   const saveLogoAutomatically = async (logoUrl: string) => {
@@ -189,10 +219,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     }
   };
 
-  // Watch especificamente para logoUrl
-  React.useEffect(() => {
-    console.log('👀 WATCH: logoUrl mudou para:', watchedValues.logoUrl);
-  }, [watchedValues.logoUrl]);
+  // Watch especificamente para logoUrl - log removido para reduzir spam
 
   // Debounced values para preview otimizado
   const [debouncedValues, isDebouncing] = useDebounce(watchedValues, 300);
@@ -254,8 +281,39 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
           return false;
         }
         
-        return JSON.stringify(currentValue) !== JSON.stringify(savedValue);
+        // CORREÇÃO: Tratamento especial para logoUrl
+        if (key === 'logoUrl') {
+          // Para logoUrl, consideramos apenas se ambos têm valor válido ou se ambos estão vazios
+          const currentHasValue = currentValue && typeof currentValue === 'string' && currentValue.trim() !== '';
+          const savedHasValue = savedValue && typeof savedValue === 'string' && savedValue.trim() !== '';
+          
+          const isDifferent = currentHasValue !== savedHasValue || 
+            (currentHasValue && savedHasValue && currentValue !== savedValue);
+          
+          if (isDifferent) {
+            console.log('🔍 logoUrl: diferença detectada - current=' + !!currentHasValue + ' saved=' + !!savedHasValue);
+          }
+          
+          return isDifferent;
+        }
+        
+        // Para outros campos, normalização padrão
+        const normalizeValue = (val: unknown) => {
+          if (val === null || val === undefined || val === '') return '';
+          return val;
+        };
+        
+        const normalizedCurrent = normalizeValue(currentValue);
+        const normalizedSaved = normalizeValue(savedValue);
+        
+        return JSON.stringify(normalizedCurrent) !== JSON.stringify(normalizedSaved);
       });
+      
+      // Log apenas quando hasChanges mudar de estado
+      if (hasChanges !== previousHasChanges.current) {
+        console.log('🔍 COMPARAÇÃO: hasChanges mudou para', hasChanges);
+        previousHasChanges.current = hasChanges;
+      }
       
       setHasUnsavedChanges(hasChanges);
     }
@@ -263,25 +321,23 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
 
   const onSubmit = async (data: CertificateConfigData) => {
     try {
-      console.log('📤 FORMULÁRIO: Iniciando salvamento da configuração...');
-      console.log('📋 FORMULÁRIO: Dados completos do form:', data);
+      console.log('📤 Salvando configuração do certificado...');
       
-      // Log específico para logoUrl
-      if (data.logoUrl) {
-        console.log('✅ FORMULÁRIO: logoUrl presente no form:', data.logoUrl);
-      } else {
-        console.log('❌ FORMULÁRIO: logoUrl NÃO presente no form!');
-        console.log('🔍 FORMULÁRIO: Valor atual do campo logoUrl:', watchedValues.logoUrl);
+      // CORREÇÃO: Preservar logoUrl se estiver em watchedValues mas não em data
+      if (!data.logoUrl && watchedValues.logoUrl) {
+        console.log('🔧 Preservando logoUrl:', watchedValues.logoUrl.substring(0, 50) + '...');
+        data.logoUrl = watchedValues.logoUrl;
       }
       
       if (onSave) {
         await onSave(data);
-        setHasUnsavedChanges(false); // Clear unsaved changes after successful save
-        
-        console.log('✅ FORMULÁRIO: Configuração salva com sucesso!');
+        console.log('✅ Configuração salva com sucesso!');
+      } else {
+        console.warn('⚠️ onSave não foi fornecido!');
+        setHasUnsavedChanges(false);
       }
     } catch (error) {
-      console.error('❌ FORMULÁRIO: Erro ao salvar configuração:', error);
+      console.error('❌ Erro ao salvar configuração:', error);
       throw error; // Re-throw para que o hook de formulário possa lidar com o erro
     }
   };
@@ -371,7 +427,21 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   ] as const;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+    <div className="relative">
+      {/* Toast de mudanças não salvas */}
+      {hasUnsavedChanges && !isSubmitting && (
+        <div className="fixed top-4 right-4 z-50 bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r-md shadow-lg max-w-xs">
+          <div className="flex items-center">
+            <Clock className="h-4 w-4 text-blue-600 mr-2 animate-pulse" />
+            <div>
+              <p className="text-sm font-medium text-blue-800">Alterações Pendentes</p>
+              <p className="text-xs text-blue-600">Lembre-se de salvar suas configurações</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       {/* Header */}
       <div className="px-6 py-4 bg-gray-50 border-b">
         <div className="flex items-center justify-between">
@@ -1229,21 +1299,50 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`btn-primary disabled:opacity-50 disabled:cursor-not-allowed relative ${
-                hasUnsavedChanges ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
-              }`}
+              onClick={() => {
+                // Debug logs removidos para produção
+              }}
+              className={`
+                btn-primary 
+                disabled:opacity-50 
+                disabled:cursor-not-allowed 
+                relative 
+                transition-all 
+                duration-300 
+                ${hasUnsavedChanges 
+                  ? 'bg-blue-600 hover:bg-blue-700 shadow-lg transform scale-[1.02]' 
+                  : ''
+                }
+                ${saveSuccess 
+                  ? 'bg-green-600 hover:bg-green-700' 
+                  : ''
+                }
+              `}
             >
               {isSubmitting ? (
                 <div className="flex items-center">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Salvando...
+                  <span>Salvando...</span>
+                </div>
+              ) : saveSuccess ? (
+                <div className="flex items-center">
+                  <Check className="h-4 w-4 mr-2 animate-bounce" />
+                  <span>Salvo com Sucesso!</span>
                 </div>
               ) : (
                 <div className="flex items-center">
-                  <Save className="h-4 w-4 mr-2" />
-                  {hasUnsavedChanges ? 'Salvar Alterações' : 'Salvar Configuração'}
+                  {hasUnsavedChanges ? (
+                    <Clock className="h-4 w-4 mr-2 text-blue-200 animate-pulse" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  <span>
+                    {hasUnsavedChanges ? 'Salvar Alterações' : 'Salvar Configuração'}
+                  </span>
                   {hasUnsavedChanges && (
-                    <span className="ml-2 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+                    <span className="ml-2 px-1 py-0.5 text-xs bg-blue-200 text-blue-800 rounded-full font-medium">
+                      Novo
+                    </span>
                   )}
                 </div>
               )}
@@ -1251,6 +1350,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
           </div>
         </div>
       </form>
+      </div>
     </div>
   );
 };

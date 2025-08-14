@@ -1,6 +1,6 @@
 // Importação dinâmica para compatibilidade com Next.js
 import { CertificateConfig } from '@/types';
-import { formatDateBrazil, formatTimeRangeBrazil } from '@/lib/date-utils';
+import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
 
 /**
  * Interface para dados do certificado PDF
@@ -220,7 +220,56 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
       .replace(/{userName}/g, data.participantName)
       .replace(/{eventName}/g, data.eventName)
       .replace(/{eventDate}/g, formattedDate)
-      .replace(/{eventTime}/g, timeRange);
+      .replace(/{eventTime}/g, timeRange)
+      .replace(/{eventStartTime}/g, data.eventStartTime ? formatTimeBrazil(data.eventStartTime) : '')
+      .replace(/{eventEndTime}/g, data.eventEndTime ? formatTimeBrazil(data.eventEndTime) : '');
+  };
+
+  // ✅ Função para gerar estilos de borda específicos por template
+  const getCertificateBorderStyle = (config: SimpleCertificateConfig): string => {
+    if (!config.showBorder) return 'border: none;';
+    
+    switch (config.template) {
+      case 'classic':
+        return `
+          border: ${config.borderWidth}px solid ${config.borderColor};
+          border-radius: 8px;
+          box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.3), 0 0 10px rgba(0,0,0,0.1);
+          background: linear-gradient(45deg, ${config.backgroundColor} 0%, ${config.backgroundColor}f0 100%);
+        `;
+      case 'elegant':
+        return `
+          border: ${config.borderWidth}px solid ${config.borderColor};
+          border-radius: 12px;
+          box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+          background: radial-gradient(circle at 50% 50%, ${config.backgroundColor} 0%, ${config.backgroundColor}f8 100%);
+        `;
+      case 'modern':
+        return `
+          border: ${config.borderWidth}px solid ${config.borderColor};
+          border-radius: 4px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        `;
+      case 'minimalist':
+        return `border: ${config.borderWidth}px solid ${config.borderColor};`;
+      default:
+        return `border: ${config.borderWidth}px solid ${config.borderColor};`;
+    }
+  };
+
+  // ✅ Função para gerar elemento QR Code com API externa
+  const generateQRCodeElement = (qrText: string | undefined, position: { x: number; y: number }, color: string): string => {
+    const finalQrText = qrText || `Certificado digital de ${data.participantName}`;
+    const qrSize = 80;
+    const colorHex = color.replace('#', '');
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(finalQrText)}&format=png&color=${colorHex}&bgcolor=ffffff&margin=0`;
+    
+    return `
+      <div class="qr-container" style="position: absolute; ${formatPosition(position)}">
+        <img src="${qrApiUrl}" alt="QR Code" style="width: ${qrSize}px; height: ${qrSize}px; display: block;" crossorigin="anonymous" />
+        ${qrText ? `<div style="text-align: center; font-size: 8px; color: ${color}; margin-top: 4px; width: ${qrSize}px;">${qrText}</div>` : ''}
+      </div>
+    `;
   };
 
   return `
@@ -262,8 +311,9 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           width: ${config.orientation === 'landscape' ? '800px' : '600px'};
           height: ${config.orientation === 'landscape' ? '600px' : '800px'};
           background-color: ${config.backgroundColor};
-          border: ${config.showBorder ? `${config.borderWidth}px solid ${config.borderColor}` : 'none'};
+          ${getCertificateBorderStyle(config)}
           margin: 0 auto;
+          overflow: hidden;
         }
         
         .title {
@@ -274,15 +324,23 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           color: ${config.primaryColor};
           text-align: center;
           width: 80%;
+          z-index: 2;
+          ${config.template === 'classic' ? 'font-family: serif; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);' : ''}
+          ${config.template === 'elegant' ? 'font-family: serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);' : ''}
+          ${config.template === 'modern' ? 'font-family: sans-serif; letter-spacing: 1px;' : ''}
+          ${config.template === 'minimalist' ? 'font-family: sans-serif; font-weight: 300;' : ''}
         }
         
         .subtitle {
           position: absolute;
           ${formatPosition({ x: config.titlePosition.x, y: config.titlePosition.y + 8 })}
-          font-size: ${config.titleFontSize * 0.6}px;
+          font-size: ${Math.round(config.titleFontSize * 0.6)}px;
           color: ${config.secondaryColor};
           text-align: center;
           width: 70%;
+          z-index: 2;
+          font-style: italic;
+          opacity: 0.9;
         }
         
         .participant-name {
@@ -293,6 +351,8 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           color: ${config.primaryColor};
           text-align: center;
           width: 80%;
+          z-index: 2;
+          ${config.template === 'classic' || config.template === 'elegant' ? 'text-decoration: underline; text-decoration-color: ' + config.borderColor + '; text-decoration-thickness: 2px; text-underline-offset: 4px;' : ''}
         }
         
         .body-text {
@@ -302,37 +362,31 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           color: ${config.secondaryColor};
           text-align: center;
           width: 80%;
-          line-height: 1.5;
+          line-height: 1.6;
+          z-index: 2;
         }
         
         .footer {
           position: absolute;
           ${formatPosition({ x: config.bodyPosition.x, y: config.bodyPosition.y + 15 })}
-          font-size: ${config.bodyFontSize * 0.9}px;
+          font-size: ${Math.round(config.bodyFontSize * 0.9)}px;
           color: ${config.secondaryColor};
           text-align: center;
           width: 70%;
+          font-style: italic;
+          z-index: 2;
+          opacity: 0.8;
         }
         
         .logo {
           position: absolute;
           ${formatPosition(config.logoPosition)}
-          width: ${config.logoSize}px;
+          max-width: ${config.logoSize}px;
+          max-height: ${config.logoSize}px;
+          width: auto;
           height: auto;
-        }
-        
-        .qr-code {
-          position: absolute;
-          ${formatPosition(config.qrCodePosition)}
-          width: 60px;
-          height: 60px;
-          border: 2px solid ${config.secondaryColor};
-          color: ${config.secondaryColor};
-          font-size: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
+          object-fit: contain;
+          z-index: 3;
         }
         
         /* Decorações do template elegant */
@@ -377,13 +431,16 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%) rotate(-45deg);
-          font-size: ${config.titleFontSize * 2}px;
-          font-weight: bold;
-          color: ${config.secondaryColor};
+          font-size: ${Math.round(config.titleFontSize * 3.5)}px;
+          color: ${config.primaryColor};
           opacity: ${config.watermarkOpacity};
           pointer-events: none;
           z-index: 1;
           user-select: none;
+          ${config.template === 'classic' ? 'font-family: serif; font-weight: bold;' : ''}
+          ${config.template === 'elegant' ? 'font-family: serif; font-style: italic; font-weight: 300;' : ''}
+          ${config.template === 'modern' ? 'font-family: sans-serif; font-weight: 200; letter-spacing: 2px;' : ''}
+          ${config.template === 'minimalist' ? 'font-family: sans-serif; font-weight: 100;' : ''}
         }
       </style>
     </head>
@@ -411,7 +468,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         ${config.logoUrl ? `<img src="${config.logoUrl}" alt="Logo" class="logo" />` : ''}
         
         <!-- QR Code -->
-        ${config.includeQRCode ? await generateQRCodeHTML(config.qrCodeText, config.secondaryColor) : ''}
+        ${config.includeQRCode ? generateQRCodeElement(config.qrCodeText, config.qrCodePosition, config.secondaryColor) : ''}
         
         <!-- Decorações do template -->
         ${config.template === 'elegant' ? `
@@ -429,6 +486,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
 /**
  * Gera HTML do QR Code usando API externa (compatível com Puppeteer)
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const generateQRCodeHTML = async (qrText: string, color: string): Promise<string> => {
   try {
     // Se não há texto específico, usar validação genérica  
