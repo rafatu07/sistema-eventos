@@ -56,10 +56,18 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const previousHasChanges = React.useRef(false);
 
+  // Monitor saveSuccess changes - apenas para logs importantes
+  React.useEffect(() => {
+    if (saveSuccess) {
+      console.log('🟢 Botão verde ativado - mostrando feedback de sucesso');
+    }
+  }, [saveSuccess]);
+
   const form = useValidatedForm<CertificateConfigData>({
     schema: certificateConfigSchema,
     defaultValues: config || (user?.uid ? getDefaultCertificateConfig(eventId, user.uid) : undefined),
     onSubmitSuccess: () => {
+      console.log('✅ Salvamento manual concluído com sucesso');
       notifications.success('Configuração Salva', 'Configuração do certificado salva com sucesso!');
       setSaveSuccess(true);
       
@@ -67,7 +75,6 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
       // para dar tempo da nova config ser carregada do servidor
       setTimeout(() => {
         setHasUnsavedChanges(false);
-        console.log('🔄 SUBMIT_SUCCESS: hasUnsavedChanges limpo após salvamento');
       }, 100);
       
       // Remove o feedback de sucesso após 3 segundos
@@ -83,16 +90,12 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, reset, trigger, setValue } = form;
   const watchedValues = watch();
 
-  // CORREÇÃO: Sincronizar formulário quando config carregada do servidor muda
+        // CORREÇÃO: Sincronizar formulário quando config carregada do servidor muda
   React.useEffect(() => {
     if (config && config.id) {
-      console.log('🔄 SYNC: Sincronizando formulário com config do servidor...');
-      console.log('🔍 SYNC: Config logoUrl:', config.logoUrl);
-      
       // Reset do formulário com os novos valores
       reset(config);
-      
-      console.log('✅ SYNC: Formulário sincronizado!');
+      console.log('🔄 Formulário sincronizado com servidor');
     }
   }, [config, reset]);
 
@@ -290,9 +293,8 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
           const isDifferent = currentHasValue !== savedHasValue || 
             (currentHasValue && savedHasValue && currentValue !== savedValue);
           
-          if (isDifferent) {
-            console.log('🔍 logoUrl: diferença detectada - current=' + !!currentHasValue + ' saved=' + !!savedHasValue);
-          }
+          // Log apenas se necessário para debug específico
+          // if (isDifferent) console.log('logoUrl state mismatch');
           
           return isDifferent;
         }
@@ -309,9 +311,8 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
         return JSON.stringify(normalizedCurrent) !== JSON.stringify(normalizedSaved);
       });
       
-      // Log apenas quando hasChanges mudar de estado
+      // Track hasChanges state changes
       if (hasChanges !== previousHasChanges.current) {
-        console.log('🔍 COMPARAÇÃO: hasChanges mudou para', hasChanges);
         previousHasChanges.current = hasChanges;
       }
       
@@ -321,11 +322,10 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
 
   const onSubmit = async (data: CertificateConfigData) => {
     try {
-      console.log('📤 Salvando configuração do certificado...');
+      console.log('📤 Processando salvamento manual...');
       
       // CORREÇÃO: Preservar logoUrl se estiver em watchedValues mas não em data
       if (!data.logoUrl && watchedValues.logoUrl) {
-        console.log('🔧 Preservando logoUrl:', watchedValues.logoUrl.substring(0, 50) + '...');
         data.logoUrl = watchedValues.logoUrl;
       }
       
@@ -403,6 +403,14 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
             if (onSave) {
               await onSave(templateConfig);
               setHasUnsavedChanges(false);
+              
+              // ✅ CORREÇÃO: Ativar feedback de sucesso visual
+              console.log('✅ Template aplicado - ativando feedback visual');
+              setSaveSuccess(true);
+              setTimeout(() => {
+                setSaveSuccess(false);
+              }, 3000);
+              
               notifications.success('Template Aplicado e Salvo', `Template "${templatePreviews[templateId]?.name}" aplicado e salvo com sucesso!`);
             }
           } catch (error) {
@@ -1300,7 +1308,18 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
               type="submit"
               disabled={isSubmitting}
               onClick={() => {
-                // Debug logs removidos para produção
+                console.log('🖱️ Clique no botão salvar detectado');
+                
+                // CORREÇÃO: Feedback imediato para clique manual quando sem alterações
+                if (!hasUnsavedChanges && !isSubmitting) {
+                  console.log('✅ Sem alterações - ativando feedback direto');
+                  setSaveSuccess(true);
+                  setTimeout(() => {
+                    setSaveSuccess(false);
+                  }, 3000);
+                  
+                  notifications.success('Configuração Confirmada', 'Configuração do certificado está salva e atualizada!');
+                }
               }}
               className={`
                 btn-primary 
@@ -1319,33 +1338,41 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                 }
               `}
             >
-              {isSubmitting ? (
-                <div className="flex items-center">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  <span>Salvando...</span>
-                </div>
-              ) : saveSuccess ? (
-                <div className="flex items-center">
-                  <Check className="h-4 w-4 mr-2 animate-bounce" />
-                  <span>Salvo com Sucesso!</span>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  {hasUnsavedChanges ? (
-                    <Clock className="h-4 w-4 mr-2 text-blue-200 animate-pulse" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  <span>
-                    {hasUnsavedChanges ? 'Salvar Alterações' : 'Salvar Configuração'}
-                  </span>
-                  {hasUnsavedChanges && (
-                    <span className="ml-2 px-1 py-0.5 text-xs bg-blue-200 text-blue-800 rounded-full font-medium">
-                      Novo
-                    </span>
-                  )}
-                </div>
-              )}
+{(() => {
+                if (isSubmitting) {
+                  return (
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      <span>Salvando...</span>
+                    </div>
+                  );
+                } else if (saveSuccess) {
+                  return (
+                    <div className="flex items-center">
+                      <Check className="h-4 w-4 mr-2 animate-bounce" />
+                      <span>Salvo com Sucesso!</span>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="flex items-center">
+                      {hasUnsavedChanges ? (
+                        <Clock className="h-4 w-4 mr-2 text-blue-200 animate-pulse" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      <span>
+                        {hasUnsavedChanges ? 'Salvar Alterações' : 'Confirmar Configuração'}
+                      </span>
+                      {hasUnsavedChanges && (
+                        <span className="ml-2 px-1 py-0.5 text-xs bg-blue-200 text-blue-800 rounded-full font-medium">
+                          Novo
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
+              })()}
             </button>
           </div>
         </div>
