@@ -9,7 +9,8 @@ import { Loading } from '@/components/Loading';
 import { 
   getEvent, 
   getEventRegistrations, 
-  updateRegistration 
+  updateRegistration,
+  deleteRegistration 
 } from '@/lib/firestore';
 import { Event, Registration } from '@/types';
 import { 
@@ -60,6 +61,10 @@ export default function AdminCheckinPage() {
   
   // Estados para exclusão de certificado individual
   const [deletingIndividualCert, setDeletingIndividualCert] = useState<Set<string>>(new Set());
+  
+  // Estados para exclusão de participante
+  const [participantToDelete, setParticipantToDelete] = useState<Registration | null>(null);
+  const [deletingParticipant, setDeletingParticipant] = useState(false);
   
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -391,6 +396,32 @@ export default function AdminCheckinPage() {
         newSet.delete(registration.id);
         return newSet;
       });
+    }
+  };
+
+  // Função para excluir participante do evento
+  const deleteParticipant = async (registration: Registration) => {
+    if (!registration || deletingParticipant) return;
+
+    setDeletingParticipant(true);
+
+    try {
+      console.log(`🗑️ Excluindo participante ${registration.userName} (ID: ${registration.id})`);
+
+      await deleteRegistration(registration.id);
+
+      // Atualizar estado local - remover o participante da lista
+      const updatedRegistrations = registrations.filter(reg => reg.id !== registration.id);
+      setRegistrations(updatedRegistrations);
+
+      console.log(`✅ Participante ${registration.userName} excluído com sucesso`);
+
+    } catch (error) {
+      console.error('❌ Erro ao excluir participante:', error);
+      alert(`❌ Erro ao excluir participante ${registration.userName}. ${(error as Error).message}`);
+    } finally {
+      setDeletingParticipant(false);
+      setParticipantToDelete(null);
     }
   };
 
@@ -949,6 +980,17 @@ export default function AdminCheckinPage() {
                               )}
                             </div>
                           )}
+                          
+                          {/* Botão de Exclusão do Participante */}
+                          <button
+                            onClick={() => setParticipantToDelete(registration)}
+                            disabled={deletingParticipant || processingIds.has(registration.id)}
+                            className="btn-outline text-red-600 border-red-300 hover:bg-red-50 flex items-center"
+                            title="Excluir participante do evento"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir do Evento
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1054,6 +1096,68 @@ export default function AdminCheckinPage() {
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 {deletingCertificates ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Excluindo...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Confirmar Exclusão
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação para exclusão de participante */}
+      {participantToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="h-6 w-6 text-red-600 mr-3" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                ⚠️ Confirmar Exclusão de Participante
+              </h3>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-2">
+                <strong>Esta ação irá:</strong>
+              </p>
+              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 mb-4">
+                <li>Remover <strong>{participantToDelete.userName}</strong> do evento completamente</li>
+                <li>Excluir todos os dados de inscrição, check-in e check-out</li>
+                <li>Esta ação <strong>NÃO É REVERSÍVEL!</strong></li>
+              </ul>
+              
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
+                <p><strong>Participante:</strong> {participantToDelete.userName}</p>
+                <p><strong>Email:</strong> {participantToDelete.userEmail}</p>
+                <p><strong>CPF:</strong> {participantToDelete.userCPF || 'Não informado'}</p>
+                {participantToDelete.checkedIn && (
+                  <p><strong>Status:</strong> {participantToDelete.checkedOut ? 'Check-in e Check-out realizados' : 'Check-in realizado'}</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setParticipantToDelete(null)}
+                disabled={deletingParticipant}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              
+              <button
+                onClick={() => deleteParticipant(participantToDelete)}
+                disabled={deletingParticipant}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {deletingParticipant ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                     Excluindo...

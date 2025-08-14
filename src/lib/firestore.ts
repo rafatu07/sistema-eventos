@@ -448,6 +448,25 @@ export const updateRegistration = async (registrationId: string, data: Partial<R
   }
 };
 
+export const deleteRegistration = async (registrationId: string) => {
+  try {
+    console.log(`[firestore] Iniciando deleteRegistration para ID: ${registrationId}`);
+    
+    const registrationRef = doc(db, COLLECTIONS.REGISTRATIONS, registrationId);
+    await deleteDoc(registrationRef);
+    
+    // Invalidar cache relacionado
+    invalidateCache(`registration_${registrationId}`);
+    invalidateCache('user_registrations_*');
+    invalidateCache('event_registrations_*');
+    
+    console.log(`[firestore] Registration ${registrationId} excluído com sucesso`);
+  } catch (error) {
+    console.error(`[firestore] Erro em deleteRegistration para ID ${registrationId}:`, error);
+    throw error;
+  }
+};
+
 // Function to automatically checkout participants when event ends
 export const autoCheckoutEventParticipants = async (eventId: string) => {
   try {
