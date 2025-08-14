@@ -88,7 +88,17 @@ export const generateParticipantsPDF = async ({
       addText(`Descrição: ${event.description}`, 12, font);
     }
     addText(`Data: ${new Date(event.date).toLocaleDateString('pt-BR')}`, 12, font);
-    addText(`Horário: ${event.startTime} às ${event.endTime}`, 12, font);
+    
+    // Formatar horários para mostrar apenas HH:MM
+    const startTimeFormatted = new Date(event.startTime).toLocaleTimeString('pt-BR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    const endTimeFormatted = new Date(event.endTime).toLocaleTimeString('pt-BR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    addText(`Horário: ${startTimeFormatted} às ${endTimeFormatted}`, 12, font);
     addText(`Local: ${event.location}`, 12, font);
     addText(`Total de Participantes: ${participants.length}`, 12, boldFont);
     addText(`Relatório gerado em: ${new Date().toLocaleString('pt-BR')}`, 10, font);
