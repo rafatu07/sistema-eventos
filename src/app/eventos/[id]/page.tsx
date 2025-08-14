@@ -877,8 +877,8 @@ export default function EventDetailsPage() {
                       <p className="text-sm text-gray-600">{event.description}</p>
                     </div>
                     
-                    {/* Informações de limites de inscrição */}
-                    {(event.registrationDeadline || event.maxParticipants) && (
+                    {/* Informações de limites de inscrição - Apenas para Admins */}
+                    {user?.isAdmin && (event.registrationDeadline || event.maxParticipants) && (
                       <div className="border-t pt-4">
                         <h4 className="text-sm font-medium text-gray-900 mb-2">Limites de Inscrição</h4>
                         <div className="space-y-2">
