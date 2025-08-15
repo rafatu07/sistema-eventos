@@ -46,11 +46,35 @@ export async function POST() {
       }
     }
 
+    // ✅ NOVO: Processar certificados e emails automaticamente após checkout
+    let totalCertificatesGenerated = 0;
+    let totalEmailsSent = 0;
+    
+    if (totalCheckedOut > 0) {
+      try {
+        // Chamar processamento completo automático
+        const processResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auto-process-events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (processResponse.ok) {
+          const processData = await processResponse.json();
+          totalCertificatesGenerated = processData.totalCertificatesGenerated || 0;
+          totalEmailsSent = processData.totalEmailsSent || 0;
+        }
+      } catch (processError) {
+        console.warn('Erro no processamento automático pós-checkout:', processError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Auto checkout completed for ${endedEvents.length} events`,
+      message: `Auto checkout completed for ${endedEvents.length} events. ${totalCheckedOut} participants checked out, ${totalCertificatesGenerated} certificates generated, ${totalEmailsSent} emails sent.`,
       processedEvents,
       totalCheckedOut,
+      totalCertificatesGenerated,
+      totalEmailsSent,
       eventsProcessed: endedEvents.length,
     });
 

@@ -33,7 +33,10 @@ import {
   Trash2,
   AlertTriangle,
   Award,
-  ExternalLink
+  ExternalLink,
+  Mail,
+  FileText,
+  Send
 } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
@@ -65,6 +68,11 @@ export default function AdminCheckinPage() {
   // Estados para exclusão de participante
   const [participantToDelete, setParticipantToDelete] = useState<Registration | null>(null);
   const [deletingParticipant, setDeletingParticipant] = useState(false);
+  
+  // Estados para novas funcionalidades de certificado e email
+  const [generatingPendingCerts, setGeneratingPendingCerts] = useState(false);
+  const [sendingAllEmails, setSendingAllEmails] = useState(false);
+  const [sendingIndividualEmail, setSendingIndividualEmail] = useState<Set<string>>(new Set());
   
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,14 +111,24 @@ export default function AdminCheckinPage() {
   }, [eventId]);
 
   useEffect(() => {
-    if (!searchTerm) {
+    if (!searchTerm.trim()) {
       setFilteredRegistrations(registrations);
     } else {
-      const filtered = registrations.filter(reg => 
-        reg.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        reg.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        reg.userCPF.includes(searchTerm.replace(/\D/g, ''))
-      );
+      const searchLower = searchTerm.toLowerCase().trim();
+      const searchNumbers = searchTerm.replace(/\D/g, '');
+      
+      const filtered = registrations.filter(reg => {
+        // Busca por nome
+        const nameMatch = reg.userName?.toLowerCase().includes(searchLower);
+        // Busca por email
+        const emailMatch = reg.userEmail?.toLowerCase().includes(searchLower);
+        // Busca por CPF (apenas números)
+        const cpfMatch = searchNumbers && reg.userCPF?.replace(/\D/g, '').includes(searchNumbers);
+        
+        return nameMatch || emailMatch || cpfMatch;
+      });
+      
+      console.log(`🔍 Filtro aplicado: "${searchTerm}" -> ${filtered.length} de ${registrations.length} resultados`);
       setFilteredRegistrations(filtered);
     }
     
@@ -425,6 +443,139 @@ export default function AdminCheckinPage() {
     }
   };
 
+  // Função para gerar certificados pendentes
+  const generatePendingCertificates = async () => {
+    if (!event || generatingPendingCerts) return;
+
+    const pendingCount = registrations.filter(r => r.checkedOut && !r.certificateGenerated).length;
+    
+    if (pendingCount === 0) {
+      alert('ℹ️ Não há certificados pendentes para gerar.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `🎯 Gerar ${pendingCount} certificado${pendingCount > 1 ? 's' : ''} pendente${pendingCount > 1 ? 's' : ''}?\n\nEsta operação pode levar alguns minutos.`
+    );
+
+    if (!confirmed) return;
+
+    setGeneratingPendingCerts(true);
+
+    try {
+      const response = await fetch('/api/generate-pending-certificates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(`✅ ${result.message}\n\nEstrutura: ${result.strategy}\nErros: ${result.errors?.length || 0}`);
+        
+        // Recarregar dados para refletir mudanças
+        const updatedRegistrations = await getEventRegistrations(event.id);
+        setRegistrations(updatedRegistrations);
+      } else {
+        throw new Error(result.error || 'Erro desconhecido');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao gerar certificados pendentes:', error);
+      alert(`❌ Erro ao gerar certificados: ${(error as Error).message}`);
+    } finally {
+      setGeneratingPendingCerts(false);
+    }
+  };
+
+  // Função para enviar todos os certificados por email
+  const sendAllCertificatesByEmail = async () => {
+    if (!event || sendingAllEmails) return;
+
+    const eligibleCount = registrations.filter(r => r.checkedOut).length;
+    
+    if (eligibleCount === 0) {
+      alert('ℹ️ Não há participantes elegíveis (ninguém fez checkout).');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `📧 Enviar certificados por email para ${eligibleCount} participante${eligibleCount > 1 ? 's' : ''}?\n\nCertificados serão gerados automaticamente se necessário.`
+    );
+
+    if (!confirmed) return;
+
+    setSendingAllEmails(true);
+
+    try {
+      const response = await fetch('/api/send-all-certificates-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(`✅ ${result.message}\n\nTaxa de sucesso: ${result.successRate}\n\nEmails enviados: ${result.emailsSent}\nFalhas: ${result.emailsFailed}`);
+      } else {
+        throw new Error(result.error || 'Erro desconhecido');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao enviar emails:', error);
+      alert(`❌ Erro ao enviar emails: ${(error as Error).message}`);
+    } finally {
+      setSendingAllEmails(false);
+    }
+  };
+
+  // Função para enviar email individual
+  const sendIndividualEmail = async (registration: Registration) => {
+    if (!registration.checkedOut) {
+      alert('ℹ️ Este participante precisa fazer checkout primeiro.');
+      return;
+    }
+
+    if (sendingIndividualEmail.has(registration.id)) return;
+
+    setSendingIndividualEmail(prev => new Set(prev).add(registration.id));
+
+    try {
+      const baseUrl = window.location.origin;
+      const certificateUrl = registration.certificateUrl || 
+        `${baseUrl}/api/certificate/download?registrationId=${registration.id}`;
+
+      const response = await fetch('/api/send-certificate-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: registration.userEmail,
+          userName: registration.userName,
+          eventName: event?.name,
+          certificateUrl,
+          eventId: event?.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(`✅ Email enviado com sucesso para ${registration.userName}!`);
+      } else {
+        throw new Error(result.error || 'Erro desconhecido');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao enviar email individual:', error);
+      alert(`❌ Erro ao enviar email para ${registration.userName}: ${(error as Error).message}`);
+    } finally {
+      setSendingIndividualEmail(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(registration.id);
+        return newSet;
+      });
+    }
+  };
+
   const formatEventTimes = (event: Event) => {
     if (!isClient) {
       // Durante o SSR, retorna valores seguros que não variam
@@ -609,6 +760,79 @@ export default function AdminCheckinPage() {
               </div>
             </div>
 
+            {/* Certificate Actions Section */}
+            <div className="mb-8">
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">Ações de Certificados</h3>
+                      <p className="text-sm text-gray-600">
+                        Gere certificados pendentes ou envie todos por email automaticamente
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-4">
+                    {/* Botão Gerar Certificados Pendentes */}
+                    <button
+                      onClick={generatePendingCertificates}
+                      disabled={generatingPendingCerts || stats.certificatesPending === 0}
+                      className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={stats.certificatesPending === 0 ? 'Não há certificados pendentes' : `Gerar ${stats.certificatesPending} certificado(s) pendente(s)`}
+                    >
+                      {generatingPendingCerts ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Gerar Certificados Pendentes ({stats.certificatesPending})
+                        </>
+                      )}
+                    </button>
+
+                    {/* Botão Enviar Todos por Email */}
+                    <button
+                      onClick={sendAllCertificatesByEmail}
+                      disabled={sendingAllEmails || stats.checkedOut === 0}
+                      className="btn-outline flex items-center text-purple-600 border-purple-300 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={stats.checkedOut === 0 ? 'Nenhum participante fez checkout' : `Enviar email para ${stats.checkedOut} participante(s)`}
+                    >
+                      {sendingAllEmails ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-2" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Enviar Todos por Email ({stats.checkedOut})
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Informações de status */}
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-start">
+                      <FileText className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-900 mb-1">Status dos Certificados</p>
+                        <p className="text-blue-700">
+                          ✅ <strong>{stats.certificatesGenerated}</strong> certificados já gerados • 
+                          🟡 <strong>{stats.certificatesPending}</strong> pendentes • 
+                          👥 <strong>{stats.checkedOut}</strong> elegíveis para email
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* QR Code Section */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
@@ -784,9 +1008,28 @@ export default function AdminCheckinPage() {
                   className="input pl-10 w-full"
                   placeholder="Buscar por nome, email ou CPF..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    console.log(`🔤 Input mudou: "${value}"`);
+                    setSearchTerm(value);
+                  }}
                 />
               </div>
+              
+              {/* Indicador de filtro ativo */}
+              {searchTerm.trim() && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    Filtro ativo: {filteredRegistrations.length} de {registrations.length} participantes
+                  </span>
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="ml-2 text-blue-600 hover:text-blue-800 text-xs"
+                  >
+                    Limpar filtro
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -909,13 +1152,42 @@ export default function AdminCheckinPage() {
                                       <Trash2 className="w-3 h-3" />
                                     )}
                                   </button>
+                                  
+                                  <button
+                                    onClick={() => sendIndividualEmail(registration)}
+                                    disabled={sendingIndividualEmail.has(registration.id) || !registration.checkedOut}
+                                    className="p-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded disabled:opacity-50"
+                                    title={!registration.checkedOut ? 'Participante precisa fazer checkout' : 'Enviar certificado por email'}
+                                  >
+                                    {sendingIndividualEmail.has(registration.id) ? (
+                                      <div className="w-3 h-3 border border-purple-600 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <Mail className="w-3 h-3" />
+                                    )}
+                                  </button>
                                 </div>
                               </div>
                             ) : registration.checkedOut && !registration.certificateGenerated ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                <Award className="w-3 h-3 mr-1" />
-                                Certificado Pendente
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                  <Award className="w-3 h-3 mr-1" />
+                                  Certificado Pendente
+                                </span>
+                                
+                                {/* Botão de envio de email para certificado pendente */}
+                                <button
+                                  onClick={() => sendIndividualEmail(registration)}
+                                  disabled={sendingIndividualEmail.has(registration.id)}
+                                  className="p-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded disabled:opacity-50"
+                                  title="Enviar certificado por email (será gerado automaticamente)"
+                                >
+                                  {sendingIndividualEmail.has(registration.id) ? (
+                                    <div className="w-3 h-3 border border-purple-600 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Mail className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
                             ) : null}
                           </div>
                         </div>

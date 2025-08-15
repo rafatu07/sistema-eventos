@@ -33,10 +33,35 @@ export async function POST(request: NextRequest) {
     // Perform auto checkout
     const checkedOutCount = await autoCheckoutEventParticipants(eventId);
 
+    // ✅ NOVO: Processar certificados e emails automaticamente
+    let certificatesGenerated = 0;
+    let emailsSent = 0;
+    
+    if (checkedOutCount > 0) {
+      try {
+        // Chamar processamento completo para este evento específico
+        const processResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auto-process-events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (processResponse.ok) {
+          const processData = await processResponse.json();
+          certificatesGenerated = processData.totalCertificatesGenerated || 0;
+          emailsSent = processData.totalEmailsSent || 0;
+        }
+      } catch (processError) {
+        console.warn('Erro no processamento automático pós-checkout:', processError);
+        // Não falhar a operação principal por causa disso
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Auto checkout completed for ${checkedOutCount} participants`,
+      message: `Auto checkout completed for ${checkedOutCount} participants. ${certificatesGenerated} certificates generated, ${emailsSent} emails sent.`,
       checkedOutCount,
+      certificatesGenerated,
+      emailsSent,
       eventId,
     });
 

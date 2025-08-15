@@ -3,11 +3,30 @@ import { logInfo, logError } from './logger';
 
 // Configuração do transportador de email
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  const emailUser = process.env.EMAIL_USER || '';
+  
+  // Configuração manual para Hotmail/Outlook
+  if (emailUser.includes('@hotmail.com') || emailUser.includes('@outlook.com') || emailUser.includes('@live.com')) {
+    return nodemailer.createTransport({
+      host: 'smtp-mail.outlook.com',
+      port: 587,
+      secure: false, // true para 465, false para outras portas
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        ciphers: 'SSLv3',
+      },
+    });
+  }
+  
+  // Gmail padrão
+  return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // Use App Password para Gmail
+      pass: process.env.EMAIL_PASS,
     },
   });
 };
@@ -298,12 +317,33 @@ export const testEmailConfiguration = async (): Promise<boolean> => {
     }
 
     const transporter = createTransporter();
+    
+    // Log detalhado da configuração
+    console.log('🔍 CONFIGURAÇÃO EMAIL DEBUG:', {
+      emailUser: process.env.EMAIL_USER,
+      emailPassLength: process.env.EMAIL_PASS?.length,
+      emailPassSample: process.env.EMAIL_PASS?.substring(0, 4) + '...'
+    });
+    
     await transporter.verify();
     
     logInfo('Configuração de email verificada com sucesso');
     return true;
     
   } catch (error) {
+    const smtpError = error as Error & {
+      code?: string;
+      command?: string;
+      response?: string;
+    };
+    
+    console.log('❌ ERRO SMTP DETALHADO:', {
+      message: smtpError.message,
+      code: smtpError.code,
+      command: smtpError.command,
+      response: smtpError.response
+    });
+    
     logError('Erro na verificação da configuração de email', error as Error);
     return false;
   }
