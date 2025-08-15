@@ -86,8 +86,10 @@ export interface PublicRegistrationData {
 export interface CertificateConfig {
   id: string;
   eventId: string;
-  template: 'modern' | 'classic' | 'elegant' | 'minimalist';
+  template: 'modern' | 'classic' | 'elegant' | 'minimalist' | 'blank';
   orientation: 'landscape' | 'portrait';
+  pageSize: 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal';
+  pageMargin: 'narrow' | 'normal' | 'wide';
   primaryColor: string;
   secondaryColor: string;
   backgroundColor: string;
@@ -106,6 +108,10 @@ export interface CertificateConfig {
   logoUrl?: string;
   logoSize: number;
   logoPosition: { x: number; y: number };
+  backgroundImageUrl?: string;
+  backgroundImageOpacity: number;
+  backgroundImageSize: 'cover' | 'contain' | 'auto';
+  backgroundImagePosition: 'center' | 'top' | 'bottom' | 'left' | 'right';
   showBorder: boolean;
   borderWidth: number;
   showWatermark: boolean;

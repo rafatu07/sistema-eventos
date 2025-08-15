@@ -1,6 +1,7 @@
 // Importação dinâmica para compatibilidade com Next.js
 import { CertificateConfig } from '@/types';
 import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
+import { getPageDimensions, getMarginSettings, generatePageCSS } from '@/lib/page-utils';
 
 /**
  * Interface para dados do certificado PDF
@@ -40,6 +41,8 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
       // Configurações básicas
       template: data.config?.template || 'elegant',
       orientation: data.config?.orientation || 'landscape',
+      pageSize: data.config?.pageSize || 'A4',
+      pageMargin: data.config?.pageMargin || 'normal',
       
       // Cores personalizadas
       primaryColor: data.config?.primaryColor || '#7c3aed',
@@ -67,6 +70,12 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
       // Logo personalizada
       logoUrl: data.config?.logoUrl || '',
       logoSize: data.config?.logoSize || 80,
+      
+      // Imagem de fundo personalizada
+      backgroundImageUrl: data.config?.backgroundImageUrl || '',
+      backgroundImageOpacity: data.config?.backgroundImageOpacity || 0.3,
+      backgroundImageSize: data.config?.backgroundImageSize || 'cover',
+      backgroundImagePosition: data.config?.backgroundImagePosition || 'center',
       
       // QR Code personalizado
       includeQRCode: data.config?.includeQRCode ?? false,
@@ -128,7 +137,11 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
     // Usar Puppeteer para converter HTML em PDF
     console.log('📄 Gerando PDF com Puppeteer...');
     
-    const pdfBuffer = await generatePDFFromHTML(certificateHTML);
+    const pdfBuffer = await generatePDFFromHTML(certificateHTML, {
+      pageSize: certificateConfig.pageSize,
+      orientation: certificateConfig.orientation,
+      pageMargin: certificateConfig.pageMargin
+    });
 
     // 🚨 VALIDAÇÃO CRÍTICA: Verificar se o PDF foi gerado corretamente
     if (!pdfBuffer || pdfBuffer.length === 0) {
@@ -161,8 +174,10 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
  * Interface para configuração simplificada do certificado
  */
 interface SimpleCertificateConfig {
-  template: 'modern' | 'classic' | 'elegant' | 'minimalist';
+  template: 'modern' | 'classic' | 'elegant' | 'minimalist' | 'blank';
   orientation: 'landscape' | 'portrait';
+  pageSize: 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal';
+  pageMargin: 'narrow' | 'normal' | 'wide';
   primaryColor: string;
   secondaryColor: string;
   backgroundColor: string;
@@ -182,6 +197,10 @@ interface SimpleCertificateConfig {
   logoPosition: { x: number; y: number };
   logoSize: number;
   logoUrl?: string;
+  backgroundImageUrl?: string;
+  backgroundImageOpacity: number;
+  backgroundImageSize: 'cover' | 'contain' | 'auto';
+  backgroundImagePosition: 'center' | 'top' | 'bottom' | 'left' | 'right';
   qrCodePosition: { x: number; y: number };
   includeQRCode: boolean;
   qrCodeText: string;
@@ -280,10 +299,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Certificado</title>
       <style>
-        @page {
-          size: A4 ${config.orientation};
-          margin: 0.5in;
-        }
+        ${generatePageCSS(config.pageSize, config.orientation, config.pageMargin)}
         
         * {
           margin: 0;
@@ -308,12 +324,37 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         
         .certificate {
           position: relative;
-          width: ${config.orientation === 'landscape' ? '800px' : '600px'};
-          height: ${config.orientation === 'landscape' ? '600px' : '800px'};
+          width: ${(() => {
+            const dimensions = getPageDimensions(config.pageSize, config.orientation);
+            return `${dimensions.certificateWidth}px`;
+          })()};
+          height: ${(() => {
+            const dimensions = getPageDimensions(config.pageSize, config.orientation);
+            return `${dimensions.certificateHeight}px`;
+          })()};
           background-color: ${config.backgroundColor};
+          ${config.backgroundImageUrl ? `
+            background-image: url('${config.backgroundImageUrl}');
+            background-size: ${config.backgroundImageSize};
+            background-position: ${config.backgroundImagePosition};
+            background-repeat: no-repeat;
+          ` : ''}
           ${getCertificateBorderStyle(config)}
           margin: 0 auto;
           overflow: hidden;
+        }
+        
+        /* Overlay para controlar opacidade da imagem de fundo */
+        .background-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: ${config.backgroundColor};
+          opacity: ${config.backgroundImageUrl ? (1 - config.backgroundImageOpacity) : 0};
+          pointer-events: none;
+          z-index: 1;
         }
         
         .title {
@@ -329,6 +370,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           ${config.template === 'elegant' ? 'font-family: serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);' : ''}
           ${config.template === 'modern' ? 'font-family: sans-serif; letter-spacing: 1px;' : ''}
           ${config.template === 'minimalist' ? 'font-family: sans-serif; font-weight: 300;' : ''}
+          ${config.template === 'blank' ? 'font-family: sans-serif; font-weight: 400;' : ''}
         }
         
         .subtitle {
@@ -441,11 +483,15 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           ${config.template === 'elegant' ? 'font-family: serif; font-style: italic; font-weight: 300;' : ''}
           ${config.template === 'modern' ? 'font-family: sans-serif; font-weight: 200; letter-spacing: 2px;' : ''}
           ${config.template === 'minimalist' ? 'font-family: sans-serif; font-weight: 100;' : ''}
+          ${config.template === 'blank' ? 'display: none;' : ''}
         }
       </style>
     </head>
     <body>
       <div class="certificate">
+        <!-- Background overlay para controlar opacidade -->
+        ${config.backgroundImageUrl ? '<div class="background-overlay"></div>' : ''}
+        
         <!-- Watermark -->
         ${config.showWatermark ? `<div class="watermark">${config.watermarkText}</div>` : ''}
         
@@ -514,7 +560,7 @@ const generateQRCodeHTML = async (qrText: string, color: string): Promise<string
 /**
  * Converte HTML em PDF usando Puppeteer simplificado
  */
-const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
+const generatePDFFromHTML = async (html: string, config?: { pageSize: string; orientation: string; pageMargin: string }): Promise<Buffer> => {
   let browser: Awaited<ReturnType<typeof import('puppeteer')['default']['launch']>> | null = null;
   
   try {
@@ -600,17 +646,22 @@ const generatePDFFromHTML = async (html: string): Promise<Buffer> => {
     console.log('✅ Todas as imagens carregadas');
 
     console.log('🖨️ Gerando PDF...');
+    
+    // Configurações dinâmicas baseadas na config
+    const marginSettings = getMarginSettings(config?.pageMargin || 'normal');
+    const isLandscape = config?.orientation === 'landscape';
+    
     const pdfData = await page.pdf({
-      format: 'A4',
-      landscape: true,
+      format: (config?.pageSize || 'A4') as 'A4' | 'A3' | 'A5' | 'Legal' | 'Letter',
+      landscape: isLandscape,
       margin: {
-        top: '0.5in',
-        right: '0.5in',
-        bottom: '0.5in',
-        left: '0.5in'
+        top: marginSettings.top,
+        right: marginSettings.right,
+        bottom: marginSettings.bottom,
+        left: marginSettings.left
       },
       printBackground: true,
-      preferCSSPageSize: false
+      preferCSSPageSize: true, // Usar tamanho definido no CSS
     });
 
     console.log('✅ PDF gerado via Puppeteer', {

@@ -23,8 +23,11 @@ import {
   QrCode,
   Shield,
   Check,
-  Clock
+  Clock,
+  Wallpaper,
+  FileText
 } from 'lucide-react';
+import { PAGE_SIZE_INFO, MARGIN_INFO } from '@/lib/page-utils';
 
 interface CertificateConfigFormProps {
   eventId: string;
@@ -87,15 +90,22 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     },
   });
 
-  const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, reset, trigger, setValue } = form;
+  const { register, handleSubmit, isSubmitting, submitError, getFieldError, watch, reset, trigger, setValue, formState } = form;
   const watchedValues = watch();
 
         // CORREÇÃO: Sincronizar formulário quando config carregada do servidor muda
   React.useEffect(() => {
     if (config && config.id) {
+      console.log('🔄 SINCRONIZAÇÃO: Formulário sendo sincronizado com servidor');
+      console.log('📄 Config recebido do servidor:', config);
+      console.log('🔍 Campos críticos do config:');
+      console.log(`  includeQRCode: ${config.includeQRCode} (${typeof config.includeQRCode})`);
+      console.log(`  qrCodeText: "${config.qrCodeText}" (${typeof config.qrCodeText})`);
+      console.log(`  backgroundImageUrl: "${config.backgroundImageUrl}" (${typeof config.backgroundImageUrl})`);
+      
       // Reset do formulário com os novos valores
       reset(config);
-      console.log('🔄 Formulário sincronizado com servidor');
+      console.log('✅ SINCRONIZAÇÃO: Formulário sincronizado com servidor');
     }
   }, [config, reset]);
 
@@ -112,15 +122,21 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
       // Pegar dados atuais do formulário
       const currentData = watchedValues;
       
-      // Criar dados atualizados com a nova logo
+      // 🔧 GARANTIR que todos os campos estejam presentes, incluindo campos obrigatórios
       const updatedData = {
         ...currentData,
-        logoUrl: logoUrl
+        logoUrl: logoUrl,
+        // Garantir que campos essenciais estejam definidos
+        eventId: currentData.eventId || eventId,
+        createdBy: currentData.createdBy || user?.uid || '',
+        createdAt: currentData.createdAt || new Date(),
+        updatedAt: new Date(),
       };
       
       console.log('💾 AUTO-SAVE: Salvando configuração com nova logo:', logoUrl);
+      console.log('📋 AUTO-SAVE: Dados completos:', updatedData);
       
-      // Salvar apenas a logoUrl atualizada
+      // Salvar dados completos
       await onSave(updatedData);
       
       console.log('✅ AUTO-SAVE: Logo salva automaticamente no banco!');
@@ -176,6 +192,87 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     return data.imageUrl;
   };
 
+  // Função para upload de imagem de fundo com validação
+  const handleBackgroundImageUpload = async (file: File): Promise<string> => {
+    console.log('🌄 UPLOAD: Iniciando upload de imagem de fundo...', { fileName: file.name, size: file.size });
+    
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/upload-background-image', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ UPLOAD: Erro no upload da imagem de fundo:', data);
+      throw new Error(data.error || 'Erro no upload da imagem de fundo');
+    }
+
+    console.log('✅ UPLOAD: Upload de fundo bem-sucedido:', data.imageUrl);
+    
+    // Validar URL após upload
+    console.log('🔍 UPLOAD: Validando URL da imagem de fundo após upload...');
+    const validation = await validateImageUrl(data.imageUrl, {
+      maxSize: 10 * 1024 * 1024, // 10MB
+      timeout: 8000
+    });
+    
+    if (!validation.isValid) {
+      console.error('❌ UPLOAD: URL da imagem de fundo inválida após upload:', validation.error);
+      throw new Error(validation.error || 'URL da imagem de fundo não é válida após upload');
+    }
+    
+    notifications.success('Upload Concluído', 'Imagem de fundo enviada, validada e salva com sucesso!');
+    
+    // 🎯 SALVAMENTO AUTOMÁTICO: Salvar imediatamente após upload
+    console.log('💾 AUTO-SAVE: Salvando imagem de fundo automaticamente...');
+    await saveBackgroundImageAutomatically(data.imageUrl);
+    
+    return data.imageUrl;
+  };
+
+  // Função para salvamento automático da imagem de fundo
+  const saveBackgroundImageAutomatically = async (backgroundImageUrl: string) => {
+    try {
+      console.log('🔄 AUTO-SAVE: Iniciando salvamento automático da imagem de fundo...');
+      
+      if (!onSave) {
+        console.warn('⚠️  AUTO-SAVE: onSave não disponível, pulando...');
+        return;
+      }
+
+      // Pegar dados atuais do formulário
+      const currentData = watchedValues;
+      
+      // 🔧 GARANTIR que todos os campos estejam presentes, incluindo campos obrigatórios
+      const updatedData = {
+        ...currentData,
+        backgroundImageUrl: backgroundImageUrl,
+        // Garantir que campos essenciais estejam definidos
+        eventId: currentData.eventId || eventId,
+        createdBy: currentData.createdBy || user?.uid || '',
+        createdAt: currentData.createdAt || new Date(),
+        updatedAt: new Date(),
+      };
+      
+      console.log('💾 AUTO-SAVE: Salvando configuração com nova imagem de fundo:', backgroundImageUrl);
+      console.log('📋 AUTO-SAVE: Dados completos:', updatedData);
+      
+      // Salvar dados completos
+      await onSave(updatedData);
+      
+      console.log('✅ AUTO-SAVE: Imagem de fundo salva automaticamente no banco!');
+      notifications.success('Imagem de Fundo Salva', 'Imagem de fundo foi salva automaticamente na configuração!');
+      
+    } catch (error) {
+      console.error('❌ AUTO-SAVE: Erro ao salvar imagem de fundo automaticamente:', error);
+      notifications.error('Erro Auto-Save', 'Erro ao salvar imagem de fundo automaticamente. Clique em "Salvar Configuração" manualmente.');
+    }
+  };
+
   const handleLogoChange = async (imageUrl: string | undefined) => {
     console.log('🔄 LOGO_CHANGE: Mudando logoUrl para:', imageUrl);
     console.log('🔍 LOGO_CHANGE: Valor anterior era:', watchedValues.logoUrl);
@@ -222,6 +319,52 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     }
   };
 
+  const handleBackgroundImageChange = async (imageUrl: string | undefined) => {
+    console.log('🔄 BACKGROUND_CHANGE: Mudando backgroundImageUrl para:', imageUrl);
+    console.log('🔍 BACKGROUND_CHANGE: Valor anterior era:', watchedValues.backgroundImageUrl);
+    
+    setValue('backgroundImageUrl', imageUrl, { shouldValidate: true, shouldDirty: true });
+    
+    console.log('✅ BACKGROUND_CHANGE: setValue chamado, verificando...', { 
+      novoValor: imageUrl,
+      valorAtualDoForm: watchedValues.backgroundImageUrl 
+    });
+    
+    // Validar URL externa se fornecida
+    if (imageUrl && !imageUrl.includes('cloudinary.com')) {
+      console.log('🔍 BACKGROUND_CHANGE: Validando URL externa...');
+      try {
+        const validation = await validateImageUrl(imageUrl, {
+          maxSize: 10 * 1024 * 1024,
+          timeout: 8000
+        });
+        
+        if (!validation.isValid) {
+          notifications.warning('URL Inválida', validation.error || 'A URL da imagem de fundo não é válida');
+          return;
+        }
+        
+        notifications.info('URL Validada', 'URL da imagem de fundo validada com sucesso!');
+      } catch (error) {
+        console.error('❌ BACKGROUND_CHANGE: Erro na validação:', error);
+        notifications.error('Erro de Validação', 'Não foi possível validar a URL da imagem de fundo');
+      }
+    }
+    
+    // Update preview immediately (will be debounced by the effect)
+    if (onConfigChange) {
+      const updatedConfig: CertificateConfig = {
+        ...watchedValues,
+        backgroundImageUrl: imageUrl,
+        id: config?.id || 'temp',
+        createdAt: config?.createdAt || new Date(),
+        updatedAt: new Date(),
+      } as CertificateConfig;
+      onConfigChange(updatedConfig);
+      console.log('🎯 BACKGROUND_CHANGE: onConfigChange chamado com backgroundImageUrl:', imageUrl);
+    }
+  };
+
   // Watch especificamente para logoUrl - log removido para reduzir spam
 
   // Debounced values para preview otimizado
@@ -234,19 +377,25 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
   React.useEffect(() => {
     if (onConfigChange) {
       // Create a stable string representation of current values
-      const currentValuesString = JSON.stringify({
-        primaryColor: debouncedValues.primaryColor,
-        secondaryColor: debouncedValues.secondaryColor,
-        backgroundColor: debouncedValues.backgroundColor,
-        borderColor: debouncedValues.borderColor,
-        template: debouncedValues.template,
-        orientation: debouncedValues.orientation,
-        fontFamily: debouncedValues.fontFamily,
-        logoUrl: debouncedValues.logoUrl,
-        logoSize: debouncedValues.logoSize,
-        showBorder: debouncedValues.showBorder,
-        includeQRCode: debouncedValues.includeQRCode
-      });
+              const currentValuesString = JSON.stringify({
+          primaryColor: debouncedValues.primaryColor,
+          secondaryColor: debouncedValues.secondaryColor,
+          backgroundColor: debouncedValues.backgroundColor,
+          borderColor: debouncedValues.borderColor,
+          template: debouncedValues.template,
+          orientation: debouncedValues.orientation,
+          pageSize: debouncedValues.pageSize,
+          pageMargin: debouncedValues.pageMargin,
+          fontFamily: debouncedValues.fontFamily,
+          logoUrl: debouncedValues.logoUrl,
+          logoSize: debouncedValues.logoSize,
+          backgroundImageUrl: debouncedValues.backgroundImageUrl,
+          backgroundImageOpacity: debouncedValues.backgroundImageOpacity,
+          backgroundImageSize: debouncedValues.backgroundImageSize,
+          backgroundImagePosition: debouncedValues.backgroundImagePosition,
+          showBorder: debouncedValues.showBorder,
+          includeQRCode: debouncedValues.includeQRCode
+        });
       
       // Only update if values actually changed
       if (currentValuesString !== prevValuesRef.current) {
@@ -273,8 +422,18 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
 
   // Watch for changes in form values to mark as unsaved
   React.useEffect(() => {
-    if (config) {
+    if (config && config.id) {
+      // 🔧 REDUZIR LOGS: Só logar a detecção ocasionalmente
+      const shouldLog = Math.random() < 0.1; // 10% das vezes
+      
+      if (shouldLog) {
+        console.log('🔍 DETECÇÃO DE MUDANÇAS: Iniciando comparação');
+        console.log('📋 watchedValues:', watchedValues);
+        console.log('💾 config salvo:', config);
+      }
+      
       // Compare current form values with saved config to detect changes
+      const changedFields: string[] = [];
       const hasChanges = Object.keys(watchedValues).some(key => {
         const currentValue = watchedValues[key as keyof typeof watchedValues];
         const savedValue = config[key as keyof typeof config];
@@ -299,6 +458,28 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
           return isDifferent;
         }
         
+        // Tratamento especial para backgroundImageUrl
+        if (key === 'backgroundImageUrl') {
+          const currentHasValue = currentValue && typeof currentValue === 'string' && currentValue.trim() !== '';
+          const savedHasValue = savedValue && typeof savedValue === 'string' && savedValue.trim() !== '';
+          
+          return currentHasValue !== savedHasValue || 
+            (currentHasValue && savedHasValue && currentValue !== savedValue);
+        }
+        
+        // Tratamento especial para campos booleanos
+        if (typeof currentValue === 'boolean' || typeof savedValue === 'boolean') {
+          // Normalizar para booleanos para comparação consistente
+          const currentBool = Boolean(currentValue);
+          const savedBool = Boolean(savedValue);
+          return currentBool !== savedBool;
+        }
+        
+        // Tratamento especial para objetos (posições, etc.)
+        if (typeof currentValue === 'object' && typeof savedValue === 'object') {
+          return JSON.stringify(currentValue) !== JSON.stringify(savedValue);
+        }
+        
         // Para outros campos, normalização padrão
         const normalizeValue = (val: unknown) => {
           if (val === null || val === undefined || val === '') return '';
@@ -308,11 +489,53 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
         const normalizedCurrent = normalizeValue(currentValue);
         const normalizedSaved = normalizeValue(savedValue);
         
-        return JSON.stringify(normalizedCurrent) !== JSON.stringify(normalizedSaved);
+        let isChanged = false;
+        
+        // 🔧 CORREÇÃO: Verificar mudança de acordo com o tipo do campo
+        if (key === 'includeQRCode' || key === 'showBorder' || key === 'showWatermark') {
+          // Para campos booleanos, comparação direta
+          const currentBool = Boolean(normalizedCurrent);
+          const savedBool = Boolean(normalizedSaved);
+          isChanged = currentBool !== savedBool;
+          
+          if (isChanged) {
+            changedFields.push(key);
+            console.log(`🔄 CAMPO BOOLEANO ALTERADO: ${key}`);
+            console.log(`  Atual: ${currentBool} (boolean)`);
+            console.log(`  Salvo: ${savedBool} (boolean)`);
+          }
+        } else {
+          // Para outros campos, comparação JSON
+          isChanged = JSON.stringify(normalizedCurrent) !== JSON.stringify(normalizedSaved);
+          
+          if (isChanged) {
+            changedFields.push(key);
+            console.log(`🔄 CAMPO ALTERADO: ${key}`);
+            console.log(`  Atual: ${JSON.stringify(normalizedCurrent)} (${typeof normalizedCurrent})`);
+            console.log(`  Salvo: ${JSON.stringify(normalizedSaved)} (${typeof normalizedSaved})`);
+          }
+        }
+        
+        return isChanged;
       });
+      
+      // 🔧 SEMPRE LOGAR quando há mudanças críticas detectadas ou quando estado muda
+      if (hasChanges && changedFields.length > 0) {
+        console.log('🔍 RESULTADO DA DETECÇÃO:');
+        console.log('  hasChanges:', hasChanges);
+        console.log('  changedFields:', changedFields);
+        console.log('  Campos críticos para debug:');
+        console.log(`    includeQRCode: atual=${watchedValues.includeQRCode}, salvo=${config.includeQRCode}`);
+        console.log(`    qrCodeText: atual="${watchedValues.qrCodeText}", salvo="${config.qrCodeText}"`);
+        console.log(`    backgroundImageUrl: atual="${watchedValues.backgroundImageUrl}", salvo="${config.backgroundImageUrl}"`);
+      }
       
       // Track hasChanges state changes
       if (hasChanges !== previousHasChanges.current) {
+        console.log(`🚦 MUDANÇA DE ESTADO: hasUnsavedChanges mudou de ${previousHasChanges.current} para ${hasChanges}`);
+        if (hasChanges && changedFields.length === 0) {
+          console.warn('⚠️ BUG: hasChanges=true mas changedFields vazio!');
+        }
         previousHasChanges.current = hasChanges;
       }
       
@@ -320,18 +543,111 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     }
   }, [watchedValues, config]);
 
+  // Variável para rastrear se onSubmit foi executado (para fallback)
+  const onSubmitCalledRef = React.useRef(false);
+
   const onSubmit = async (data: CertificateConfigData) => {
+    console.log('🚀🚀🚀 ONSUBMIT EXECUTADO! 🚀🚀🚀');
+    console.log('⭐ Este log confirma que o onSubmit foi chamado com sucesso');
+    onSubmitCalledRef.current = true;
+    
     try {
-      console.log('📤 Processando salvamento manual...');
+      console.log('📤 SALVAMENTO MANUAL: Processando...');
+      console.log('📋 Dados do formulário recebidos:', data);
+      console.log('📋 Valores observados (watchedValues):', watchedValues);
+      console.log('🔍 Estado hasUnsavedChanges:', hasUnsavedChanges);
       
-      // CORREÇÃO: Preservar logoUrl se estiver em watchedValues mas não em data
-      if (!data.logoUrl && watchedValues.logoUrl) {
-        data.logoUrl = watchedValues.logoUrl;
-      }
+      // 🔧 CORREÇÃO COMPLETA: Preservar TODOS os campos que podem estar em watchedValues
+      // mas podem não estar sendo capturados corretamente pelo formulário
+      
+      const fieldsToPreserve = [
+        'logoUrl',
+        'backgroundImageUrl', 
+        'includeQRCode',
+        'qrCodeText',
+        'qrCodePosition',
+        'logoPosition',
+        'titlePosition', 
+        'namePosition',
+        'bodyPosition',
+        'showBorder',
+        'showWatermark',
+        'watermarkText',
+        'watermarkOpacity',
+        'borderWidth',
+        'logoSize',
+        'backgroundImageOpacity',
+        'backgroundImageSize',
+        'backgroundImagePosition',
+        'pageSize',
+        'pageMargin'
+      ];
+      
+      fieldsToPreserve.forEach(field => {
+        const currentValue = data[field as keyof CertificateConfigData];
+        const watchedValue = watchedValues[field as keyof typeof watchedValues];
+        
+        // 🔧 LÓGICA APRIMORADA: Tratamento diferenciado por tipo de campo
+        const shouldPreserve = (() => {
+          // Para campos booleanos, preservar se o valor atual é undefined/null mas o watched não é
+          if (typeof watchedValue === 'boolean') {
+            return (currentValue === undefined || currentValue === null) && watchedValue !== undefined;
+          }
+          
+          // Para strings, preservar se atual está vazio/undefined mas watched tem valor
+          if (typeof watchedValue === 'string') {
+            return (currentValue === undefined || currentValue === null || currentValue === '') && 
+                   watchedValue !== undefined && watchedValue !== null && watchedValue !== '';
+          }
+          
+          // Para números, preservar se atual é undefined/null mas watched tem valor válido
+          if (typeof watchedValue === 'number') {
+            return (currentValue === undefined || currentValue === null) && 
+                   watchedValue !== undefined && !isNaN(watchedValue);
+          }
+          
+          // Para objetos (posições, etc.), preservar se atual está undefined mas watched existe
+          if (typeof watchedValue === 'object' && watchedValue !== null) {
+            return (currentValue === undefined || currentValue === null) && watchedValue !== undefined;
+          }
+          
+          // Caso padrão
+          return (currentValue === undefined || currentValue === null) && watchedValue !== undefined;
+        })();
+        
+        if (shouldPreserve) {
+          console.log(`🔧 Preservando campo '${field}' (${typeof watchedValue}):`, watchedValue);
+          (data as Record<string, unknown>)[field] = watchedValue;
+        }
+      });
+      
+      console.log('📋 Dados finais para salvamento:', data);
+      
+      // 🔍 DEBUG: Mostrar estado específico dos campos críticos
+      console.log('🔍 DEBUG - Estado dos campos críticos:');
+      console.log(`includeQRCode: ${data.includeQRCode} (tipo: ${typeof data.includeQRCode})`);
+      console.log(`qrCodeText: "${data.qrCodeText}" (tipo: ${typeof data.qrCodeText})`);
+      console.log(`qrCodePosition:`, data.qrCodePosition);
+      console.log(`backgroundImageUrl: "${data.backgroundImageUrl}" (tipo: ${typeof data.backgroundImageUrl})`);
+      console.log(`logoUrl: "${data.logoUrl}" (tipo: ${typeof data.logoUrl})`);
+      console.log(`showBorder: ${data.showBorder} (tipo: ${typeof data.showBorder})`);
+      console.log(`showWatermark: ${data.showWatermark} (tipo: ${typeof data.showWatermark})`);
+      console.log(`pageSize: "${data.pageSize}" (tipo: ${typeof data.pageSize})`);
+      console.log(`pageMargin: "${data.pageMargin}" (tipo: ${typeof data.pageMargin})`);
       
       if (onSave) {
         await onSave(data);
-        console.log('✅ Configuração salva com sucesso!');
+        console.log('✅ SALVAMENTO MANUAL: Configuração salva com sucesso!');
+        
+        // 🔧 GARANTIR feedback visual de sucesso após salvamento
+        setHasUnsavedChanges(false);
+        setSaveSuccess(true);
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 3000);
+        
+        notifications.success('Configuração Salva', 'Todas as configurações foram salvas com sucesso!');
+        
       } else {
         console.warn('⚠️ onSave não foi fornecido!');
         setHasUnsavedChanges(false);
@@ -339,6 +655,11 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
     } catch (error) {
       console.error('❌ Erro ao salvar configuração:', error);
       throw error; // Re-throw para que o hook de formulário possa lidar com o erro
+    } finally {
+      // Reset o flag para futuras execuções
+      setTimeout(() => {
+        onSubmitCalledRef.current = false;
+      }, 2000);
     }
   };
 
@@ -401,7 +722,17 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
         setTimeout(async () => {
           try {
             if (onSave) {
-              await onSave(templateConfig);
+              // 🔧 GARANTIR que todos os campos essenciais estejam no template
+              const completeTemplateConfig = {
+                ...templateConfig,
+                eventId: eventId,
+                createdBy: user?.uid || '',
+                updatedAt: new Date(),
+              };
+              
+              console.log('💾 AUTO-SAVE TEMPLATE: Salvando template completo:', completeTemplateConfig);
+              
+              await onSave(completeTemplateConfig);
               setHasUnsavedChanges(false);
               
               // ✅ CORREÇÃO: Ativar feedback de sucesso visual
@@ -414,7 +745,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
               notifications.success('Template Aplicado e Salvo', `Template "${templatePreviews[templateId]?.name}" aplicado e salvo com sucesso!`);
             }
           } catch (error) {
-            console.error('Erro ao salvar template:', error);
+            console.error('❌ Erro ao salvar template:', error);
             setHasUnsavedChanges(true);
             notifications.warning('Template Aplicado', `Template "${templatePreviews[templateId]?.name}" aplicado! Clique em "Salvar" para persistir as alterações.`);
           }
@@ -887,6 +1218,70 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
 
             {activeTab === 'layout' && (
               <div className="space-y-6">
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Configurações de Página
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 p-4 bg-gray-50 rounded-lg border">
+                    <div>
+                      <label htmlFor="pageSize" className="block text-sm font-medium text-gray-700 mb-2">
+                        Tamanho da Página
+                      </label>
+                      <select
+                        id="pageSize"
+                        {...register('pageSize')}
+                        className="input w-full"
+                      >
+                        {Object.entries(PAGE_SIZE_INFO).map(([value, info]) => (
+                          <option key={value} value={value}>
+                            {info.name} - {info.description}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {PAGE_SIZE_INFO[watchedValues.pageSize || 'A4']?.dimensions}
+                        {PAGE_SIZE_INFO[watchedValues.pageSize || 'A4']?.recommended && ' ⭐ Recomendado'}
+                      </p>
+                      <FieldError error={getFieldError('pageSize')} />
+                    </div>
+
+                    <div>
+                      <label htmlFor="pageMargin" className="block text-sm font-medium text-gray-700 mb-2">
+                        Margens da Página
+                      </label>
+                      <select
+                        id="pageMargin"
+                        {...register('pageMargin')}
+                        className="input w-full"
+                      >
+                        {Object.entries(MARGIN_INFO).map(([value, info]) => (
+                          <option key={value} value={value}>
+                            {info.name} - {info.description}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Área útil: {MARGIN_INFO[watchedValues.pageMargin || 'normal']?.value}
+                      </p>
+                      <FieldError error={getFieldError('pageMargin')} />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                        <h6 className="text-sm font-semibold text-blue-900 mb-2">📏 Informações da Página</h6>
+                        <div className="text-xs text-blue-800 grid grid-cols-2 gap-2">
+                          <div><strong>Tamanho:</strong> {PAGE_SIZE_INFO[watchedValues.pageSize || 'A4']?.name}</div>
+                          <div><strong>Dimensões:</strong> {PAGE_SIZE_INFO[watchedValues.pageSize || 'A4']?.dimensions}</div>
+                          <div><strong>Orientação:</strong> {watchedValues.orientation === 'landscape' ? 'Paisagem' : 'Retrato'}</div>
+                          <div><strong>Margem:</strong> {MARGIN_INFO[watchedValues.pageMargin || 'normal']?.name}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-6">
                   <div>
                     <h4 className="font-medium text-gray-900 mb-3">Posição do Título</h4>
@@ -1136,6 +1531,142 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                     </div>
                   </div>
                 </div>
+
+                <div className="border-t pt-6">
+                  <h4 className="font-medium text-gray-900 mb-4 flex items-center">
+                    <Wallpaper className="h-4 w-4 mr-2" />
+                    Imagem de Fundo
+                  </h4>
+                  
+                  <div className="space-y-6">
+                    {/* Upload de Imagem de Fundo */}
+                    <ImageUpload
+                      currentImage={watchedValues.backgroundImageUrl ? getOptimizedPreviewUrl(watchedValues.backgroundImageUrl) : undefined}
+                      onImageChange={handleBackgroundImageChange}
+                      onImageUpload={handleBackgroundImageUpload}
+                      label="Imagem de Fundo do Certificado"
+                      maxSize={10}
+                      accept="image/*"
+                      className="max-w-md"
+                      disabled={isSubmitting}
+                      allowExternalUrl={true}
+                    />
+
+                    {/* Campo de URL manual para imagem de fundo */}
+                    <div className="max-w-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <label htmlFor="backgroundImageUrl" className="text-sm font-medium text-gray-700">
+                          Ou usar URL externa
+                        </label>
+                        {watchedValues.backgroundImageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleBackgroundImageChange(undefined)}
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            Remover imagem de fundo
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="url"
+                        id="backgroundImageUrl"
+                        {...register('backgroundImageUrl')}
+                        className="input w-full"
+                        placeholder="https://exemplo.com/imagem-fundo.jpg"
+                        disabled={isSubmitting}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cole uma URL de imagem como alternativa ao upload
+                      </p>
+                      <FieldError error={getFieldError('backgroundImageUrl')} />
+                    </div>
+
+                    {/* Configurações da Imagem de Fundo */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="backgroundImageOpacity" className="block text-sm font-medium text-gray-700 mb-2">
+                          Opacidade
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="range"
+                            id="backgroundImageOpacity"
+                            {...register('backgroundImageOpacity', { valueAsNumber: true })}
+                            min="0.1"
+                            max="1.0"
+                            step="0.1"
+                            className="flex-1"
+                            disabled={isSubmitting}
+                          />
+                          <span className="text-sm text-gray-600 w-12">
+                            {Math.round((watchedValues.backgroundImageOpacity || 0.3) * 100)}%
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Controla a transparência da imagem de fundo
+                        </p>
+                        <FieldError error={getFieldError('backgroundImageOpacity')} />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="backgroundImageSize" className="block text-sm font-medium text-gray-700 mb-2">
+                          Ajuste da Imagem
+                        </label>
+                        <select
+                          id="backgroundImageSize"
+                          {...register('backgroundImageSize')}
+                          className="input w-full"
+                          disabled={isSubmitting}
+                        >
+                          <option value="cover">Preencher (Cover)</option>
+                          <option value="contain">Ajustar (Contain)</option>
+                          <option value="auto">Tamanho Original (Auto)</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Como a imagem se ajusta ao certificado
+                        </p>
+                        <FieldError error={getFieldError('backgroundImageSize')} />
+                      </div>
+
+                      <div>
+                        <label htmlFor="backgroundImagePosition" className="block text-sm font-medium text-gray-700 mb-2">
+                          Posição
+                        </label>
+                        <select
+                          id="backgroundImagePosition"
+                          {...register('backgroundImagePosition')}
+                          className="input w-full"
+                          disabled={isSubmitting}
+                        >
+                          <option value="center">Centro</option>
+                          <option value="top">Topo</option>
+                          <option value="bottom">Base</option>
+                          <option value="left">Esquerda</option>
+                          <option value="right">Direita</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Posição da imagem no certificado
+                        </p>
+                        <FieldError error={getFieldError('backgroundImagePosition')} />
+                      </div>
+                    </div>
+
+                    {/* Dicas para o usuário */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h6 className="text-sm font-semibold text-blue-900 mb-2">💡 Dicas para imagem de fundo</h6>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• <strong>Recomendamos opacidade baixa</strong> (20-40%) para não interferir no texto</li>
+                        <li>• Imagens com cores suaves funcionam melhor</li>
+                        <li>• Use &quot;Cover&quot; para preencher todo o certificado</li>
+                        <li>• Use &quot;Contain&quot; para manter a imagem completa e visível</li>
+                        <li>• Resolução recomendada: 1200x800px (landscape) ou 800x1200px (portrait)</li>
+                        <li>• Tamanho máximo do arquivo: 10MB</li>
+                        <li>• Formatos suportados: PNG, JPG, GIF, WebP</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1307,19 +1838,58 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              onClick={() => {
-                console.log('🖱️ Clique no botão salvar detectado');
+              onClick={(e) => {
+                console.log('🖱️ CLIQUE BOTÃO SALVAR - Iniciando debug completo');
+                console.log('🔍 Estado do botão:');
+                console.log('  type:', e.currentTarget.type);
+                console.log('  disabled:', e.currentTarget.disabled);
+                console.log('  form:', e.currentTarget.form);
                 
-                // CORREÇÃO: Feedback imediato para clique manual quando sem alterações
-                if (!hasUnsavedChanges && !isSubmitting) {
-                  console.log('✅ Sem alterações - ativando feedback direto');
-                  setSaveSuccess(true);
-                  setTimeout(() => {
-                    setSaveSuccess(false);
-                  }, 3000);
-                  
-                  notifications.success('Configuração Confirmada', 'Configuração do certificado está salva e atualizada!');
+                console.log('🔍 Estado do componente:');
+                console.log('  hasUnsavedChanges:', hasUnsavedChanges);
+                console.log('  isSubmitting:', isSubmitting);
+                console.log('  watchedValues.includeQRCode:', watchedValues.includeQRCode);
+                console.log('  config?.includeQRCode:', config?.includeQRCode);
+                
+                // 🔧 TESTE: Forçar chiamar o onSubmit manualmente se necessário
+                console.log('🧪 TESTE: Verificando se o submit vai ser processado...');
+                
+                // Verificar se há erros de validação que podem impedir o submit
+                console.log('🔍 Submit error:', submitError);
+                console.log('🔍 Form state:', formState);
+                console.log('🔍 Form errors:', formState.errors);
+                console.log('🔍 Form isValid:', formState.isValid);
+                console.log('🔍 Form isValidating:', formState.isValidating);
+                
+                // Se há erros de validação, mostrar quais são
+                if (Object.keys(formState.errors).length > 0) {
+                  console.error('❌ ERROS DE VALIDAÇÃO IMPEDINDO SUBMIT:');
+                  Object.entries(formState.errors).forEach(([field, error]) => {
+                    console.error(`  ${field}:`, error);
+                  });
                 }
+                
+                // 🔧 FALLBACK: Se por algum motivo o submit não funcionar, forçar chamada manual após timeout
+                onSubmitCalledRef.current = false; // Reset o flag
+                
+                // Verificar se onSubmit foi chamado
+                setTimeout(() => {
+                  if (!onSubmitCalledRef.current) {
+                    console.warn('⚠️ PROBLEMA: onSubmit NÃO foi chamado após 1 segundo!');
+                    console.log('🔧 FORÇANDO SUBMIT MANUAL...');
+                    
+                    // Forçar submit manual com os dados atuais do formulário
+                    const currentData = watchedValues;
+                    console.log('📋 Dados para submit manual:', currentData);
+                    
+                    onSubmit(currentData as CertificateConfigData);
+                  } else {
+                    console.log('✅ onSubmit foi chamado corretamente via React Hook Form');
+                  }
+                }, 1000);
+                
+                // Não impedir o submit - deixar o React Hook Form processar
+                console.log('➡️  Prosseguindo com o submit do formulário via React Hook Form');
               }}
               className={`
                 btn-primary 

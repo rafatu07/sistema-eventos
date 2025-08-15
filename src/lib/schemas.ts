@@ -346,8 +346,10 @@ export type CertificateConfigData = z.infer<typeof certificateConfigSchema>;
 // Schema para configuração de certificados
 export const certificateConfigSchema = z.object({
   // Configurações gerais
-  template: z.enum(['modern', 'classic', 'elegant', 'minimalist']).default('modern'),
+  template: z.enum(['modern', 'classic', 'elegant', 'minimalist', 'blank']).default('modern'),
   orientation: z.enum(['landscape', 'portrait']).default('landscape'),
+  pageSize: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal']).default('A4'),
+  pageMargin: z.enum(['narrow', 'normal', 'wide']).default('normal'),
   
   // Cores
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato #RRGGBB').default('#2563eb'),
@@ -388,6 +390,12 @@ export const certificateConfigSchema = z.object({
     x: z.number().min(0).max(100),
     y: z.number().min(0).max(100)
   }).default({ x: 10, y: 10 }),
+  
+  // Imagem de fundo
+  backgroundImageUrl: z.string().url().optional(),
+  backgroundImageOpacity: z.number().min(0.1).max(1.0).default(0.3),
+  backgroundImageSize: z.enum(['cover', 'contain', 'auto']).default('cover'),
+  backgroundImagePosition: z.enum(['center', 'top', 'bottom', 'left', 'right']).default('center'),
   
   // Opções avançadas
   showBorder: z.boolean().default(true),

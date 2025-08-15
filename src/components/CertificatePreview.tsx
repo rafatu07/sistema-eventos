@@ -6,6 +6,7 @@ import { CertificateConfigData } from '@/lib/schemas';
 import { CertificateConfig } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getPageDimensions } from '@/lib/page-utils';
 
 interface CertificatePreviewProps {
   config: CertificateConfigData | CertificateConfig;
@@ -48,14 +49,20 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
   };
 
   const isLandscape = config.orientation === 'landscape';
+  const pageSize = config.pageSize || 'A4';
+  const dimensions = getPageDimensions(pageSize, config.orientation);
+  
+  // Calcular aspect ratio baseado nas dimensões reais
+  const aspectRatio = dimensions.certificateWidth / dimensions.certificateHeight;
 
   return (
     <div className={`certificate-preview ${className}`}>
       <div 
-        className={`relative border mx-auto bg-white ${
-          isLandscape ? 'w-full aspect-[4/3]' : 'w-3/4 aspect-[3/4]'
-        }`}
+        className="relative border mx-auto bg-white"
         style={{
+          width: '100%',
+          maxWidth: isLandscape ? '800px' : '600px', // Limite máximo para preview
+          aspectRatio: aspectRatio.toString(),
           backgroundColor: config.backgroundColor,
           borderColor: config.showBorder ? config.borderColor : 'transparent',
           borderWidth: config.showBorder ? `${config.borderWidth}px` : '0',
@@ -67,10 +74,27 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
               : config.fontFamily === 'courier'
               ? 'Courier, monospace'
               : 'Arial, sans-serif',
+          // Adicionar imagem de fundo se existir
+          ...(config.backgroundImageUrl && {
+            backgroundImage: `url(${config.backgroundImageUrl})`,
+            backgroundSize: config.backgroundImageSize,
+            backgroundPosition: config.backgroundImagePosition,
+            backgroundRepeat: 'no-repeat',
+          }),
         }}
       >
+        {/* Overlay para opacidade da imagem de fundo */}
+        {config.backgroundImageUrl && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundColor: config.backgroundColor,
+              opacity: 1 - (config.backgroundImageOpacity || 0.3),
+            }}
+          />
+        )}
         {/* Watermark */}
-        {config.showWatermark && (
+        {config.showWatermark && config.template !== 'blank' && (
           <div 
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
             style={{
@@ -82,6 +106,16 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
               className="font-bold transform -rotate-45 select-none"
               style={{
                 fontSize: `${config.titleFontSize * 2}px`,
+                // 🔧 CORREÇÃO: Aplicar estilos específicos do template para watermark
+                ...(config.template === 'classic' ? {
+                  fontFamily: 'serif',
+                  fontWeight: 'bold'
+                } : {}),
+                ...(config.template === 'elegant' ? {
+                  fontFamily: 'serif',
+                  fontStyle: 'italic',
+                  fontWeight: '300'
+                } : {}),
               }}
             >
               {config.watermarkText}
@@ -126,6 +160,27 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
             fontSize: `${config.titleFontSize}px`,
             color: config.primaryColor,
             width: '80%',
+            // 🔧 CORREÇÃO: Aplicar estilos específicos do template para títulos
+            ...(config.template === 'classic' ? {
+              fontFamily: 'serif',
+              textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+            } : {}),
+            ...(config.template === 'elegant' ? {
+              fontFamily: 'serif',
+              textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+            } : {}),
+            ...(config.template === 'modern' ? {
+              fontFamily: 'sans-serif',
+              letterSpacing: '1px'
+            } : {}),
+            ...(config.template === 'minimalist' ? {
+              fontFamily: 'sans-serif',
+              fontWeight: '300'
+            } : {}),
+            ...(config.template === 'blank' ? {
+              fontFamily: 'sans-serif',
+              fontWeight: '400'
+            } : {}),
           }}
         >
           {config.title}
@@ -157,6 +212,13 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
             fontSize: `${config.nameFontSize}px`,
             color: config.primaryColor,
             width: '80%',
+            // 🔧 CORREÇÃO: Aplicar estilos específicos do template para consistência com PDF
+            ...(config.template === 'classic' || config.template === 'elegant' ? {
+              textDecoration: 'underline',
+              textDecorationColor: config.borderColor,
+              textDecorationThickness: '2px',
+              textUnderlineOffset: '4px'
+            } : {}),
           }}
         >
           {participantName}
@@ -266,6 +328,8 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
             />
           </>
         )}
+
+        {/* Template "blank" - sem decorações, ideal para imagens de fundo */}
       </div>
     </div>
   );
