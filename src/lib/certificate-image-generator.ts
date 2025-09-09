@@ -259,14 +259,19 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     
     // Definir dimensões da imagem (alta resolução para qualidade)  
     
-    // Usar dimensões padronizadas (voltando ao tamanho original)
-    const width = config.orientation === 'landscape' ? 1200 : 800;
-    const height = config.orientation === 'landscape' ? 800 : 1200;
+    // Usar dimensões em alta resolução para melhor qualidade
+    const width = config.orientation === 'landscape' ? 2400 : 1600;  // Dobrado para HD
+    const height = config.orientation === 'landscape' ? 1600 : 2400; // Dobrado para HD
     
     console.log(`📐 Certificado: ${width}x${height} (Serverless: ${isServerlessEnv})`);
     
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
+    
+    // Configurações para melhor qualidade de renderização
+    ctx.textDrawingMode = 'path';
+    ctx.antialias = 'subpixel';
+    ctx.textRenderingOptimization = 'optimizeQuality';
     
     // 🚨 CONFIGURAÇÃO ESPECÍFICA PARA VERCEL
     if (isServerlessEnv) {
@@ -279,9 +284,70 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       }
     }
     
-    // Background
-    ctx.fillStyle = config.backgroundColor;
-    ctx.fillRect(0, 0, width, height);
+    // ✨ IMAGEM DE FUNDO ORIGINAL - SEM PROCESSAMENTO
+    if (config.backgroundImageUrl) {
+      try {
+        console.log('🖼️ CARREGANDO IMAGEM DE FUNDO ORIGINAL:', config.backgroundImageUrl.substring(0, 50) + '...');
+        
+        // Carregar imagem original diretamente sem processamento
+        const backgroundImg = await loadImage(config.backgroundImageUrl);
+        
+        console.log('✅ Imagem carregada - Dimensões originais:', {
+          largura: backgroundImg.naturalWidth || backgroundImg.width,
+          altura: backgroundImg.naturalHeight || backgroundImg.height
+        });
+        
+        // ✨ DESENHAR IMAGEM ORIGINAL DIRETO - QUALIDADE MÁXIMA
+        ctx.save();
+        
+        // Configurar renderização para máxima qualidade
+        ctx.imageSmoothingEnabled = true;
+        if ('imageSmoothingQuality' in ctx) {
+          ctx.imageSmoothingQuality = 'high';
+        }
+        
+        // Desenhar imagem cobrindo toda a tela mantendo proporção (como 'cover')
+        const imgRatio = backgroundImg.width / backgroundImg.height;
+        const canvasRatio = width / height;
+        
+        let drawWidth, drawHeight, drawX, drawY;
+        
+        if (imgRatio > canvasRatio) {
+          // Imagem mais larga - ajustar por altura
+          drawHeight = height;
+          drawWidth = height * imgRatio;
+          drawX = (width - drawWidth) / 2;
+          drawY = 0;
+        } else {
+          // Imagem mais alta - ajustar por largura  
+          drawWidth = width;
+          drawHeight = width / imgRatio;
+          drawX = 0;
+          drawY = (height - drawHeight) / 2;
+        }
+        
+        // ✨ DESENHAR IMAGEM ORIGINAL SEM NENHUM PROCESSAMENTO
+        ctx.drawImage(backgroundImg, drawX, drawY, drawWidth, drawHeight);
+        
+        console.log('✅ IMAGEM DE FUNDO APLICADA:', {
+          posicao: `${drawX}x${drawY}`,
+          tamanho: `${drawWidth}x${drawHeight}`,
+          qualidade: 'ORIGINAL - sem processamento'
+        });
+        
+        ctx.restore();
+        
+      } catch (bgError) {
+        console.warn('⚠️ Erro ao carregar imagem de fundo (continuando sem ela):', bgError);
+        // Fallback para cor de fundo sólida
+        ctx.fillStyle = config.backgroundColor;
+        ctx.fillRect(0, 0, width, height);
+      }
+    } else {
+      // Background cor sólida se não tiver imagem
+      ctx.fillStyle = config.backgroundColor;
+      ctx.fillRect(0, 0, width, height);
+    }
     
     // Border se habilitado
     if (config.showBorder) {
@@ -321,25 +387,36 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       subtitle: fontSizes.subtitle
     });
     
-    // Título - EXATAMENTE como no preview
-    console.log('🎯 RENDERIZANDO TÍTULO:', {
-      texto: config.title,  // ✅ SEM aspas extras adicionadas nos logs
-      tamanho: fontSizes.title,
-      cor: config.primaryColor
-    });
-    const titlePos = formatPosition(config.titlePosition, width, height);
-    drawText(ctx, config.title, {
-      x: titlePos.x,
-      y: titlePos.y,
-      fontSize: fontSizes.title,
-      color: config.primaryColor,
-      fontWeight: 'bold',
-      align: 'center',
-      fontFamily: getFontFamily()
-    });
+    // ✅ VERIFICAR ELEMENTOS ATIVOS - só renderizar se estiver na lista
+    const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate']; // fallback para backward compatibility
+    console.log('🎯 ELEMENTOS ATIVOS:', activeElements);
+
+    // Título - SOMENTE se estiver ativo E tiver conteúdo
+    if (activeElements.includes('title') && config.title && config.title.trim() !== '') {
+      console.log('🎯 RENDERIZANDO TÍTULO:', {
+        texto: config.title,
+        tamanho: fontSizes.title,
+        cor: config.primaryColor
+      });
+      const titlePos = formatPosition(config.titlePosition, width, height);
+      drawText(ctx, config.title, {
+        x: titlePos.x,
+        y: titlePos.y,
+        fontSize: fontSizes.title,
+        color: config.primaryColor,
+        fontWeight: 'bold',
+        align: 'center',
+        fontFamily: getFontFamily()
+      });
+    } else if (!activeElements.includes('title')) {
+      console.log('⏭️ TÍTULO DESABILITADO - elemento não está ativo');
+    } else {
+      console.log('⏭️ TÍTULO VAZIO - pulando renderização');
+    }
     
-    // Subtítulo - EXATAMENTE como no preview
-    if (config.subtitle) {
+    // Subtítulo - SOMENTE se estiver ativo
+    if (activeElements.includes('subtitle') && config.subtitle) {
+      console.log('🎯 RENDERIZANDO SUBTÍTULO:', config.subtitle);
       const subtitlePos = formatPosition({
         x: config.titlePosition.x,
         y: config.titlePosition.y + 8  // EXATO mesmo offset do preview
@@ -354,60 +431,80 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         align: 'center',
         fontFamily: getFontFamily()
       });
+    } else if (!activeElements.includes('subtitle')) {
+      console.log('⏭️ SUBTÍTULO DESABILITADO - pulando renderização');
     }
     
-    // Nome do participante - EXATAMENTE como no preview
-    const participantName = data.userName;
-    console.log('🎯 RENDERIZANDO NOME:', {
-      texto: participantName,  // ✅ SEM aspas extras adicionadas nos logs
-      tamanho: fontSizes.name,
-      cor: config.primaryColor
-    });
-    const namePos = formatPosition(config.namePosition, width, height);
-    drawText(ctx, participantName, {
-      x: namePos.x,
-      y: namePos.y,
-      fontSize: fontSizes.name,
-      color: config.primaryColor,
-      fontWeight: 'semibold',  // Preview usa font-semibold
-      align: 'center',
-      fontFamily: getFontFamily()
-    });
+    // Nome do participante - SOMENTE se estiver ativo
+    if (activeElements.includes('name')) {
+      const participantName = data.userName;
+      console.log('🎯 RENDERIZANDO NOME:', {
+        texto: participantName,
+        tamanho: fontSizes.name,
+        cor: config.primaryColor
+      });
+      const namePos = formatPosition(config.namePosition, width, height);
+      drawText(ctx, participantName, {
+        x: namePos.x,
+        y: namePos.y,
+        fontSize: fontSizes.name,
+        color: config.primaryColor,
+        fontWeight: 'semibold',  // Preview usa font-semibold
+        align: 'center',
+        fontFamily: getFontFamily()
+      });
+    } else {
+      console.log('⏭️ NOME DESABILITADO - pulando renderização');
+    }
     
-    // Texto do corpo com substituição de variáveis - com fuso horário correto
-    const formattedDate = formatDateBrazil(data.eventDate);
-    const formattedStartTime = data.eventStartTime ? formatTimeBrazil(data.eventStartTime) : '13:00';
-    const formattedEndTime = data.eventEndTime ? formatTimeBrazil(data.eventEndTime) : '17:00';
-    const formattedTimeRange = formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
+    // Texto do corpo - SOMENTE se tiver elementos relacionados ativos (eventName, eventDate, body)
+    const shouldRenderBody = activeElements.some(element => 
+      ['body', 'eventName', 'eventDate'].includes(element)
+    );
     
-    const bodyText = config.bodyText
-      .replace(/{userName}/g, data.userName)
-      .replace(/{eventName}/g, data.eventName)
-      .replace(/{eventDate}/g, formattedDate)
-      .replace(/{eventTime}/g, formattedTimeRange)
-      .replace(/{eventStartTime}/g, formattedStartTime)
-      .replace(/{eventEndTime}/g, formattedEndTime);
+    if (shouldRenderBody) {
+      console.log('🎯 RENDERIZANDO TEXTO DO CORPO (elementos ativos:', activeElements.filter(el => 
+        ['body', 'eventName', 'eventDate'].includes(el)
+      ), ')');
+      
+      // Substituição de variáveis com fuso horário correto
+      const formattedDate = formatDateBrazil(data.eventDate);
+      const formattedStartTime = data.eventStartTime ? formatTimeBrazil(data.eventStartTime) : '13:00';
+      const formattedEndTime = data.eventEndTime ? formatTimeBrazil(data.eventEndTime) : '17:00';
+      const formattedTimeRange = formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
+      
+      const bodyText = config.bodyText
+        .replace(/{userName}/g, data.userName)
+        .replace(/{eventName}/g, data.eventName)
+        .replace(/{eventDate}/g, formattedDate)
+        .replace(/{eventTime}/g, formattedTimeRange)
+        .replace(/{eventStartTime}/g, formattedStartTime)
+        .replace(/{eventEndTime}/g, formattedEndTime);
+      
+      console.log('🎯 CORPO:', {
+        textoOriginal: config.bodyText,
+        textoFormatado: bodyText,
+        tamanho: fontSizes.body,
+        cor: config.secondaryColor
+      });
+      
+      const bodyPos = formatPosition(config.bodyPosition, width, height);
+      drawMultilineText(ctx, bodyText, {
+        x: bodyPos.x,
+        y: bodyPos.y,
+        fontSize: fontSizes.body,
+        color: config.secondaryColor,
+        maxWidth: width * 0.8,
+        lineHeight: fontSizes.body * 1.5,
+        fontFamily: getFontFamily()
+      });
+    } else {
+      console.log('⏭️ TEXTO DO CORPO DESABILITADO - nenhum elemento relacionado ativo');
+    }
     
-    // Texto do corpo - EXATAMENTE como no preview
-    console.log('🎯 RENDERIZANDO CORPO:', {
-      textoOriginal: config.bodyText,  // ✅ SEM aspas extras adicionadas nos logs
-      textoFormatado: bodyText,  // ✅ SEM aspas extras adicionadas nos logs
-      tamanho: fontSizes.body,
-      cor: config.secondaryColor
-    });
-    const bodyPos = formatPosition(config.bodyPosition, width, height);
-    drawMultilineText(ctx, bodyText, {
-      x: bodyPos.x,
-      y: bodyPos.y,
-      fontSize: fontSizes.body,
-      color: config.secondaryColor,
-      maxWidth: width * 0.8,          // Preview usa width: '80%'
-      lineHeight: fontSizes.body * 1.5, // Preview usa lineHeight: '1.5'
-      fontFamily: getFontFamily()
-    });
-    
-    // Footer - EXATAMENTE como no preview
-    if (config.footer) {
+    // Footer - SOMENTE se estiver ativo
+    if (activeElements.includes('footer') && config.footer) {
+      console.log('🎯 RENDERIZANDO FOOTER:', config.footer);
       const footerPos = formatPosition({
         x: config.bodyPosition.x,
         y: config.bodyPosition.y + 15  // EXATO mesmo offset do preview
@@ -421,10 +518,12 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         align: 'center',
         fontFamily: getFontFamily()
       });
+    } else if (!activeElements.includes('footer')) {
+      console.log('⏭️ FOOTER DESABILITADO - pulando renderização');
     }
     
     // Logo se fornecida
-    if (config.logoUrl) {
+    if (config.logoUrl && config.logoUrl !== null) {
       try {
         console.log('🖼️  Processando logo:', config.logoUrl);
         
@@ -443,8 +542,8 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         const logoBuffer = await loadImageBuffer(config.logoUrl);
         const logo = await loadImage(logoBuffer);
         
-        // Calcular dimensões mantendo proporção
-        const maxLogoSize = config.logoSize * 2; // Alta resolução
+        // Calcular dimensões mantendo proporção (ajustado para HD)
+        const maxLogoSize = config.logoSize * 4; // Quadruplicado para HD
         const originalWidth = logo.naturalWidth;
         const originalHeight = logo.naturalHeight;
         
@@ -570,10 +669,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       try {
         console.log('🔧 VERCEL: Gerando PNG com codificação UTF-8 explícita');
         
-        // Método 1: PNG com configurações explícitas
+        // Método 1: PNG com qualidade máxima para melhor nitidez
         const pngBuffer = canvas.toBuffer('image/png', {
-          compressionLevel: 6,
-          filters: 0  // PNG_FILTER_NONE value
+          compressionLevel: 0, // Sem compressão para máxima qualidade
+          filters: 4,          // PNG_FILTER_PAETH (melhor para fotos/detalhes)
+          palette: false       // Força RGB completo
         });
         
         if (pngBuffer && pngBuffer.length > 0) {
@@ -597,10 +697,11 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
           if (!hasValidSignature) {
             console.error('🚨 PNG corrompido - tentando versão alternativa');
             
-            // Tentar codificação alternativa
+            // Tentar codificação alternativa com qualidade máxima
             const alternativeBuffer = canvas.toBuffer('image/png', { 
               compressionLevel: 0,  // Sem compressão
-              filters: 1           // Filtro diferente
+              filters: 3,           // PNG_FILTER_AVG (filtro de qualidade)
+              palette: false        // RGB completo
             });
             console.log(`🔄 PNG ALTERNATIVO gerado - ${alternativeBuffer.length} bytes`);
             return alternativeBuffer;
@@ -613,8 +714,12 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
       }
     }
     
-    // Método padrão (local ou fallback)
-    return canvas.toBuffer();
+    // Método padrão (local ou fallback) com qualidade máxima
+    return canvas.toBuffer('image/png', {
+      compressionLevel: 0, // Sem compressão para máxima qualidade
+      filters: 4,          // PNG_FILTER_PAETH (melhor qualidade)
+      palette: false       // RGB completo
+    });
     
   } catch (error) {
     console.error('Erro ao gerar certificado como imagem:', error);
@@ -653,16 +758,17 @@ function formatPosition(position: { x: number; y: number }, width: number, heigh
   };
 }
 
-// 🚨 REMOVENDO MULTIPLIERS - usar tamanhos EXATOS como no preview
-// O preview usa: fontSize: `${config.titleFontSize}px` (SEM multipliers!)
+// 🎨 TAMANHOS EM ALTA RESOLUÇÃO - dobrados para melhor qualidade
+// Com resolução dobrada (2400x1600), dobramos as fontes para manter proporção
 function getFontSizes(config: CertificateConfig) {
+  const HD_MULTIPLIER = 2; // Multiplicador para alta resolução
   return {
-    title: config.titleFontSize,                    // EXATO: 24px
-    subtitle: config.titleFontSize * 0.6,          // EXATO: 24 * 0.6 = 14.4px 
-    name: config.nameFontSize,                      // EXATO: 18px
-    body: config.bodyFontSize,                      // EXATO: 12px
-    footer: config.bodyFontSize * 0.9,              // EXATO: 12 * 0.9 = 10.8px
-    timestamp: 8                                    // FIXO: 8px
+    title: config.titleFontSize * HD_MULTIPLIER,           // 24px → 48px
+    subtitle: config.titleFontSize * 0.6 * HD_MULTIPLIER, // 14.4px → 28.8px
+    name: config.nameFontSize * HD_MULTIPLIER,             // 18px → 36px
+    body: config.bodyFontSize * HD_MULTIPLIER,             // 12px → 24px
+    footer: config.bodyFontSize * 0.9 * HD_MULTIPLIER,     // 10.8px → 21.6px
+    timestamp: 8 * HD_MULTIPLIER                           // 8px → 16px
   };
 }
 
@@ -1344,7 +1450,7 @@ function getDefaultImageConfig(): CertificateConfig {
     nameFontSize: 18,
     bodyFontSize: 12,
     fontFamily: 'helvetica',
-    title: 'Certificado de Participação',
+    title: '',  // ✅ Deixar vazio por padrão - usuário define via Editor Visual
     subtitle: '',
     bodyText: 'Certificamos que {userName} participou do evento {eventName}, realizado em {eventDate} das {eventTime}.',
     footer: '',

@@ -13,7 +13,7 @@ import { CertificateConfigData } from '@/lib/schemas';
 import { Event } from '@/types';
 import { CertificateConfig } from '@/types';
 
-import { ArrowLeft, FileText, Eye, Loader } from 'lucide-react';
+import { ArrowLeft, FileText, Eye, Loader, MousePointer } from 'lucide-react';
 
 export default function CertificateConfigPage() {
   const params = useParams();
@@ -160,29 +160,40 @@ export default function CertificateConfigPage() {
             </div>
 
             {/* View Toggle */}
-            <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
-              <button
-                onClick={() => setActiveView('form')}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeView === 'form'
-                    ? 'bg-white text-blue-700 shadow'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`}
+            <div className="flex flex-wrap gap-2">
+              <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setActiveView('form')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeView === 'form'
+                      ? 'bg-white text-blue-700 shadow'
+                      : 'text-gray-700 hover:text-gray-900'
+                  }`}
+                >
+                  <FileText className="h-4 w-4 mr-2 inline" />
+                  Configurações
+                </button>
+                <button
+                  onClick={() => setActiveView('preview')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeView === 'preview'
+                      ? 'bg-white text-blue-700 shadow'
+                      : 'text-gray-700 hover:text-gray-900'
+                  }`}
+                >
+                  <Eye className="h-4 w-4 mr-2 inline" />
+                  Preview
+                </button>
+              </div>
+
+              {/* Editor Visual Button - Link para página dedicada */}
+              <Link
+                href={`/dashboard/eventos/${eventId}/certificado/visual`}
+                className="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-blue-600 text-white hover:bg-blue-700 flex items-center"
               >
-                <FileText className="h-4 w-4 mr-2 inline" />
-                Configurações
-              </button>
-              <button
-                onClick={() => setActiveView('preview')}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeView === 'preview'
-                    ? 'bg-white text-blue-700 shadow'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`}
-              >
-                <Eye className="h-4 w-4 mr-2 inline" />
-                Preview
-              </button>
+                <MousePointer className="h-4 w-4 mr-2" />
+                Editor Visual
+              </Link>
             </div>
           </div>
         </div>

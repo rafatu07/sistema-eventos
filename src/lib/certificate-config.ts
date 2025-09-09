@@ -132,7 +132,13 @@ export const updateCertificateConfig = async (eventId: string, configData: Parti
     console.log('🔄 SALVAMENTO: Iniciando para evento:', eventId);
     console.log('📋 SALVAMENTO: Dados recebidos:', configData);
     
-    // Log específico para logoUrl
+    // Proteção: verificar se configData não é undefined/null
+    if (!configData || typeof configData !== 'object') {
+      console.error('❌ SALVAMENTO: configData está undefined/null/inválido:', configData);
+      throw new Error('Dados de configuração inválidos ou vazios');
+    }
+    
+    // Log específico para logoUrl (agora com proteção)
     if (configData.logoUrl !== undefined) {
       console.log('🖼️  SALVAMENTO: logoUrl encontrada:', configData.logoUrl);
     } else {
@@ -146,20 +152,27 @@ export const updateCertificateConfig = async (eventId: string, configData: Parti
     console.log('🔍 SALVAMENTO: Configurações existentes encontradas:', querySnapshot.size);
     
     // Filter out undefined values for Firestore compatibility
+    // EXCEPT for logoUrl, backgroundImageUrl which need to be explicitly cleared when undefined
     const cleanedData: Record<string, unknown> = {};
     Object.entries(configData).forEach(([key, value]) => {
       if (value !== undefined) {
         cleanedData[key] = value;
+      } else if (key === 'logoUrl' || key === 'backgroundImageUrl') {
+        // Para remoção explícita de imagens, usar null ao invés de undefined
+        console.log(`🗑️ SALVAMENTO: ${key} será removido (definido como null)`);
+        cleanedData[key] = null;
       }
     });
     
     console.log('✨ SALVAMENTO: Dados limpos para Firestore:', cleanedData);
     
     // Log específico para logoUrl nos dados limpos
-    if (cleanedData.logoUrl) {
+    if (cleanedData.logoUrl === null) {
+      console.log('🗑️ SALVAMENTO: logoUrl será REMOVIDA (null)');
+    } else if (cleanedData.logoUrl) {
       console.log('✅ SALVAMENTO: logoUrl será salva:', cleanedData.logoUrl);
     } else {
-      console.log('❌ SALVAMENTO: logoUrl NÃO será salva (undefined ou vazia)');
+      console.log('➡️ SALVAMENTO: logoUrl não será alterada');
     }
     
     if (!querySnapshot.empty) {
@@ -216,7 +229,7 @@ export const getDefaultCertificateConfig = (eventId: string, createdBy: string):
     nameFontSize: 18,
     bodyFontSize: 12,
     fontFamily: 'helvetica' as const,
-    title: 'Certificado de Participação',
+    title: '',  // ✅ Deixar vazio por padrão - usuário define via Editor Visual
     subtitle: '',
     bodyText: 'Certificamos que {userName} participou do evento {eventName}, realizado em {eventDate} das {eventTime}.',
     footer: '',

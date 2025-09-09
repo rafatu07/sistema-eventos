@@ -364,7 +364,7 @@ export const certificateConfigSchema = z.object({
   fontFamily: z.enum(['helvetica', 'times', 'courier', 'DejaVuSans']).default('helvetica'),
   
   // Textos personalizáveis
-  title: z.string().min(1).max(100).default('Certificado de Participação'),
+  title: z.string().max(100).default(''),  // ✅ Título opcional - usuário define via Editor Visual
   subtitle: z.string().max(200).optional(),
   bodyText: z.string().min(10).max(500).default('Certificamos que {userName} participou do evento {eventName}, realizado em {eventDate} das {eventTime}.'),
   footer: z.string().max(200).optional(),

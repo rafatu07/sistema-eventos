@@ -49,8 +49,8 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
       secondaryColor: data.config?.secondaryColor || '#6b7280',
       backgroundColor: data.config?.backgroundColor || '#ffffff',
       
-      // Textos personalizados
-      title: data.config?.title || 'Certificado de Participação',
+      // ✅ Textos personalizados - respeitando elementos ativos
+      title: data.config?.title || (data.config?.activeElements?.includes('title') ? 'Certificado de Participação' : ''),
       subtitle: data.config?.subtitle || '',
       bodyText: data.config?.bodyText || 'Certificamos que {userName} participou do evento {eventName}, realizado em {eventDate} das {eventTime}.',
       footer: data.config?.footer || '',
@@ -71,9 +71,9 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
       logoUrl: data.config?.logoUrl || '',
       logoSize: data.config?.logoSize || 80,
       
-      // Imagem de fundo personalizada
+      // ✨ Imagem de fundo original - SEM degradação
       backgroundImageUrl: data.config?.backgroundImageUrl || '',
-      backgroundImageOpacity: data.config?.backgroundImageOpacity || 0.3,
+      backgroundImageOpacity: 1.0, // ✅ OPACIDADE TOTAL - sem overlay que degrada
       backgroundImageSize: data.config?.backgroundImageSize || 'cover',
       backgroundImagePosition: data.config?.backgroundImagePosition || 'center',
       
@@ -114,7 +114,7 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
         bodyTextLength: certificateConfig.bodyText.length
       },
       features: {
-        hasLogo: !!certificateConfig.logoUrl,
+        hasLogo: !!certificateConfig.logoUrl && certificateConfig.logoUrl !== null,
         logoSize: certificateConfig.logoSize,
         includeQRCode: certificateConfig.includeQRCode,
         showBorder: certificateConfig.showBorder,
@@ -344,18 +344,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
           overflow: hidden;
         }
         
-        /* Overlay para controlar opacidade da imagem de fundo */
-        .background-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: ${config.backgroundColor};
-          opacity: ${config.backgroundImageUrl ? (1 - config.backgroundImageOpacity) : 0};
-          pointer-events: none;
-          z-index: 1;
-        }
+        /* ✅ OVERLAY REMOVIDO - imagem original sem degradação */
         
         .title {
           position: absolute;
@@ -489,29 +478,78 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
     </head>
     <body>
       <div class="certificate">
-        <!-- Background overlay para controlar opacidade -->
-        ${config.backgroundImageUrl ? '<div class="background-overlay"></div>' : ''}
+        <!-- ✅ Sem overlay - imagem de fundo em qualidade original -->
         
         <!-- Watermark -->
         ${config.showWatermark ? `<div class="watermark">${config.watermarkText}</div>` : ''}
         
-        <!-- Título -->
-        <div class="title">${config.title}</div>
+        <!-- Elementos baseados em activeElements -->
+        ${(() => {
+          const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate'];
+          console.log('🎯 PDF GENERATOR - Elementos ativos:', activeElements);
+          
+          let elementsHtml = '';
+          
+          // Título - somente se ativo E com conteúdo
+          if (activeElements.includes('title') && config.title && config.title.trim() !== '') {
+            elementsHtml += `<div class="title">${config.title}</div>`;
+            console.log('🎯 PDF - Renderizando título:', config.title);
+          } else if (!activeElements.includes('title')) {
+            console.log('⏭️ PDF - Título desabilitado - elemento não está ativo');
+          } else {
+            console.log('⏭️ PDF - Título vazio - pulando renderização');
+          }
+          
+          // Subtítulo
+          if (activeElements.includes('subtitle') && config.subtitle) {
+            elementsHtml += `<div class="subtitle">${config.subtitle}</div>`;
+            console.log('🎯 PDF - Renderizando subtítulo:', config.subtitle);
+          } else if (!activeElements.includes('subtitle')) {
+            console.log('⏭️ PDF - Subtítulo desabilitado');
+          }
+          
+          // Nome do participante
+          if (activeElements.includes('name')) {
+            elementsHtml += `<div class="participant-name">${data.participantName}</div>`;
+            console.log('🎯 PDF - Renderizando nome:', data.participantName);
+          } else {
+            console.log('⏭️ PDF - Nome desabilitado');
+          }
+          
+          return elementsHtml;
+        })()}
         
-        <!-- Subtítulo -->
-        ${config.subtitle ? `<div class="subtitle">${config.subtitle}</div>` : ''}
-        
-        <!-- Nome do participante -->
-        <div class="participant-name">${data.participantName}</div>
-        
-        <!-- Corpo do texto -->
-        <div class="body-text">${replaceVariables(config.bodyText)}</div>
-        
-        <!-- Rodapé -->
-        ${config.footer ? `<div class="footer">${config.footer}</div>` : ''}
+        ${(() => {
+          const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate'];
+          let bodyFooterHtml = '';
+          
+          // Corpo do texto - somente se tiver elementos relacionados ativos
+          const shouldRenderBody = activeElements.some(element => 
+            ['body', 'eventName', 'eventDate'].includes(element)
+          );
+          
+          if (shouldRenderBody) {
+            bodyFooterHtml += `<div class="body-text">${replaceVariables(config.bodyText)}</div>`;
+            console.log('🎯 PDF - Renderizando corpo (elementos ativos:', activeElements.filter(el => 
+              ['body', 'eventName', 'eventDate'].includes(el)
+            ), ')');
+          } else {
+            console.log('⏭️ PDF - Corpo desabilitado - nenhum elemento relacionado ativo');
+          }
+          
+          // Rodapé - somente se estiver ativo
+          if (activeElements.includes('footer') && config.footer) {
+            bodyFooterHtml += `<div class="footer">${config.footer}</div>`;
+            console.log('🎯 PDF - Renderizando footer:', config.footer);
+          } else if (!activeElements.includes('footer')) {
+            console.log('⏭️ PDF - Footer desabilitado');
+          }
+          
+          return bodyFooterHtml;
+        })()}
         
         <!-- Logo -->
-        ${config.logoUrl ? `<img src="${config.logoUrl}" alt="Logo" class="logo" />` : ''}
+        ${config.logoUrl && config.logoUrl !== null ? `<img src="${config.logoUrl}" alt="Logo" class="logo" />` : ''}
         
         <!-- QR Code -->
         ${config.includeQRCode ? generateQRCodeElement(config.qrCodeText, config.qrCodePosition, config.secondaryColor) : ''}

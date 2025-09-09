@@ -40,7 +40,15 @@ export const useCertificateConfig = (eventId: string) => {
   // Mutation para salvar configuração com invalidação de cache
   const saveConfigMutation = useMutation({
     mutationFn: async (configData: CertificateConfigData) => {
-      console.log('💾 Salvando configuração do certificado...');
+      console.log('💾 HOOK: Salvando configuração do certificado...');
+      console.log('📋 HOOK: configData recebido:', configData);
+      
+      // Validação de segurança
+      if (!configData) {
+        console.error('❌ HOOK: configData está undefined!');
+        throw new Error('Dados de configuração não fornecidos');
+      }
+      
       await updateCertificateConfig(eventId, configData);
       return configData;
     },

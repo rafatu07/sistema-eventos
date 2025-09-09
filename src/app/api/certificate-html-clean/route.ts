@@ -116,7 +116,7 @@ function generateCertificateHTML(data: CertificateData): string {
   const titlePos = getPixelPosition(finalConfig.titlePosition);
   const namePos = getPixelPosition(finalConfig.namePosition);
   const bodyPos = getPixelPosition(finalConfig.bodyPosition);
-  const logoPos = finalConfig.logoUrl ? getPixelPosition(finalConfig.logoPosition) : null;
+  const logoPos = (finalConfig.logoUrl && finalConfig.logoUrl !== null) ? getPixelPosition(finalConfig.logoPosition) : null;
   const qrPos = finalConfig.includeQRCode ? getPixelPosition(finalConfig.qrCodePosition) : null;
 
   return `<!DOCTYPE html>
@@ -283,7 +283,7 @@ function generateCertificateHTML(data: CertificateData): string {
     <div class="certificate-container">
         ${finalConfig.showWatermark ? `<div class="watermark">${finalConfig.watermarkText}</div>` : ''}
         
-        ${logoPos && finalConfig.logoUrl ? `
+        ${logoPos && finalConfig.logoUrl && finalConfig.logoUrl !== null ? `
         <div class="certificate-logo">
             <img src="${finalConfig.logoUrl}" alt="Logo" crossorigin="anonymous">
         </div>
@@ -342,7 +342,7 @@ function getDefaultConfig(): CertificateConfig {
     nameFontSize: 20,
     bodyFontSize: 14,
     fontFamily: 'helvetica',
-    title: 'Certificado de Participação',
+    title: '',  // ✅ Deixar vazio por padrão - usuário define via Editor Visual
     bodyText: 'Certificamos que {userName} participou com êxito do evento {eventName}, realizado em {eventDate}.',
     titlePosition: { x: 50, y: 25 },
     namePosition: { x: 50, y: 45 },

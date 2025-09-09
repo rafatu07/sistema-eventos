@@ -124,7 +124,7 @@ export const CertificatePreview: React.FC<CertificatePreviewProps> = ({
         )}
 
         {/* Logo */}
-        {config.logoUrl && (
+        {config.logoUrl && config.logoUrl !== null && (
           <div
             className="absolute"
             style={{

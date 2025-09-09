@@ -187,32 +187,44 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
       return font.widthOfTextAtSize(text, size);
     };
 
-    // Title
-    const titlePos = getPosition(config.titlePosition);
-    const sanitizedTitle = sanitizeTextForPDF(config.title);
-    if (debugMode) {
-      console.log('📋 Título original:', JSON.stringify(config.title));
-      console.log('🧹 Título sanitizado:', JSON.stringify(sanitizedTitle));
-      console.log('🔤 Título códigos ASCII:', sanitizedTitle.split('').map(char => char.charCodeAt(0)).join(','));
-      console.log('✅ Título apenas ASCII (32-126):', sanitizedTitle.split('').every(char => {
-        const code = char.charCodeAt(0);
-        return code >= 32 && code <= 126;
-      }));
-    }
-    
-    const titleFontSize = scaleFontSize(config.titleFontSize);
-    const titleWidth = getTextWidth(sanitizedTitle, boldFont, titleFontSize);
-    page.drawText(sanitizedTitle, {
-      x: titlePos.x - titleWidth / 2,
-      y: titlePos.y,
-      size: titleFontSize,
-      font: boldFont,
-      color: primaryColor,
-    });
-    console.log('✍️  Título renderizado no PDF:', titlePos.x, titlePos.y);
+    // ✅ VERIFICAR ELEMENTOS ATIVOS
+    const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate'];
+    console.log('🎯 PDF-LIB GENERATOR - Elementos ativos:', activeElements);
 
-    // Subtitle (if provided)
-    if (config.subtitle) {
+    // Title - somente se ativo E com conteúdo
+    if (activeElements.includes('title') && config.title && config.title.trim() !== '') {
+      console.log('🎯 PDF-LIB - Renderizando título');
+      const titlePos = getPosition(config.titlePosition);
+      const sanitizedTitle = sanitizeTextForPDF(config.title);
+      if (debugMode) {
+        console.log('📋 Título original:', JSON.stringify(config.title));
+        console.log('🧹 Título sanitizado:', JSON.stringify(sanitizedTitle));
+        console.log('🔤 Título códigos ASCII:', sanitizedTitle.split('').map(char => char.charCodeAt(0)).join(','));
+        console.log('✅ Título apenas ASCII (32-126):', sanitizedTitle.split('').every(char => {
+          const code = char.charCodeAt(0);
+          return code >= 32 && code <= 126;
+        }));
+      }
+      
+      const titleFontSize = scaleFontSize(config.titleFontSize);
+      const titleWidth = getTextWidth(sanitizedTitle, boldFont, titleFontSize);
+      page.drawText(sanitizedTitle, {
+        x: titlePos.x - titleWidth / 2,
+        y: titlePos.y,
+        size: titleFontSize,
+        font: boldFont,
+        color: primaryColor,
+      });
+      console.log('✍️  Título renderizado no PDF:', titlePos.x, titlePos.y);
+    } else if (!activeElements.includes('title')) {
+      console.log('⏭️ PDF-LIB - Título desabilitado - elemento não está ativo');
+    } else {
+      console.log('⏭️ PDF-LIB - Título vazio - pulando renderização');
+    }
+
+    // Subtitle - somente se ativo
+    if (activeElements.includes('subtitle') && config.subtitle) {
+      console.log('🎯 PDF-LIB - Renderizando subtítulo');
       const subtitlePos = getPosition({
         x: config.titlePosition.x,
         y: config.titlePosition.y + 5,
@@ -226,103 +238,123 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
         font: normalFont,
         color: secondaryColor,
       });
+    } else if (!activeElements.includes('subtitle')) {
+      console.log('⏭️ PDF-LIB - Subtítulo desabilitado');
     }
 
-    // Participant name
-    const namePos = getPosition(config.namePosition);
-    const sanitizedUserName = sanitizeTextForPDF(data.userName);
-    if (debugMode) {
-      console.log('🏷️  Nome original:', JSON.stringify(data.userName));
-      console.log('🧹 Nome sanitizado:', JSON.stringify(sanitizedUserName));
-      console.log('🔤 Nome códigos ASCII:', sanitizedUserName.split('').map(char => char.charCodeAt(0)).join(','));
-      console.log('✅ Nome apenas ASCII (32-126):', sanitizedUserName.split('').every(char => {
+    // Participant name - somente se ativo
+    if (activeElements.includes('name')) {
+      console.log('🎯 PDF-LIB - Renderizando nome');
+      const namePos = getPosition(config.namePosition);
+      const sanitizedUserName = sanitizeTextForPDF(data.userName);
+      if (debugMode) {
+        console.log('🏷️  Nome original:', JSON.stringify(data.userName));
+        console.log('🧹 Nome sanitizado:', JSON.stringify(sanitizedUserName));
+        console.log('🔤 Nome códigos ASCII:', sanitizedUserName.split('').map(char => char.charCodeAt(0)).join(','));
+        console.log('✅ Nome apenas ASCII (32-126):', sanitizedUserName.split('').every(char => {
+          const code = char.charCodeAt(0);
+          return code >= 32 && code <= 126;
+        }));
+      }
+      
+      const nameFontSize = scaleFontSize(config.nameFontSize);
+      const nameWidth = getTextWidth(sanitizedUserName, boldFont, nameFontSize);
+      page.drawText(sanitizedUserName, {
+        x: namePos.x - nameWidth / 2,
+        y: namePos.y,
+        size: nameFontSize,
+        font: boldFont,
+        color: primaryColor,
+      });
+      console.log('✍️  Nome renderizado no PDF:', namePos.x, namePos.y);
+    } else {
+      console.log('⏭️ PDF-LIB - Nome desabilitado');
+    }
+
+    // Body text - somente se tiver elementos relacionados ativos
+    const shouldRenderBody = activeElements.some(element => 
+      ['body', 'eventName', 'eventDate'].includes(element)
+    );
+    
+    if (shouldRenderBody) {
+      console.log('🎯 PDF-LIB - Renderizando corpo (elementos ativos:', activeElements.filter(el => 
+        ['body', 'eventName', 'eventDate'].includes(el)
+      ), ')');
+      
+      const bodyPos = getPosition(config.bodyPosition);
+      const formattedDate = formatDateBrazil(data.eventDate);
+
+      // Format times with correct timezone
+      const formattedStartTime = data.eventStartTime 
+        ? formatTimeBrazil(data.eventStartTime)
+        : '13:00';
+      const formattedEndTime = data.eventEndTime 
+        ? formatTimeBrazil(data.eventEndTime)
+        : '17:00';
+      const formattedTimeRange = formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
+
+      const bodyText = config.bodyText
+        .replace(/{userName}/g, data.userName)
+        .replace(/{eventName}/g, data.eventName)
+        .replace(/{eventDate}/g, formattedDate)
+        .replace(/{eventTime}/g, formattedTimeRange)
+        .replace(/{eventStartTime}/g, formattedStartTime)
+        .replace(/{eventEndTime}/g, formattedEndTime);
+
+      const sanitizedBodyText = sanitizeTextForPDF(bodyText);
+      console.log('📄 Texto do corpo original:', JSON.stringify(bodyText.substring(0, 100) + '...'));
+      console.log('🧹 Texto do corpo sanitizado:', JSON.stringify(sanitizedBodyText.substring(0, 100) + '...'));
+      console.log('🔤 Primeiros 20 códigos ASCII:', sanitizedBodyText.substring(0, 20).split('').map(char => char.charCodeAt(0)).join(','));
+      console.log('✅ Corpo apenas ASCII (32-126):', sanitizedBodyText.split('').every(char => {
         const code = char.charCodeAt(0);
         return code >= 32 && code <= 126;
       }));
-    }
-    
-    const nameFontSize = scaleFontSize(config.nameFontSize);
-    const nameWidth = getTextWidth(sanitizedUserName, boldFont, nameFontSize);
-    page.drawText(sanitizedUserName, {
-      x: namePos.x - nameWidth / 2,
-      y: namePos.y,
-      size: nameFontSize,
-      font: boldFont,
-      color: primaryColor,
-    });
-    console.log('✍️  Nome renderizado no PDF:', namePos.x, namePos.y);
-
-    // Body text with variable replacement - com fuso horário correto
-    const bodyPos = getPosition(config.bodyPosition);
-    const formattedDate = formatDateBrazil(data.eventDate);
-
-    // Format times with correct timezone
-    const formattedStartTime = data.eventStartTime 
-      ? formatTimeBrazil(data.eventStartTime)
-      : '13:00';
-    const formattedEndTime = data.eventEndTime 
-      ? formatTimeBrazil(data.eventEndTime)
-      : '17:00';
-    const formattedTimeRange = formatTimeRangeBrazil(data.eventStartTime, data.eventEndTime);
-
-    const bodyText = config.bodyText
-      .replace(/{userName}/g, data.userName)
-      .replace(/{eventName}/g, data.eventName)
-      .replace(/{eventDate}/g, formattedDate)
-      .replace(/{eventTime}/g, formattedTimeRange)
-      .replace(/{eventStartTime}/g, formattedStartTime)
-      .replace(/{eventEndTime}/g, formattedEndTime);
-
-    const sanitizedBodyText = sanitizeTextForPDF(bodyText);
-    console.log('📄 Texto do corpo original:', JSON.stringify(bodyText.substring(0, 100) + '...'));
-    console.log('🧹 Texto do corpo sanitizado:', JSON.stringify(sanitizedBodyText.substring(0, 100) + '...'));
-    console.log('🔤 Primeiros 20 códigos ASCII:', sanitizedBodyText.substring(0, 20).split('').map(char => char.charCodeAt(0)).join(','));
-    console.log('✅ Corpo apenas ASCII (32-126):', sanitizedBodyText.split('').every(char => {
-      const code = char.charCodeAt(0);
-      return code >= 32 && code <= 126;
-    }));
-    console.log('📏 Tamanho do texto sanitizado:', sanitizedBodyText.length, 'caracteres');
-    
-    // Handle multiline text
-    const bodyFontSize = scaleFontSize(config.bodyFontSize);
-    const maxWidth = width * 0.8;
-    const words = sanitizedBodyText.split(' ');
-    const lines: string[] = [];
-    let currentLine = '';
-
-    for (const word of words) {
-      const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      const testWidth = getTextWidth(testLine, normalFont, bodyFontSize);
+      console.log('📏 Tamanho do texto sanitizado:', sanitizedBodyText.length, 'caracteres');
       
-      if (testWidth <= maxWidth) {
-        currentLine = testLine;
-      } else {
-        if (currentLine) lines.push(currentLine);
-        currentLine = word;
+      // Handle multiline text
+      const bodyFontSize = scaleFontSize(config.bodyFontSize);
+      const maxWidth = width * 0.8;
+      const words = sanitizedBodyText.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+
+      for (const word of words) {
+        const testLine = currentLine + (currentLine ? ' ' : '') + word;
+        const testWidth = getTextWidth(testLine, normalFont, bodyFontSize);
+        
+        if (testWidth <= maxWidth) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
       }
-    }
-    if (currentLine) lines.push(currentLine);
+      if (currentLine) lines.push(currentLine);
 
-    // Draw each line
-    const lineHeight = bodyFontSize * 1.2;
-    const totalTextHeight = lines.length * lineHeight;
-    const startY = bodyPos.y + totalTextHeight / 2;
+      // Draw each line
+      const lineHeight = bodyFontSize * 1.2;
+      const totalTextHeight = lines.length * lineHeight;
+      const startY = bodyPos.y + totalTextHeight / 2;
 
-    lines.forEach((line, index) => {
-      console.log(`✍️  Renderizando linha ${index + 1}: "${line}"`);
-      const lineWidth = getTextWidth(line, normalFont, bodyFontSize);
-      page.drawText(line, {
-        x: bodyPos.x - lineWidth / 2,
-        y: startY - index * lineHeight,
-        size: bodyFontSize,
-        font: normalFont,
-        color: secondaryColor,
+      lines.forEach((line, index) => {
+        console.log(`✍️  Renderizando linha ${index + 1}: "${line}"`);
+        const lineWidth = getTextWidth(line, normalFont, bodyFontSize);
+        page.drawText(line, {
+          x: bodyPos.x - lineWidth / 2,
+          y: startY - index * lineHeight,
+          size: bodyFontSize,
+          font: normalFont,
+          color: secondaryColor,
+        });
       });
-    });
-    console.log(`✅ ${lines.length} linhas renderizadas no PDF`);
+      console.log(`✅ ${lines.length} linhas renderizadas no PDF`);
+    } else {
+      console.log('⏭️ PDF-LIB - Corpo desabilitado - nenhum elemento relacionado ativo');
+    }
 
-    // Footer (if provided)
-    if (config.footer) {
+    // Footer - somente se ativo
+    if (activeElements.includes('footer') && config.footer) {
+      console.log('🎯 PDF-LIB - Renderizando footer:', config.footer);
       const footerPos = getPosition({
         x: config.bodyPosition.x,
         y: config.bodyPosition.y + 15,
@@ -336,6 +368,8 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
         font: normalFont,
         color: secondaryColor,
       });
+    } else if (!activeElements.includes('footer')) {
+      console.log('⏭️ PDF-LIB - Footer desabilitado');
     }
 
     // Watermark (if enabled)

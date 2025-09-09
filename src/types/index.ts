@@ -120,6 +120,7 @@ export interface CertificateConfig {
   includeQRCode: boolean;
   qrCodeText?: string;
   qrCodePosition: { x: number; y: number };
+  activeElements?: string[]; // Lista de IDs dos elementos ativos
   createdBy: string;
   createdAt: Date;
   updatedAt?: Date;

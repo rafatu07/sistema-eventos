@@ -10,6 +10,7 @@ import { useNotifications } from '@/components/NotificationSystem';
 import { CERTIFICATE_TEMPLATES, getTemplateConfig } from '@/lib/certificate-templates';
 import { getDefaultCertificateConfig } from '@/lib/certificate-config';
 import { ImageUpload } from '@/components/ImageUpload';
+import { CertificateVisualEditor } from '@/components/CertificateVisualEditor';
 import { validateImageUrl, getOptimizedPreviewUrl } from '@/lib/image-validation';
 import {
   Palette,
@@ -25,7 +26,9 @@ import {
   Check,
   Clock,
   Wallpaper,
-  FileText
+  FileText,
+  MousePointer,
+  Upload
 } from 'lucide-react';
 import { PAGE_SIZE_INFO, MARGIN_INFO } from '@/lib/page-utils';
 
@@ -1397,7 +1400,10 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                         {watchedValues.logoUrl && (
                           <button
                             type="button"
-                            onClick={() => handleLogoChange(undefined)}
+                            onClick={() => {
+                              console.log('🗑️ Clicando para remover logo');
+                              handleLogoChange(undefined);
+                            }}
                             className="text-xs text-red-600 hover:text-red-700"
                           >
                             Remover logo
@@ -1818,6 +1824,7 @@ export const CertificateConfigForm: React.FC<CertificateConfigFormProps> = ({
                 </div>
               </div>
             )}
+
           </div>
         </div>
 
