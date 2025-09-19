@@ -485,7 +485,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         
         <!-- Elementos baseados em activeElements -->
         ${(() => {
-          const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate'];
+          const activeElements = (config as any).activeElements || ['name', 'title', 'eventName', 'eventDate'];
           console.log('🎯 PDF GENERATOR - Elementos ativos:', activeElements);
           
           let elementsHtml = '';
@@ -520,7 +520,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         })()}
         
         ${(() => {
-          const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate'];
+          const activeElements = (config as any).activeElements || ['name', 'title', 'eventName', 'eventDate'];
           let bodyFooterHtml = '';
           
           // Corpo do texto - somente se tiver elementos relacionados ativos

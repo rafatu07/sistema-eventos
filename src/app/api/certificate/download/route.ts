@@ -4,6 +4,7 @@ import { getCertificateConfig } from '@/lib/certificate-config';
 import { generateCertificatePDF } from '@/lib/certificate-pdf-generator';
 import { logInfo, logError } from '@/lib/logger';
 import { rateLimit, getUserIdentifier } from '@/lib/rate-limit';
+import { generateCertificateFileName } from '@/lib/filename-utils';
 
 /**
  * 📄 API DINÂMICO - Gera certificado PDF em tempo real sem storage
@@ -127,11 +128,14 @@ export async function GET(request: NextRequest) {
     });
 
     // 📤 Retornar PDF diretamente
+    // ✅ CORREÇÃO: Usar função utilitária para sanitizar nome do arquivo
+    const fileName = generateCertificateFileName(registration.userName);
+    
     return new Response(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="certificado-${registration.userName.replace(/\s+/g, '-')}.pdf"`,
+        'Content-Disposition': `attachment; filename="${fileName}"`,
         'Cache-Control': 'public, max-age=3600', // Cache por 1 hora
         'X-Generation-Time': `${duration}ms`,
       },
