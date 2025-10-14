@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
-import { getAllEvents, getUserRegistrations, deleteEvent } from '@/lib/firestore';
+import { getAllEvents, getUserRegistrations } from '@/lib/firestore';
 import { Event, Registration } from '@/types';
 import { 
   Calendar, 
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   });
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{
     success?: boolean;
@@ -105,16 +106,28 @@ export default function DashboardPage() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteModal.event || deleteConfirmText !== 'delete') return;
+    if (!deleteModal.event || deleteConfirmText !== 'delete' || !deletePassword) return;
 
     setIsDeleting(true);
     try {
-      await deleteEvent(deleteModal.event.id);
+      const res = await fetch('/api/delete-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: deleteModal.event.id, password: deletePassword })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao excluir');
+      }
+
       setEvents(events.filter(e => e.id !== deleteModal.event!.id));
       setDeleteModal({ isOpen: false, event: null });
       setDeleteConfirmText('');
+      setDeletePassword('');
     } catch (error) {
       console.error('Error deleting event:', error);
+      alert((error as Error).message || 'Erro ao excluir evento');
     } finally {
       setIsDeleting(false);
     }
@@ -531,7 +544,7 @@ export default function DashboardPage() {
             
             <div className="mb-6">
               <p className="text-sm text-gray-600 mb-3">
-                Esta ação não pode ser desfeita. Para confirmar, digite <strong>delete</strong> no campo abaixo:
+                Esta ação não pode ser desfeita. Para confirmar, digite <strong>delete</strong> e a senha no campo abaixo:
               </p>
               <input
                 type="text"
@@ -539,6 +552,14 @@ export default function DashboardPage() {
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 className="input w-full"
                 placeholder="Digite 'delete' para confirmar"
+                onKeyDown={(e) => e.key === 'Enter' && confirmDelete()}
+              />
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className="input w-full mt-2"
+                placeholder="Senha para excluir"
                 onKeyDown={(e) => e.key === 'Enter' && confirmDelete()}
               />
             </div>
@@ -556,7 +577,7 @@ export default function DashboardPage() {
               </button>
               <button
                 onClick={confirmDelete}
-                disabled={deleteConfirmText !== 'delete' || isDeleting}
+                disabled={deleteConfirmText !== 'delete' || !deletePassword || isDeleting}
                 className="btn-primary bg-red-600 hover:bg-red-700 disabled:bg-gray-300"
               >
                 {isDeleting ? (
