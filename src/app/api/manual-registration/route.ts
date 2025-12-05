@@ -5,6 +5,8 @@ import {
   where, 
   getDocs, 
   addDoc,
+  updateDoc,
+  doc,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -102,6 +104,56 @@ export async function POST(request: NextRequest) {
       // Usuário já existe
       const existingUser = userQuerySnapshot.docs[0];
       userId = existingUser.id;
+      const userData = existingUser.data();
+
+      // VALIDAÇÃO E ATUALIZAÇÃO DE DADOS DO USUÁRIO
+      const existingCPF = userData.cpf;
+      const updateFields: Record<string, unknown> = {};
+      
+      // Validar CPF
+      if (existingCPF) {
+        // Usuário já tem CPF cadastrado - verificar se é o mesmo
+        const cleanExistingCPF = existingCPF.replace(/\D/g, '');
+        const cleanProvidedCPF = formattedCPF.replace(/\D/g, '');
+        
+        if (cleanExistingCPF !== cleanProvidedCPF) {
+          return NextResponse.json(
+            { 
+              error: `CPF informado (${formattedCPF}) não corresponde ao CPF cadastrado para este usuário. Por favor, verifique os dados ou use o CPF correto: ${existingCPF}`,
+              existingCPF: existingCPF,
+              providedCPF: formattedCPF
+            },
+            { status: 400 }
+          );
+        }
+      } else {
+        // Usuário não tem CPF cadastrado - adicionar ao update
+        updateFields.cpf = formattedCPF;
+        console.log(`✅ CPF ${formattedCPF} será adicionado ao perfil do usuário ${sanitizedEmail}`);
+      }
+
+      // Atualizar nome se estiver vazio ou for diferente
+      if (!userData.displayName || userData.displayName.trim() === '') {
+        updateFields.displayName = sanitizedName;
+        console.log(`✅ Nome "${sanitizedName}" será adicionado ao perfil do usuário ${sanitizedEmail}`);
+      }
+
+      // Atualizar telefone se fornecido e o usuário não tiver
+      if (sanitizedPhone && (!userData.phone || userData.phone.trim() === '')) {
+        updateFields.phone = sanitizedPhone;
+        console.log(`✅ Telefone será adicionado ao perfil do usuário ${sanitizedEmail}`);
+      }
+
+      // Aplicar atualizações se houver campos para atualizar
+      if (Object.keys(updateFields).length > 0) {
+        const userDocRef = doc(db, 'users', userId);
+        await updateDoc(userDocRef, {
+          ...updateFields,
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log(`✅ Perfil do usuário ${sanitizedEmail} atualizado com sucesso`);
+      }
 
       // Verificar se já está inscrito no evento
       const registrationsRef = collection(db, 'registrations');
