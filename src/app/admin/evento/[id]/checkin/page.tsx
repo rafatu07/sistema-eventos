@@ -36,7 +36,9 @@ import {
   ExternalLink,
   Mail,
   FileText,
-  Send
+  Send,
+  UserPlus,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
@@ -73,6 +75,16 @@ export default function AdminCheckinPage() {
   const [generatingPendingCerts, setGeneratingPendingCerts] = useState(false);
   const [sendingAllEmails, setSendingAllEmails] = useState(false);
   const [sendingIndividualEmail, setSendingIndividualEmail] = useState<Set<string>>(new Set());
+  
+  // Estados para adicionar participante manualmente
+  const [showManualRegistrationModal, setShowManualRegistrationModal] = useState(false);
+  const [manualRegistrationForm, setManualRegistrationForm] = useState({
+    name: '',
+    email: '',
+    cpf: '',
+    phone: ''
+  });
+  const [submittingManualRegistration, setSubmittingManualRegistration] = useState(false);
   
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -576,6 +588,73 @@ export default function AdminCheckinPage() {
     }
   };
 
+  // Função para formatar CPF enquanto o usuário digita
+  const formatCPFInput = (value: string): string => {
+    const cleanValue = value.replace(/\D/g, '');
+    const limitedValue = cleanValue.slice(0, 11);
+    
+    if (limitedValue.length <= 3) {
+      return limitedValue;
+    } else if (limitedValue.length <= 6) {
+      return `${limitedValue.slice(0, 3)}.${limitedValue.slice(3)}`;
+    } else if (limitedValue.length <= 9) {
+      return `${limitedValue.slice(0, 3)}.${limitedValue.slice(3, 6)}.${limitedValue.slice(6)}`;
+    } else {
+      return `${limitedValue.slice(0, 3)}.${limitedValue.slice(3, 6)}.${limitedValue.slice(6, 9)}-${limitedValue.slice(9)}`;
+    }
+  };
+
+  // Função para adicionar participante manualmente
+  const handleManualRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (submittingManualRegistration) return;
+
+    // Validações básicas
+    if (!manualRegistrationForm.name || !manualRegistrationForm.email || !manualRegistrationForm.cpf) {
+      alert('⚠️ Por favor, preencha todos os campos obrigatórios (nome, email e CPF).');
+      return;
+    }
+
+    setSubmittingManualRegistration(true);
+
+    try {
+      const response = await fetch('/api/manual-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: event?.id,
+          name: manualRegistrationForm.name,
+          email: manualRegistrationForm.email,
+          cpf: manualRegistrationForm.cpf,
+          phone: manualRegistrationForm.phone,
+          adminUserId: user?.uid
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(`✅ ${result.message}\n\nParticipante: ${result.data.userName}\nEmail: ${result.data.userEmail}`);
+        
+        // Recarregar lista de participantes
+        const updatedRegistrations = await getEventRegistrations(eventId);
+        setRegistrations(updatedRegistrations);
+        
+        // Limpar formulário e fechar modal
+        setManualRegistrationForm({ name: '', email: '', cpf: '', phone: '' });
+        setShowManualRegistrationModal(false);
+      } else {
+        throw new Error(result.error || 'Erro desconhecido');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao adicionar participante:', error);
+      alert(`❌ Erro ao adicionar participante:\n\n${(error as Error).message}`);
+    } finally {
+      setSubmittingManualRegistration(false);
+    }
+  };
+
   const formatEventTimes = (event: Event) => {
     if (!isClient) {
       // Durante o SSR, retorna valores seguros que não variam
@@ -754,6 +833,42 @@ export default function AdminCheckinPage() {
                     <div className="ml-3">
                       <p className="text-sm font-medium text-gray-600">Certificados Pendentes</p>
                       <p className="text-2xl font-bold text-gray-900">{stats.certificatesPending}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Manual Registration Button Section */}
+            <div className="mb-8">
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">Inscrição Manual</h3>
+                      <p className="text-sm text-gray-600">
+                        Adicione participantes que não possuem acesso à internet
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowManualRegistrationModal(true)}
+                    className="btn-primary flex items-center"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Adicionar Participante Manualmente
+                  </button>
+
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-start">
+                      <UserPlus className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-900 mb-1">Para quem é esta funcionalidade?</p>
+                        <p className="text-blue-700">
+                          Use esta opção para cadastrar participantes que não têm acesso à internet ou que precisam de auxílio para realizar a inscrição online.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1442,6 +1557,146 @@ export default function AdminCheckinPage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Inscrição Manual */}
+      {showManualRegistrationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <UserPlus className="h-6 w-6 text-blue-600 mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Adicionar Participante Manualmente
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowManualRegistrationModal(false);
+                  setManualRegistrationForm({ name: '', email: '', cpf: '', phone: '' });
+                }}
+                disabled={submittingManualRegistration}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">
+                Preencha os dados do participante que não possui acesso à internet. O sistema criará uma conta automaticamente se necessário.
+              </p>
+            </div>
+
+            <form onSubmit={handleManualRegistration} className="space-y-4">
+              {/* Nome */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome Completo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={manualRegistrationForm.name}
+                  onChange={(e) => setManualRegistrationForm({ ...manualRegistrationForm, name: e.target.value })}
+                  className="input w-full"
+                  placeholder="Digite o nome completo"
+                  required
+                  disabled={submittingManualRegistration}
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={manualRegistrationForm.email}
+                  onChange={(e) => setManualRegistrationForm({ ...manualRegistrationForm, email: e.target.value })}
+                  className="input w-full"
+                  placeholder="exemplo@email.com"
+                  required
+                  disabled={submittingManualRegistration}
+                />
+              </div>
+
+              {/* CPF */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CPF <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={manualRegistrationForm.cpf}
+                  onChange={(e) => {
+                    const formatted = formatCPFInput(e.target.value);
+                    setManualRegistrationForm({ ...manualRegistrationForm, cpf: formatted });
+                  }}
+                  className="input w-full"
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                  required
+                  disabled={submittingManualRegistration}
+                />
+              </div>
+
+              {/* Telefone (opcional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefone <span className="text-gray-400 text-xs">(opcional)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={manualRegistrationForm.phone}
+                  onChange={(e) => setManualRegistrationForm({ ...manualRegistrationForm, phone: e.target.value })}
+                  className="input w-full"
+                  placeholder="(00) 00000-0000"
+                  disabled={submittingManualRegistration}
+                />
+              </div>
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
+                <p className="text-yellow-800">
+                  <strong>Atenção:</strong> Esta inscrição será marcada como "manual" e o participante poderá fazer login posteriormente usando este email.
+                </p>
+              </div>
+
+              {/* Botões */}
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualRegistrationModal(false);
+                    setManualRegistrationForm({ name: '', email: '', cpf: '', phone: '' });
+                  }}
+                  disabled={submittingManualRegistration}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={submittingManualRegistration}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {submittingManualRegistration ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Adicionar Participante
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
