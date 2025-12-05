@@ -7,10 +7,15 @@ import {
   addDoc,
   updateDoc,
   doc,
+  setDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { createRegistration } from '@/lib/firestore';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { createRegistration, isUserAdmin } from '@/lib/firestore';
+
+// Senha temporária padrão para registros manuais
+const TEMPORARY_PASSWORD = '123456';
 
 // Validação básica de CPF
 function isValidCPF(cpf: string): boolean {
@@ -171,20 +176,46 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      // Criar novo usuário na coleção users
-      const newUser = {
-        email: sanitizedEmail,
-        displayName: sanitizedName,
-        cpf: formattedCPF,
-        phone: sanitizedPhone,
-        isAdmin: false,
-        createdAt: serverTimestamp(),
-        manuallyCreated: true, // Flag para indicar que foi criado manualmente
-        createdBy: adminUserId || 'admin'
-      };
+      // Criar novo usuário no Firebase Authentication com senha temporária
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, sanitizedEmail, TEMPORARY_PASSWORD);
+        const firebaseUser = userCredential.user;
+        userId = firebaseUser.uid;
 
-      const userDocRef = await addDoc(usersRef, newUser);
-      userId = userDocRef.id;
+        // Atualizar perfil do usuário no Firebase Auth
+        await updateProfile(firebaseUser, { displayName: sanitizedName });
+
+        // Criar documento do usuário no Firestore
+        const userRef = doc(db, 'users', userId);
+        const userData = {
+          email: sanitizedEmail,
+          displayName: sanitizedName,
+          cpf: formattedCPF,
+          phone: sanitizedPhone,
+          isAdmin: isUserAdmin(sanitizedEmail),
+          createdAt: serverTimestamp(),
+          manuallyCreated: true, // Flag para indicar que foi criado manualmente
+          createdBy: adminUserId || 'admin',
+          hasTemporaryPassword: true // Flag para indicar que tem senha temporária
+        };
+
+        await setDoc(userRef, userData);
+        
+        console.log(`✅ Novo usuário criado no Firebase Auth com senha temporária: ${sanitizedEmail}`);
+      } catch (authError: unknown) {
+        const error = authError as { code?: string; message?: string };
+        console.error('❌ Erro ao criar usuário no Firebase Auth:', error);
+        
+        // Tratamento específico de erros do Firebase Auth
+        if (error.code === 'auth/email-already-in-use') {
+          return NextResponse.json(
+            { error: 'Este email já está cadastrado no sistema. Use outro email ou tente fazer login.' },
+            { status: 400 }
+          );
+        }
+        
+        throw new Error(error.message || 'Erro ao criar usuário no sistema de autenticação');
+      }
     }
 
     // Verificar duplicação de CPF no evento (para evitar fraudes)
@@ -225,6 +256,7 @@ export async function POST(request: NextRequest) {
       message: 'Participante adicionado com sucesso!',
       registrationId,
       userId,
+      temporaryPassword: TEMPORARY_PASSWORD, // Senha temporária para exibir ao admin
       data: {
         userName: sanitizedName,
         userEmail: sanitizedEmail,

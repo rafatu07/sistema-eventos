@@ -635,7 +635,24 @@ export default function AdminCheckinPage() {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        alert(`✅ ${result.message}\n\nParticipante: ${result.data.userName}\nEmail: ${result.data.userEmail}`);
+        // Exibir mensagem de sucesso com a senha temporária
+        alert(
+          `✅ ${result.message}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📋 DADOS DO PARTICIPANTE:\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `👤 Nome: ${result.data.userName}\n` +
+          `📧 Email: ${result.data.userEmail}\n` +
+          `📄 CPF: ${result.data.userCPF}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `🔑 SENHA TEMPORÁRIA: ${result.temporaryPassword}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `⚠️ IMPORTANTE: Anote ou compartilhe estes dados com o participante!\n\n` +
+          `O participante poderá fazer login usando:\n` +
+          `• Email: ${result.data.userEmail}\n` +
+          `• Senha: ${result.temporaryPassword}\n\n` +
+          `Recomenda-se alterar a senha após o primeiro acesso.`
+        );
         
         // Recarregar lista de participantes
         const updatedRegistrations = await getEventRegistrations(eventId);
@@ -1585,9 +1602,28 @@ export default function AdminCheckinPage() {
             </div>
             
             <div className="mb-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 mb-3">
                 Preencha os dados do participante que não possui acesso à internet. O sistema criará uma conta automaticamente se necessário.
               </p>
+              
+              {/* Alerta sobre senha temporária */}
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-blue-800">
+                      🔑 Senha Temporária: <span className="font-bold text-lg">123456</span>
+                    </p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Esta senha será criada automaticamente para o participante fazer login posteriormente. Anote para informar ao participante!
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <form onSubmit={handleManualRegistration} className="space-y-4">
@@ -1659,9 +1695,15 @@ export default function AdminCheckinPage() {
               </div>
 
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
-                <p className="text-yellow-800">
-                  <strong>Atenção:</strong> Esta inscrição será marcada como "manual" e o participante poderá fazer login posteriormente usando este email.
+                <p className="text-yellow-800 mb-2">
+                  <strong>⚠️ Atenção:</strong> Esta inscrição será marcada como "manual".
                 </p>
+                <ul className="text-yellow-700 text-xs space-y-1 ml-4 list-disc">
+                  <li>Uma conta será criada automaticamente no sistema</li>
+                  <li>A senha temporária <strong>"123456"</strong> será definida</li>
+                  <li>O participante poderá fazer login usando o email e senha fornecidos</li>
+                  <li>Recomende ao participante alterar a senha após o primeiro acesso</li>
+                </ul>
               </div>
 
               {/* Botões */}
