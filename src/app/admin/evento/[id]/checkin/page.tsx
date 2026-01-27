@@ -167,6 +167,48 @@ export default function AdminCheckinPage() {
     }
   };
 
+  // Função helper para calcular quais páginas devem ser exibidas com ellipses
+  const getVisiblePages = (currentPage: number, totalPages: number): (number | null)[] => {
+    // Se há 7 ou menos páginas, mostrar todas
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const pages: (number | null)[] = [];
+    const maxVisible = 7; // Número máximo de botões visíveis (incluindo ellipses)
+    
+    // Sempre mostrar primeira página
+    pages.push(1);
+    
+    if (currentPage <= 4) {
+      // Página atual está próxima do início
+      // Mostrar: 1, 2, 3, 4, 5, ..., totalPages
+      for (let i = 2; i <= 5; i++) {
+        pages.push(i);
+      }
+      pages.push(null); // ellipses
+      pages.push(totalPages);
+    } else if (currentPage >= totalPages - 3) {
+      // Página atual está próxima do fim
+      // Mostrar: 1, ..., totalPages-4, totalPages-3, totalPages-2, totalPages-1, totalPages
+      pages.push(null); // ellipses
+      for (let i = totalPages - 4; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Página atual está no meio
+      // Mostrar: 1, ..., currentPage-1, currentPage, currentPage+1, ..., totalPages
+      pages.push(null); // ellipses
+      for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+        pages.push(i);
+      }
+      pages.push(null); // ellipses
+      pages.push(totalPages);
+    }
+    
+    return pages;
+  };
+
   const handleCheckIn = async (registration: Registration) => {
     if (processingIds.has(registration.id)) return;
 
@@ -1404,7 +1446,7 @@ export default function AdminCheckinPage() {
 
                 {/* Controles de navegação */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-8">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
                     <button
                       onClick={goToPrevPage}
                       disabled={currentPage === 1}
@@ -1418,14 +1460,25 @@ export default function AdminCheckinPage() {
                       Anterior
                     </button>
 
-                    <div className="flex space-x-2">
-                      {Array.from({ length: totalPages }, (_, index) => {
-                        const page = index + 1;
+                    <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
+                      {getVisiblePages(currentPage, totalPages).map((page, index) => {
+                        if (page === null) {
+                          // Renderizar ellipses
+                          return (
+                            <span
+                              key={`ellipsis-${index}`}
+                              className="px-2 py-2 text-sm font-medium text-gray-500"
+                            >
+                              ...
+                            </span>
+                          );
+                        }
+                        
                         return (
                           <button
                             key={page}
                             onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                            className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
                               currentPage === page
                                 ? 'bg-blue-600 text-white'
                                 : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
