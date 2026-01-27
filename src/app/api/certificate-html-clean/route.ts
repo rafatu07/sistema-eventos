@@ -356,6 +356,11 @@ function getDefaultConfig(): CertificateConfig {
     watermarkOpacity: 0.1,
     includeQRCode: false,
     qrCodePosition: { x: 90, y: 90 },
+    pageSize: 'A4',
+    pageMargin: 'normal',
+    backgroundImageOpacity: 1,
+    backgroundImageSize: 'cover',
+    backgroundImagePosition: 'center',
     createdBy: 'system',
     createdAt: new Date(),
   };

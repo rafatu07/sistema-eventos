@@ -10,7 +10,6 @@ import { useNotifications } from '@/components/NotificationSystem';
 import { CERTIFICATE_TEMPLATES, getTemplateConfig } from '@/lib/certificate-templates';
 import { getDefaultCertificateConfig } from '@/lib/certificate-config';
 import { ImageUpload } from '@/components/ImageUpload';
-import { CertificateVisualEditor } from '@/components/CertificateVisualEditor';
 import { validateImageUrl, getOptimizedPreviewUrl } from '@/lib/image-validation';
 import {
   Palette,
@@ -26,9 +25,7 @@ import {
   Check,
   Clock,
   Wallpaper,
-  FileText,
-  MousePointer,
-  Upload
+  FileText
 } from 'lucide-react';
 import { PAGE_SIZE_INFO, MARGIN_INFO } from '@/lib/page-utils';
 

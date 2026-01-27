@@ -4,7 +4,6 @@ import {
   query, 
   where, 
   getDocs, 
-  addDoc,
   updateDoc,
   doc,
   setDoc,
@@ -108,6 +107,9 @@ export async function POST(request: NextRequest) {
     if (!userQuerySnapshot.empty) {
       // Usuário já existe
       const existingUser = userQuerySnapshot.docs[0];
+      if (!existingUser) {
+        throw new Error('Erro ao recuperar dados do usuário existente');
+      }
       userId = existingUser.id;
       const userData = existingUser.data();
 

@@ -175,7 +175,6 @@ export default function AdminCheckinPage() {
     }
 
     const pages: (number | null)[] = [];
-    const maxVisible = 7; // Número máximo de botões visíveis (incluindo ellipses)
     
     // Sempre mostrar primeira página
     pages.push(1);
@@ -1749,11 +1748,11 @@ export default function AdminCheckinPage() {
 
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
                 <p className="text-yellow-800 mb-2">
-                  <strong>⚠️ Atenção:</strong> Esta inscrição será marcada como "manual".
+                  <strong>⚠️ Atenção:</strong> Esta inscrição será marcada como &quot;manual&quot;.
                 </p>
                 <ul className="text-yellow-700 text-xs space-y-1 ml-4 list-disc">
                   <li>Uma conta será criada automaticamente no sistema</li>
-                  <li>A senha temporária <strong>"123456"</strong> será definida</li>
+                  <li>A senha temporária <strong>&quot;123456&quot;</strong> será definida</li>
                   <li>O participante poderá fazer login usando o email e senha fornecidos</li>
                   <li>Recomende ao participante alterar a senha após o primeiro acesso</li>
                 </ul>

@@ -271,7 +271,7 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     // Configurações para melhor qualidade de renderização
     ctx.textDrawingMode = 'path';
     ctx.antialias = 'subpixel';
-    ctx.textRenderingOptimization = 'optimizeQuality';
+    // Nota: textRenderingOptimization não é uma propriedade padrão do CanvasRenderingContext2D
     
     // 🚨 CONFIGURAÇÃO ESPECÍFICA PARA VERCEL
     if (isServerlessEnv) {
@@ -670,11 +670,8 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         console.log('🔧 VERCEL: Gerando PNG com codificação UTF-8 explícita');
         
         // Método 1: PNG com qualidade máxima para melhor nitidez
-        const pngBuffer = canvas.toBuffer('image/png', {
-          compressionLevel: 0, // Sem compressão para máxima qualidade
-          filters: 4,          // PNG_FILTER_PAETH (melhor para fotos/detalhes)
-          palette: false       // Força RGB completo
-        });
+        // Usar toBuffer() sem parâmetros que retorna PNG por padrão
+        const pngBuffer = canvas.toBuffer();
         
         if (pngBuffer && pngBuffer.length > 0) {
           console.log(`✅ VERCEL: PNG otimizado gerado - ${pngBuffer.length} bytes`);
@@ -697,12 +694,10 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
           if (!hasValidSignature) {
             console.error('🚨 PNG corrompido - tentando versão alternativa');
             
-            // Tentar codificação alternativa com qualidade máxima
-            const alternativeBuffer = canvas.toBuffer('image/png', { 
-              compressionLevel: 0,  // Sem compressão
-              filters: 3,           // PNG_FILTER_AVG (filtro de qualidade)
-              palette: false        // RGB completo
-            });
+            // Tentar codificação alternativa usando toDataURL e converter para Buffer
+            const dataUrl = canvas.toDataURL('image/png');
+            const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+            const alternativeBuffer = Buffer.from(base64Data, 'base64');
             console.log(`🔄 PNG ALTERNATIVO gerado - ${alternativeBuffer.length} bytes`);
             return alternativeBuffer;
           }
@@ -715,11 +710,8 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     }
     
     // Método padrão (local ou fallback) com qualidade máxima
-    return canvas.toBuffer('image/png', {
-      compressionLevel: 0, // Sem compressão para máxima qualidade
-      filters: 4,          // PNG_FILTER_PAETH (melhor qualidade)
-      palette: false       // RGB completo
-    });
+    // Usar toBuffer() sem parâmetros que retorna PNG por padrão
+    return canvas.toBuffer();
     
   } catch (error) {
     console.error('Erro ao gerar certificado como imagem:', error);
@@ -1468,6 +1460,11 @@ function getDefaultImageConfig(): CertificateConfig {
     includeQRCode: false,
     qrCodeText: undefined,
     qrCodePosition: { x: 85, y: 85 },
+    pageSize: 'A4',
+    pageMargin: 'normal',
+    backgroundImageOpacity: 1,
+    backgroundImageSize: 'cover',
+    backgroundImagePosition: 'center',
     createdBy: 'system',
     createdAt: new Date(),
     updatedAt: new Date(),

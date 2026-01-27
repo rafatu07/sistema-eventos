@@ -208,6 +208,7 @@ interface SimpleCertificateConfig {
   watermarkText: string;
   watermarkOpacity: number;
   fontFamily: 'helvetica' | 'times' | 'courier' | 'DejaVuSans';
+  activeElements?: string[];
 }
 
 /**
@@ -485,7 +486,7 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         
         <!-- Elementos baseados em activeElements -->
         ${(() => {
-          const activeElements = (config as any).activeElements || ['name', 'title', 'eventName', 'eventDate'];
+          const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate'];
           console.log('🎯 PDF GENERATOR - Elementos ativos:', activeElements);
           
           let elementsHtml = '';
@@ -520,17 +521,17 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         })()}
         
         ${(() => {
-          const activeElements = (config as any).activeElements || ['name', 'title', 'eventName', 'eventDate'];
+          const activeElements = config.activeElements || ['name', 'title', 'eventName', 'eventDate'];
           let bodyFooterHtml = '';
           
           // Corpo do texto - somente se tiver elementos relacionados ativos
-          const shouldRenderBody = activeElements.some(element => 
+          const shouldRenderBody = activeElements.some((element: string) => 
             ['body', 'eventName', 'eventDate'].includes(element)
           );
           
           if (shouldRenderBody) {
             bodyFooterHtml += `<div class="body-text">${replaceVariables(config.bodyText)}</div>`;
-            console.log('🎯 PDF - Renderizando corpo (elementos ativos:', activeElements.filter(el => 
+            console.log('🎯 PDF - Renderizando corpo (elementos ativos:', activeElements.filter((el: string) => 
               ['body', 'eventName', 'eventDate'].includes(el)
             ), ')');
           } else {

@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { CertificateConfig } from '@/types';
-import { Upload, Move, Type, Save, Eye, RotateCcw, Trash2, Plus } from 'lucide-react';
-import Image from 'next/image';
+import { Upload, Move, Type, Eye, RotateCcw, Trash2 } from 'lucide-react';
 
 interface Position {
   x: number;
@@ -107,14 +106,14 @@ export const CertificateVisualEditor: React.FC<CertificateVisualEditorProps> = (
   console.log('🎨 CertificateVisualEditor montado com config:', config);
   
   // Usar configuração padrão se não houver config
-  const safeConfig = config || {
+  const safeConfig = useMemo(() => config || {
     titlePosition: { x: 50, y: 25 },
     namePosition: { x: 50, y: 45 },
     bodyPosition: { x: 50, y: 60 },
     titleFontSize: 28,
     nameFontSize: 24,
     bodyFontSize: 16
-  };
+  }, [config]);
   const [backgroundImage, setBackgroundImage] = useState<string>(safeConfig.backgroundImageUrl || '');
   // Estado para elementos ativos (quais estão sendo usados)
   const [activeElementIds, setActiveElementIds] = useState<string[]>(() => {
@@ -160,7 +159,6 @@ export const CertificateVisualEditor: React.FC<CertificateVisualEditorProps> = (
   });
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -615,7 +613,7 @@ export const CertificateVisualEditor: React.FC<CertificateVisualEditorProps> = (
                     <li>2. Selecione um elemento na lista à esquerda</li>
                     <li>3. Clique na posição exata da imagem onde o elemento deve aparecer</li>
                     <li>4. Ajuste o tamanho e cor se necessário</li>
-                    <li>5. Use o botão "Preview" para ver o resultado final</li>
+                    <li>5. Use o botão &quot;Preview&quot; para ver o resultado final</li>
                   </ol>
                 </div>
               )}

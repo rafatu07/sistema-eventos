@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Eye, Download } from 'lucide-react';
+import { ArrowLeft, Save, Eye } from 'lucide-react';
 import { CertificateVisualEditor } from '@/components/CertificateVisualEditor';
 import { useCertificateConfig } from '@/hooks/useCertificateConfig';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -93,7 +93,7 @@ export default function CertificateVisualEditorPage() {
         return;
       }
 
-      await saveConfig(finalConfig as any);
+      await saveConfig(finalConfig as CertificateConfig);
       
       // Limpar mudanças locais após salvamento bem-sucedido
       if (localConfig && Object.keys(localConfig).length > 0) {
@@ -224,7 +224,7 @@ export default function CertificateVisualEditorPage() {
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="p-6">
               <CertificateVisualEditor
-                config={currentConfig}
+                config={currentConfig ?? undefined}
                 onConfigChange={updateConfig}
                 eventName="Palestra: Como Envelhecemos e Morremos no Século XXI?"
                 eventDate="18 de setembro de 2025"
@@ -283,7 +283,7 @@ export default function CertificateVisualEditorPage() {
                 </li>
                 <li className="flex">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>O botão "Resetar" volta às posições padrão se necessário</span>
+                  <span>O botão &quot;Resetar&quot; volta às posições padrão se necessário</span>
                 </li>
                 <li className="flex">
                   <span className="text-green-500 mr-2">✓</span>
@@ -296,7 +296,7 @@ export default function CertificateVisualEditorPage() {
           {/* Footer com informações adicionais */}
           <div className="mt-8 bg-gray-50 rounded-lg border p-6 text-center">
             <p className="text-gray-600 text-sm">
-              💾 Lembre-se de clicar em <strong>"Salvar Configurações"</strong> para aplicar as alterações aos certificados do evento.
+              💾 Lembre-se de clicar em <strong>&quot;Salvar Configurações&quot;</strong> para aplicar as alterações aos certificados do evento.
               <br />
               🎨 Você pode continuar editando nas outras abas da configuração do certificado.
             </p>
