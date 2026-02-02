@@ -1224,7 +1224,7 @@ export default function AdminCheckinPage() {
             ) : (
               <>
                 {/* Informações de paginação */}
-                <div className="flex items-center justify-between mb-4 text-sm text-gray-600">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 text-sm text-gray-600">
                   <div>
                     Mostrando {startIndex + 1} a {Math.min(endIndex, totalItems)} de {totalItems} participantes
                   </div>
@@ -1237,8 +1237,8 @@ export default function AdminCheckinPage() {
                   {currentItems.map((registration) => (
                   <div key={registration.id} className="card">
                     <div className="card-content">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center mb-2">
                             {registration.checkedIn ? (
                               <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
@@ -1365,12 +1365,12 @@ export default function AdminCheckinPage() {
                           </div>
                         </div>
                         
-                        <div className="flex items-center space-x-3">
+                        <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:gap-0 sm:space-x-3 flex-shrink-0">
                           {!registration.checkedIn ? (
                             <button
                               onClick={() => handleCheckIn(registration)}
                               disabled={processingIds.has(registration.id)}
-                              className="btn-primary flex items-center"
+                              className="btn-primary flex items-center flex-shrink-0 whitespace-nowrap"
                             >
                               {processingIds.has(registration.id) ? (
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -1385,7 +1385,7 @@ export default function AdminCheckinPage() {
                                 <button
                                   onClick={() => handleCheckOut(registration)}
                                   disabled={processingIds.has(registration.id)}
-                                  className="btn-primary flex items-center"
+                                  className="btn-primary flex items-center flex-shrink-0 whitespace-nowrap"
                                 >
                                   {processingIds.has(registration.id) ? (
                                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -1400,7 +1400,7 @@ export default function AdminCheckinPage() {
                                 <button
                                   onClick={() => undoCheckOut(registration)}
                                   disabled={processingIds.has(registration.id)}
-                                  className="btn-outline text-red-600 border-red-300 hover:bg-red-50 flex items-center"
+                                  className="btn-outline text-red-600 border-red-300 hover:bg-red-50 flex items-center flex-shrink-0 whitespace-nowrap"
                                 >
                                   {processingIds.has(registration.id) ? (
                                     <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
@@ -1413,7 +1413,7 @@ export default function AdminCheckinPage() {
                                 <button
                                   onClick={() => undoCheckIn(registration)}
                                   disabled={processingIds.has(registration.id)}
-                                  className="btn-outline text-red-600 border-red-300 hover:bg-red-50 flex items-center"
+                                  className="btn-outline text-red-600 border-red-300 hover:bg-red-50 flex items-center flex-shrink-0 whitespace-nowrap"
                                 >
                                   {processingIds.has(registration.id) ? (
                                     <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
@@ -1430,7 +1430,7 @@ export default function AdminCheckinPage() {
                           <button
                             onClick={() => setParticipantToDelete(registration)}
                             disabled={deletingParticipant || processingIds.has(registration.id)}
-                            className="btn-outline text-red-600 border-red-300 hover:bg-red-50 flex items-center"
+                            className="btn-outline text-red-600 border-red-300 hover:bg-red-50 flex items-center flex-shrink-0 whitespace-nowrap"
                             title="Excluir participante do evento"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
