@@ -401,12 +401,10 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
         config.qrCodeText &&
         (config.qrCodeText.startsWith('http://') || config.qrCodeText.startsWith('https://'));
 
-      // Se não há texto específico de URL, usar link de download do certificado com registrationId
+      // Se não há texto específico de URL, usar URL pública de confirmação com registrationId
       const qrText =
         (hasCustomUrl && config.qrCodeText) ||
-        (data.registrationId
-          ? `${siteUrl}/api/certificate/download?registrationId=${data.registrationId}`
-          : siteUrl);
+        (data.registrationId ? `${siteUrl}/certificados/${data.registrationId}` : siteUrl);
       
       if (qrText) {
       try {

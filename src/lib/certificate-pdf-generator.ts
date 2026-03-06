@@ -296,15 +296,13 @@ const generateCertificateHTML = async (
   ): Promise<string> => {
     const siteUrl = getBaseUrl();
 
-    // Se o admin configurou uma URL válida, usa ela; caso contrário, monta URL de download
+    // Se o admin configurou uma URL válida, usa ela; caso contrário, monta URL de confirmação pública
     const hasCustomUrl =
       qrText && (qrText.startsWith('http://') || qrText.startsWith('https://'));
 
     const finalQrText =
       (hasCustomUrl && qrText) ||
-      (registrationId
-        ? `${siteUrl}/api/certificate/download?registrationId=${registrationId}`
-        : siteUrl);
+      (registrationId ? `${siteUrl}/certificados/${registrationId}` : siteUrl);
 
     const qrSize = 80;
 

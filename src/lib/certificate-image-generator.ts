@@ -2,11 +2,12 @@ import { CertificateConfig } from '@/types';
 import type { CanvasRenderingContext2D } from 'canvas';
 import fs from 'fs/promises';
 import path from 'path';
-import { 
-  getSafeFontFamily, 
-  isServerlessEnvironment 
+import {
+  getSafeFontFamily,
+  isServerlessEnvironment
 } from './embedded-fonts';
 import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
+import { getBaseUrl } from '@/lib/url-detector';
 
 /**
  * Valida se uma URL de imagem é acessível
@@ -614,12 +615,10 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
         config.qrCodeText &&
         (config.qrCodeText.startsWith('http://') || config.qrCodeText.startsWith('https://'));
 
-      // Se não há texto específico de URL, usar link de download do certificado com registrationId
+      // Se não há texto específico de URL, usar URL pública de confirmação com registrationId
       const qrText =
         (hasCustomUrl && config.qrCodeText) ||
-        (data.registrationId
-          ? `${siteUrl}/api/certificate/download?registrationId=${data.registrationId}`
-          : siteUrl);
+        (data.registrationId ? `${siteUrl}/certificados/${data.registrationId}` : siteUrl);
       
       if (qrText) {
         try {
