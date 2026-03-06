@@ -2,6 +2,8 @@
 import { CertificateConfig } from '@/types';
 import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
 import { getPageDimensions, getMarginSettings, generatePageCSS } from '@/lib/page-utils';
+import { getBaseUrl } from '@/lib/url-detector';
+import QRCode from 'qrcode';
 
 /**
  * Interface para dados do certificado PDF
@@ -13,6 +15,7 @@ export interface CertificatePDFData {
   eventStartTime?: Date;
   eventEndTime?: Date;
   eventId: string;
+  registrationId?: string;
   config?: CertificateConfig | null;
 }
 
@@ -124,13 +127,17 @@ export const generateCertificatePDF = async (data: CertificatePDFData): Promise<
     });
 
     // Gerar HTML do certificado
-    const certificateHTML = await generateCertificateHTML(certificateConfig, {
-      participantName: data.userName,
-      eventName: data.eventName,
-      eventDate: data.eventDate,
-      eventStartTime: data.eventStartTime,
-      eventEndTime: data.eventEndTime
-    });
+    const certificateHTML = await generateCertificateHTML(
+      certificateConfig,
+      {
+        participantName: data.userName,
+        eventName: data.eventName,
+        eventDate: data.eventDate,
+        eventStartTime: data.eventStartTime,
+        eventEndTime: data.eventEndTime,
+      },
+      data.registrationId
+    );
 
     console.log('🌐 HTML do certificado gerado');
 
@@ -214,13 +221,17 @@ interface SimpleCertificateConfig {
 /**
  * Gera HTML do certificado baseado no componente CertificatePreview
  */
-const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
-  participantName: string;
-  eventName: string;
-  eventDate: Date;
-  eventStartTime?: Date;
-  eventEndTime?: Date;
-}): Promise<string> => {
+const generateCertificateHTML = async (
+  config: SimpleCertificateConfig,
+  data: {
+    participantName: string;
+    eventName: string;
+    eventDate: Date;
+    eventStartTime?: Date;
+    eventEndTime?: Date;
+  },
+  registrationId?: string
+): Promise<string> => {
   const formatPosition = (position: { x: number; y: number }) => 
     `left: ${position.x}%; top: ${position.y}%; transform: translate(-50%, -50%);`;
 
@@ -277,17 +288,56 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
     }
   };
 
-  // ✅ Função para gerar elemento QR Code com API externa
-  const generateQRCodeElement = (qrText: string | undefined, position: { x: number; y: number }, color: string): string => {
-    const finalQrText = qrText || `Certificado digital de ${data.participantName}`;
+  // ✅ Função para gerar elemento QR Code usando data URL local
+  const generateQRCodeElement = async (
+    qrText: string | undefined,
+    position: { x: number; y: number },
+    color: string
+  ): Promise<string> => {
+    const siteUrl = getBaseUrl();
+
+    // Se o admin configurou uma URL válida, usa ela; caso contrário, monta URL de download
+    const hasCustomUrl =
+      qrText && (qrText.startsWith('http://') || qrText.startsWith('https://'));
+
+    const finalQrText =
+      (hasCustomUrl && qrText) ||
+      (registrationId
+        ? `${siteUrl}/api/certificate/download?registrationId=${registrationId}`
+        : siteUrl);
+
     const qrSize = 80;
-    const colorHex = color.replace('#', '');
-    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(finalQrText)}&format=png&color=${colorHex}&bgcolor=ffffff&margin=0`;
-    
+
+    let dataUrl: string;
+    try {
+      dataUrl = await QRCode.toDataURL(finalQrText, {
+        width: qrSize,
+        margin: 0,
+        color: {
+          dark: color,
+          light: '#ffffff',
+        },
+      });
+    } catch (error) {
+      console.error('❌ Erro ao gerar QR Code para certificado PDF:', error);
+      // Fallback: não quebra o PDF, apenas não mostra QR real
+      return `
+        <div class="qr-container" style="position: absolute; ${formatPosition(position)}">
+          <div style="width: ${qrSize}px; height: ${qrSize}px; border: 2px solid ${color}; display: flex; align-items: center; justify-content: center; font-size: 10px; color: ${color};">
+            QR<br/>CODE
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="qr-container" style="position: absolute; ${formatPosition(position)}">
-        <img src="${qrApiUrl}" alt="QR Code" style="width: ${qrSize}px; height: ${qrSize}px; display: block;" crossorigin="anonymous" />
-        ${qrText ? `<div style="text-align: center; font-size: 8px; color: ${color}; margin-top: 4px; width: ${qrSize}px;">${qrText}</div>` : ''}
+        <img src="${dataUrl}" alt="QR Code" style="width: ${qrSize}px; height: ${qrSize}px; display: block;" />
+        ${
+          hasCustomUrl
+            ? `<div style="text-align: center; font-size: 8px; color: ${color}; margin-top: 4px; width: ${qrSize}px;">${qrText}</div>`
+            : ''
+        }
       </div>
     `;
   };
@@ -553,7 +603,15 @@ const generateCertificateHTML = async (config: SimpleCertificateConfig, data: {
         ${config.logoUrl && config.logoUrl !== null ? `<img src="${config.logoUrl}" alt="Logo" class="logo" />` : ''}
         
         <!-- QR Code -->
-        ${config.includeQRCode ? generateQRCodeElement(config.qrCodeText, config.qrCodePosition, config.secondaryColor) : ''}
+        ${
+          config.includeQRCode
+            ? await generateQRCodeElement(
+                config.qrCodeText,
+                config.qrCodePosition,
+                config.secondaryColor
+              )
+            : ''
+        }
         
         <!-- Decorações do template -->
         ${config.template === 'elegant' ? `

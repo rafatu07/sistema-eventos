@@ -2,6 +2,7 @@ import { PDFDocument, rgb, StandardFonts, degrees, PDFFont } from 'pdf-lib';
 import { sanitizeTextForPDF } from './text-utils';
 import { CertificateConfig } from '@/types';
 import { getCertificateConfig, getDefaultCertificateConfig } from './certificate-config';
+import { getBaseUrl } from '@/lib/url-detector';
 import { formatDateBrazil, formatTimeRangeBrazil, formatTimeBrazil } from '@/lib/date-utils';
 
 export interface CertificateData {
@@ -11,6 +12,7 @@ export interface CertificateData {
   eventStartTime?: Date;
   eventEndTime?: Date;
   eventId?: string;
+   registrationId?: string;
   config?: CertificateConfig;
 }
 
@@ -394,8 +396,17 @@ export const generateCertificatePDF = async (data: CertificateData): Promise<Uin
 
     // QR Code real (if enabled)
     if (config.includeQRCode) {
-      // Se não há texto específico, usar URL base para validação
-      const qrText = config.qrCodeText || `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sistema-eventos.vercel.app'}/validate/${data.eventId}/${encodeURIComponent(data.userName)}`;
+      const siteUrl = getBaseUrl();
+      const hasCustomUrl =
+        config.qrCodeText &&
+        (config.qrCodeText.startsWith('http://') || config.qrCodeText.startsWith('https://'));
+
+      // Se não há texto específico de URL, usar link de download do certificado com registrationId
+      const qrText =
+        (hasCustomUrl && config.qrCodeText) ||
+        (data.registrationId
+          ? `${siteUrl}/api/certificate/download?registrationId=${data.registrationId}`
+          : siteUrl);
       
       if (qrText) {
       try {

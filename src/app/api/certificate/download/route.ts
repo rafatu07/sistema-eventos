@@ -115,6 +115,7 @@ export async function GET(request: NextRequest) {
       eventStartTime: event.startTime,
       eventEndTime: event.endTime,
       eventId: registration.eventId,
+      registrationId,
       config: certificateConfig
     });
 

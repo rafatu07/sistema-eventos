@@ -79,6 +79,7 @@ export interface CertificateImageData {
   eventStartTime?: Date;
   eventEndTime?: Date;
   eventId?: string;
+  registrationId?: string;
   config?: CertificateConfig;
 }
 
@@ -608,8 +609,17 @@ export const generateCertificateImage = async (data: CertificateImageData): Prom
     
     // QR Code real se habilitado
     if (config.includeQRCode) {
-      // Se não há texto específico, usar URL base para validação
-      const qrText = config.qrCodeText || `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sistema-eventos.vercel.app'}/validate/${data.eventId}/${data.userName}`;
+      const siteUrl = getBaseUrl();
+      const hasCustomUrl =
+        config.qrCodeText &&
+        (config.qrCodeText.startsWith('http://') || config.qrCodeText.startsWith('https://'));
+
+      // Se não há texto específico de URL, usar link de download do certificado com registrationId
+      const qrText =
+        (hasCustomUrl && config.qrCodeText) ||
+        (data.registrationId
+          ? `${siteUrl}/api/certificate/download?registrationId=${data.registrationId}`
+          : siteUrl);
       
       if (qrText) {
         try {

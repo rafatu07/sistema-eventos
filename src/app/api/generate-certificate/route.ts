@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
         eventStartTime: certificateData.eventStartTime,
         eventEndTime: certificateData.eventEndTime,
         eventId: eventId,
+        registrationId,
         config: certificateConfig
       });
       
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
           eventStartTime: certificateData.eventStartTime,
           eventEndTime: certificateData.eventEndTime,
           eventId: eventId,
+          registrationId,
           config: certificateConfig || undefined
         });
         

@@ -89,7 +89,7 @@ export const CERTIFICATE_TEMPLATES: CertificateTemplate[] = [
       watermarkText: 'CERTIFICADO',
       watermarkOpacity: 0.1,
       includeQRCode: true,
-      qrCodeText: 'Válido digitalmente',
+      qrCodeText: undefined,
       qrCodePosition: { x: 85, y: 15 },
     }
   },
@@ -131,7 +131,7 @@ export const CERTIFICATE_TEMPLATES: CertificateTemplate[] = [
       watermarkText: 'ELEGANTE',
       watermarkOpacity: 0.08,
       includeQRCode: true,
-      qrCodeText: 'Validação digital',
+      qrCodeText: undefined,
       qrCodePosition: { x: 88, y: 18 },
     }
   },
@@ -215,7 +215,7 @@ export const CERTIFICATE_TEMPLATES: CertificateTemplate[] = [
       watermarkText: 'CORPORATIVO',
       watermarkOpacity: 0.08,
       includeQRCode: true,
-      qrCodeText: 'Validação corporativa',
+      qrCodeText: undefined,
       qrCodePosition: { x: 90, y: 10 },
     }
   },
@@ -299,7 +299,7 @@ export const CERTIFICATE_TEMPLATES: CertificateTemplate[] = [
       watermarkText: 'ACADÊMICO',
       watermarkOpacity: 0.12,
       includeQRCode: true,
-      qrCodeText: 'Validação acadêmica',
+      qrCodeText: undefined,
       qrCodePosition: { x: 85, y: 15 },
     }
   }
