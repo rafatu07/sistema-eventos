@@ -193,6 +193,9 @@ export const EventForm: React.FC<EventFormProps> = ({ event, isEditing = false }
               {...register('date')}
               className={`input w-full ${getFieldError('date') ? 'border-red-500' : ''}`}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Datas passadas tambem sao permitidas para eventos retroativos e emissao de certificados.
+            </p>
             <FieldError error={getFieldError('date')} />
           </div>
 

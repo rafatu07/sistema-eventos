@@ -364,6 +364,20 @@ export const validateEventRegistration = async (eventId: string): Promise<Regist
         message: 'Evento não encontrado.'
       };
     }
+
+    // Bloquear inscrição pública para eventos já encerrados
+    if (event.endTime) {
+      const now = new Date();
+      const eventEndTime = new Date(event.endTime);
+
+      if (now > eventEndTime) {
+        return {
+          isAllowed: false,
+          reason: 'PAST_EVENT',
+          message: 'As inscrições para este evento foram encerradas.'
+        };
+      }
+    }
     
     // Verificar data limite de inscrição
     if (event.registrationDeadline) {

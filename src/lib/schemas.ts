@@ -122,23 +122,11 @@ export const eventSchema = z
           const date = new Date(`${dateStr}T12:00:00`);
           
           // Verificar se a data é válida
-          if (isNaN(date.getTime())) {
-            return false;
-          }
-          
-          // Criar data de hoje no timezone local
-          const today = new Date();
-          const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-          
-          // Comparar apenas as datas (ano, mês, dia)
-          const eventDateLocal = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-          
-          // Permitir data atual ou futura
-          return eventDateLocal >= todayLocal;
+          return !isNaN(date.getTime());
         } catch {
           return false;
         }
-      }, 'Data não pode ser passada'),
+      }, 'Data inválida'),
     
     startTime: z
       .string()

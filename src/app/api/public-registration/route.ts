@@ -165,7 +165,10 @@ export async function POST(request: NextRequest) {
         message: registrationValidation.message 
       });
       return NextResponse.json(
-        { error: registrationValidation.message },
+        { 
+          error: registrationValidation.message,
+          reason: registrationValidation.reason
+        },
         { status: 400, headers: createRateLimitHeaders(rateLimitResult) }
       );
     }
